@@ -84,13 +84,14 @@ class App():
         self.root.grid()
         self.id_label.grid(row=0, column=0)
         self.id_input.grid(row=0, column=1)
+        self.ini_button.grid(row=0, column=2)
         self.end_button.grid(row=0, column=3)
         
-        self.ini_label.grid(row=1, column=0)
         self.rb_resting.grid(row=1, column=1)
+        self.ini_label.grid(row=1, column=2)
         self.end_label.grid(row=1, column=3)
         
-        self.ini_button.grid(row=2, column=0)
+        
         self.rb_biking.grid(row=2, column=1)
         
         self.ce_label.grid(row=3, column=0)
