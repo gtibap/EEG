@@ -25,7 +25,8 @@ class App():
         # print(self.time_diff.days, self.time_diff.seconds, self.time_diff.microseconds )
         
         self.root = tk.Tk()
-        self.root.title('Centre de Recherche, Hôpital du Sacré-Coeur de Montréal')
+        # self.root.title('Centre de Recherche, Hôpital du Sacré-Coeur de Montréal')
+        self.root.title('EEG Acquisition')
         self.root.geometry('480x240+300+300')
         self.root.resizable(False, False)
         self.id_var=tk.StringVar()
@@ -73,6 +74,12 @@ class App():
                            text="Pause\nStart", 
                            fg="purple",
                            command=self.re_clock)
+
+        self.final_label0 = tk.Label(text='')
+        
+        self.final_label1 = tk.Label(text='Centre de Recherche,')
+        self.final_label2 = tk.Label(text='Hôpital du Sacré-Coeur')
+        self.final_label3 = tk.Label(text='de Montréal')
         
         self.root.grid()
         self.id_label.grid(row=0, column=0)
@@ -93,6 +100,12 @@ class App():
         self.ce_button.grid(row=4, column=0)
         self.oe_button.grid(row=4, column=1)
         self.re_button.grid(row=4, column=2)
+        
+        self.final_label0.grid(row=5, column=0)
+        
+        self.final_label1.grid(row=6, column=0)
+        self.final_label2.grid(row=6, column=1)
+        self.final_label3.grid(row=6, column=2)
         
         
         self.update_clock()
@@ -124,6 +137,9 @@ class App():
             
         if self.flag_end == True:
             self.flag_ini = False
+            self.flag_ce = False
+            self.flag_oe = False
+            self.flag_re = False
         else:
             pass
         
@@ -146,7 +162,7 @@ class App():
             # then create it.
             os.makedirs("data/")
         ## writing
-        textline = f'ini {self.time_ini} section {self.section_var.get()}'
+        textline = f'{self.time_ini} start_recording section {self.section_var.get()}'
         self.write_data(textline)
         
         
@@ -157,7 +173,7 @@ class App():
         self.time_end = datetime.now()
         self.flag_end = True
         ## writing
-        textline = f'end {self.time_end} section {self.section_var.get()}'
+        textline = f'{self.time_end} end_recording section {self.section_var.get()}'
         self.write_data(textline)
         
     def ce_clock(self):
@@ -172,7 +188,7 @@ class App():
             self.re_label.config(bg="gray")
             
             ## writing
-            textline = f'ces {self.time_ce} section {self.section_var.get()}'
+            textline = f'{self.time_ce} closed_eyes_start section {self.section_var.get()}'
             self.write_data(textline)
         else:
             pass
@@ -188,7 +204,7 @@ class App():
             self.re_label.config(bg="gray")
             
             ## writing
-            textline = f'oes {self.time_oe} section {self.section_var.get()}'
+            textline = f'{self.time_oe} opened_eyes_start section {self.section_var.get()}'
             self.write_data(textline)
         else:
             pass
@@ -204,7 +220,7 @@ class App():
             self.re_label.config(bg="white")
             
             ## writing
-            textline = f'pas {self.time_re} section {self.section_var.get()}'
+            textline = f'{self.time_re} pause_start section {self.section_var.get()}'
             self.write_data(textline)
         else:
             pass
