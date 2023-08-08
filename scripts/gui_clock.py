@@ -30,7 +30,7 @@ class App():
         self.root.geometry('480x240+300+300')
         self.root.resizable(False, False)
         self.id_var=tk.StringVar()
-        self.section_var = tk.StringVar(None, 'A')
+        self.section_var = tk.StringVar(None, 'T')
         
         self.id_label = tk.Label(text='ID Participant:')
         self.id_input = tk.Entry(textvariable =  self.id_var)
@@ -44,6 +44,8 @@ class App():
         # self.ce_label.configure(text=disp_time)
         # self.oe_label.configure(text=disp_time)
         # self.re_label.configure(text=disp_time)
+        
+        self.rb_testing = tk.Radiobutton(text='Practice: Testing', variable=self.section_var, value='T', command=self.print_selection)
         
         self.rb_resting = tk.Radiobutton(text='Section A: Resting', variable=self.section_var, value='A', command=self.print_selection)
         
@@ -77,36 +79,45 @@ class App():
 
         self.final_label0 = tk.Label(text='')
         
-        self.final_label1 = tk.Label(text='Centre de Recherche,')
-        self.final_label2 = tk.Label(text='Hôpital du Sacré-Coeur')
-        self.final_label3 = tk.Label(text='de Montréal')
+        self.final_label1 = tk.Label(text='Centre de')
+        self.final_label2 = tk.Label(text='Recherche, Hôpital')
+        self.final_label3 = tk.Label(text='du Sacré-Coeur')
+        self.final_label4 = tk.Label(text='de Montréal')
         
+        ## adding elements in the window
         self.root.grid()
+        ## row 0
         self.id_label.grid(row=0, column=0)
         self.id_input.grid(row=0, column=1)
         self.ini_button.grid(row=0, column=2)
         self.end_button.grid(row=0, column=3)
-        
-        self.rb_resting.grid(row=1, column=1)
+        ## row 1
+        self.rb_testing.grid(row=1, column=1)
+        ## labels showing starting and ending times
         self.ini_label.grid(row=1, column=2)
         self.end_label.grid(row=1, column=3)
-        
-        
-        self.rb_biking.grid(row=2, column=1)
-        
-        self.ce_label.grid(row=3, column=0)
-        self.oe_label.grid(row=3, column=1)
-        self.re_label.grid(row=3, column=2)
-
-        self.ce_button.grid(row=4, column=0)
-        self.oe_button.grid(row=4, column=1)
-        self.re_button.grid(row=4, column=2)
-        
-        self.final_label0.grid(row=5, column=0)
-        
-        self.final_label1.grid(row=6, column=0)
-        self.final_label2.grid(row=6, column=1)
-        self.final_label3.grid(row=6, column=2)
+        ## row 2
+        self.rb_resting.grid(row=2, column=1)
+        ## row 2
+        self.rb_biking.grid(row=3, column=1)
+        ## row 3
+        ## labels showing times in every state: closed eyes (ce), opened eyes (oe), and resting (re)
+        self.ce_label.grid(row=4, column=0)
+        self.oe_label.grid(row=4, column=1)
+        self.re_label.grid(row=4, column=2)
+        ## row 4
+        ## bottons for closed eyes (ce), opened eyes (oe), and resting (re)
+        self.ce_button.grid(row=5, column=0)
+        self.oe_button.grid(row=5, column=1)
+        self.re_button.grid(row=5, column=2)
+        ## row 5
+        ## empty line to have some space between the buttons and the final label text
+        self.final_label0.grid(row=6, column=0)
+        ## row 6
+        self.final_label1.grid(row=7, column=0)
+        self.final_label2.grid(row=7, column=1)
+        self.final_label3.grid(row=7, column=2)
+        self.final_label4.grid(row=7, column=3)
         
         
         self.update_clock()
@@ -248,7 +259,7 @@ class App():
     
     def write_data(self, line):
         
-        filename = self.id_participant+'.dat'
+        filename = self.id_participant+'.txt'
         ## open the file for writing and append
         with open('data/'+filename, 'a') as f:
             f.write(f"{line}\n")
