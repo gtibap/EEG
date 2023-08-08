@@ -45,7 +45,7 @@ class App():
         # self.oe_label.configure(text=disp_time)
         # self.re_label.configure(text=disp_time)
         
-        self.rb_testing = tk.Radiobutton(text='Practice: Testing', variable=self.section_var, value='T', command=self.print_selection)
+        self.rb_testing = tk.Radiobutton(text='Section T: Testing', variable=self.section_var, value='T', command=self.print_selection)
         
         self.rb_resting = tk.Radiobutton(text='Section A: Resting', variable=self.section_var, value='A', command=self.print_selection)
         
@@ -79,10 +79,14 @@ class App():
 
         self.final_label0 = tk.Label(text='')
         
-        self.final_label1 = tk.Label(text='Centre de')
-        self.final_label2 = tk.Label(text='Recherche, Hôpital')
-        self.final_label3 = tk.Label(text='du Sacré-Coeur')
-        self.final_label4 = tk.Label(text='de Montréal')
+        # self.final_label1 = tk.Label(text='Hôpital du')
+        # self.final_label2 = tk.Label(text='Sacré-Coeur de Montréal,')
+        # self.final_label3 = tk.Label(text='Centre')
+        # self.final_label4 = tk.Label(text='de Recherche')
+        self.final_label1 = tk.Label(text='HSCM')
+        self.final_label2 = tk.Label(text='Centre de Recherche')
+        self.final_label3 = tk.Label(text='EEG')
+        self.final_label4 = tk.Label(text='Acquisition')
         
         ## adding elements in the window
         self.root.grid()
