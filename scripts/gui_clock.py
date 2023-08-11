@@ -21,12 +21,16 @@ class App():
         disp_time_0 = str(hh).zfill(2)+':'+str(mm).zfill(2)+':'+str(ss).zfill(2)
         disp_time_1 = str(mm).zfill(2)+':'+str(ss).zfill(2)
         
+        self.ce_count = 0
+        self.oe_count = 0
+        self.re_count = 0
+        
         # print(f'diff: {str(hh).zfill(2)}:{str(mm).zfill(2)}:{str(ss).zfill(2)}')
         # print(self.time_diff.days, self.time_diff.seconds, self.time_diff.microseconds )
         
         self.root = tk.Tk()
         # self.root.title('Centre de Recherche, Hôpital du Sacré-Coeur de Montréal')
-        self.root.title('EEG Acquisition')
+        self.root.title('EEG Acquisition, Centre de Recherche, HSCM')
         self.root.geometry('480x240+300+300')
         self.root.resizable(False, False)
         self.id_var=tk.StringVar()
@@ -35,21 +39,25 @@ class App():
         self.id_label = tk.Label(text='ID Participant:')
         self.id_input = tk.Entry(textvariable =  self.id_var)
         
-        self.ini_label = tk.Label(text=disp_time_0)
-        self.end_label = tk.Label(text=disp_time_0)
+        self.ini_label = tk.Label(text=disp_time_0, font=("Arial", 12))
+        self.end_label = tk.Label(text=disp_time_0, font=("Arial", 12))
         self.ce_label = tk.Label(text=disp_time_1, font=("Arial", 16))
         self.oe_label = tk.Label(text=disp_time_1, font=("Arial", 16))
         self.re_label = tk.Label(text=disp_time_1, font=("Arial", 16))
+        
+        self.ce_count_label = tk.Label(text=str(self.ce_count), font=("Arial", 12))
+        self.oe_count_label = tk.Label(text=str(self.oe_count), font=("Arial", 12))
+        self.re_count_label = tk.Label(text=str(self.re_count), font=("Arial", 12))
         
         # self.ce_label.configure(text=disp_time)
         # self.oe_label.configure(text=disp_time)
         # self.re_label.configure(text=disp_time)
         
-        self.rb_testing = tk.Radiobutton(text='Section T: Testing', variable=self.section_var, value='T', command=self.print_selection)
+        self.rb_testing = tk.Radiobutton(text='Section T: Testing', variable=self.section_var, value='T', command=self.print_selection, font=("Arial", 12))
         
-        self.rb_resting = tk.Radiobutton(text='Section A: Resting', variable=self.section_var, value='A', command=self.print_selection)
+        self.rb_resting = tk.Radiobutton(text='Section A: Resting', variable=self.section_var, value='A', command=self.print_selection, font=("Arial", 12))
         
-        self.rb_biking = tk.Radiobutton(text='Section B: Biking', variable=self.section_var, value='B', command=self.print_selection)
+        self.rb_biking = tk.Radiobutton(text='Section B: Biking', variable=self.section_var, value='B', command=self.print_selection, font=("Arial", 12))
     
         
         self.ini_button = tk.Button(
@@ -77,16 +85,16 @@ class App():
                            fg="purple",
                            command=self.re_clock)
 
-        self.final_label0 = tk.Label(text='')
+        # self.final_label0 = tk.Label(text='')
         
         # self.final_label1 = tk.Label(text='Hôpital du')
         # self.final_label2 = tk.Label(text='Sacré-Coeur de Montréal,')
         # self.final_label3 = tk.Label(text='Centre')
         # self.final_label4 = tk.Label(text='de Recherche')
-        self.final_label1 = tk.Label(text='HSCM')
-        self.final_label2 = tk.Label(text='Centre de Recherche')
-        self.final_label3 = tk.Label(text='EEG')
-        self.final_label4 = tk.Label(text='Acquisition')
+        # self.final_label1 = tk.Label(text='HSCM')
+        # self.final_label2 = tk.Label(text='Centre de Recherche')
+        # self.final_label3 = tk.Label(text='EEG')
+        # self.final_label4 = tk.Label(text='Acquisition')
         
         ## adding elements in the window
         self.root.grid()
@@ -116,12 +124,15 @@ class App():
         self.re_button.grid(row=5, column=2)
         ## row 5
         ## empty line to have some space between the buttons and the final label text
-        self.final_label0.grid(row=6, column=0)
+        # self.final_label0.grid(row=6, column=0)
+        self.ce_count_label.grid(row=6, column=0)
+        self.oe_count_label.grid(row=6, column=1)
+        self.re_count_label.grid(row=6, column=2)
         ## row 6
-        self.final_label1.grid(row=7, column=0)
-        self.final_label2.grid(row=7, column=1)
-        self.final_label3.grid(row=7, column=2)
-        self.final_label4.grid(row=7, column=3)
+        # self.final_label1.grid(row=7, column=0)
+        # self.final_label2.grid(row=7, column=1)
+        # self.final_label3.grid(row=7, column=2)
+        # self.final_label4.grid(row=7, column=3)
         
         
         self.update_clock()
@@ -146,6 +157,10 @@ class App():
                 disp_time = self.display_time(self.time_re, self.time_now)
                 self.re_label.configure(text=disp_time[3:])
                 
+            self.ce_count_label.configure(text=str(self.ce_count))
+            self.oe_count_label.configure(text=str(self.oe_count))
+            self.re_count_label.configure(text=str(self.re_count))
+                
             self.root.after(1000, self.update_clock)
         
         else:
@@ -166,7 +181,11 @@ class App():
         self.ini_label.configure(text=disp_time)
         self.flag_ini = True
         self.flag_end = False
-
+        
+        self.ce_count=0
+        self.oe_count=0
+        self.re_count=0
+        
         ## read id participant and hide cursor
         self.id_participant=self.id_var.get()
         self.id_input.config(insertontime=0)
@@ -206,6 +225,7 @@ class App():
             ## writing
             textline = f'{self.time_ce} closed_eyes_start section {self.section_var.get()}'
             self.write_data(textline)
+            self.ce_count+=1
         else:
             pass
 
@@ -222,6 +242,7 @@ class App():
             ## writing
             textline = f'{self.time_oe} opened_eyes_start section {self.section_var.get()}'
             self.write_data(textline)
+            self.oe_count+=1
         else:
             pass
 
@@ -238,6 +259,7 @@ class App():
             ## writing
             textline = f'{self.time_re} pause_start section {self.section_var.get()}'
             self.write_data(textline)
+            self.re_count+=1
         else:
             pass
 
