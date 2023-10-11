@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import glob
 import pandas as pd
 
+from class_read_bdf import EEG_components
+
 def main(args):
     
     print(f'arg {args[1]}')
@@ -56,8 +58,71 @@ def main(args):
     df_events['time']=list_time
     df_events['section']=list_section
     df_events['action']=list_action
+    # df_events = df_events.reset_index()  # make sure indexes pair with number of rows
     
     print(f'{df_events}')
+    
+    ## DataFrame for closed_eyes and opened_eyes
+    df_c_eyes=pd.DataFrame()
+    df_o_eyes=pd.DataFrame()
+
+    # for index, row in df_events.iterrows():
+        # print(row['section'], row['action'])
+        # if row['action'] == 'closed_eyes_start':
+            # id_ce = index
+        # elif row['action'] == 'opened_eyes_start':
+            # id_oe = index
+        # else:
+            # pass
+        # print(f'')
+        
+    # print(df_events.loc[df_events['action'].isin(['closed_eyes_start','opened_eyes_start'])])
+    # df_cs = df_events.loc[(df_events['action']=='closed_eyes_start') & (df_events['section']=='A')]
+    # df_os = df_events.loc[(df_events['action']=='opened_eyes_start') & (df_events['section']=='A')]
+    # df_ps = df_events.loc[(df_events['action']=='pause_start') & (df_events['section']=='A')]
+    df_cs = df_events.loc[(df_events['action']=='closed_eyes_start')]
+    df_os = df_events.loc[(df_events['action']=='opened_eyes_start')]
+    df_ps = df_events.loc[(df_events['action']=='pause_start')]
+    
+    time_ce_a=[]
+    time_ce_b=[]
+    print(df_cs)
+    for id_cs, row in df_cs.iterrows():
+        id_os = id_cs+1
+        # print(f'id_os:{id_os}')
+        if id_os in df_os.index:
+            # print(f'{df_os.loc[[id_os]]}')
+            if df_cs._get_value(id_cs,'section') == df_os._get_value(id_os,'section') and df_os._get_value(id_os,'section') == 'A':
+                time_ce_a.append([df_cs._get_value(id_cs,'time'),df_os._get_value(id_os,'time')])
+            elif df_cs._get_value(id_cs,'section') == df_os._get_value(id_os,'section') and df_os._get_value(id_os,'section') == 'B':
+                time_ce_b.append([df_cs._get_value(id_cs,'time'),df_os._get_value(id_os,'time')])
+            else:
+                pass
+        else:
+            pass
+    
+    print(f'time closed eyes A: {time_ce_a}')
+    print(f'time closed eyes B: {time_ce_b}')
+        # print(f'index: {index}, row: {row}')
+        # print(row['section'], row['action'])
+        # if row['action'] == 'closed_eyes_start':
+            # id_ce = index
+        # elif row['action'] == 'opened_eyes_start':
+            # id_oe = index
+        # else:
+            # pass
+        # print(f'')
+    
+    # print(df_cs)
+    # print(f'df_cs.index: {df_cs.index}')
+    # print(f'{8} in df_cs ? {8 in df_cs.index}')
+    # print(f'{9} in df_cs ? {9 in df_cs.index}')
+    # print(df_os)
+    # print(df_ps)
+    
+    
+    
+    
     
     # print(type(raw_data.info))
     print(f'{type(raw_data.info)}, {raw_data.info}')
@@ -101,33 +166,49 @@ def main(args):
     
     offset=0.002
     
-    signals = raw_filt.get_data(picks=['Cz','Fpz','Oz'])
+    # signals = raw_filt.get_data(picks=['Cz','Fpz','Oz'])
+    signals = raw_filt.get_data(picks=['P3','P4','O1','O2'])
     # data_2 = raw_filt.get_data(picks=['Fp1','O2'],tmin=0,tmax=60*5)
     # data_2 = raw_filt.get_data(picks=['OCU3','ECG5'],tmin=0,tmax=60*5)
+    
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12,5), squeeze=False)
     ax = ax.reshape(-1)
-    ax[0].plot(signals[1]+offset, label='Fpz')
-    ax[0].plot(signals[0], label='Cz')
-    ax[0].plot(signals[2]-offset, label='Oz')
+    # ax[0].plot(signals[1]+offset, label='Fpz')
+    # ax[0].plot(signals[0], label='Cz')
+    ax[0].plot(signals[0], label='P3')
     
-    print()
-    for ta in df_events['time'].tolist():
+    # print()
+    for ta,section,action in zip(df_events['time'].tolist(), df_events['section'].tolist(), df_events['action'].tolist()):
         ts = int((ta - start_eeg)*sfreq)
         ax[0].axvline(x = ts, color = 'b', alpha=0.5)
+        print(f'{ts}, {section}, {action}')
     
-    ax[0].set_ylim([-0.005, 0.005])
-    ax[0].set_xlim([0, len(signals[0])])
+    ax[0].set_ylim([-0.0005, 0.0005])
+    ax[0].set_xlim([0, 150000])
+    # ax[0].set_xlim([0, len(signals[0])])
     
     ax[0].set_ylabel('amplitude [uV]')
-    ax[0].set_xlabel('time [s]')
+    ax[0].set_xlabel(f'samples ({sfreq} Hz)')
     
     plt.legend(loc='lower right')
-    plt.suptitle(f'P002 - {title}')
+    plt.suptitle(f'{title}')
     # raw_data.set_montage('standard_1005')
     # raw_data.plot_sensors()
     
     # print(data_2.shape)
     # print(data_2)
+    
+    time_ce_a=np.array(time_ce_a)
+    time_ce_b=np.array(time_ce_b)
+    time_ce_a = ((time_ce_a - start_eeg)*sfreq).astype(int)
+    time_ce_b = ((time_ce_b - start_eeg)*sfreq).astype(int)
+    
+    print(f'{time_ce_a}')
+    print(f'{time_ce_b}')
+    ## frequency components signals segments closed eyes and open eyes
+    obj_signals = EEG_components(signals, sfreq)
+    obj_signals.freq_components(time_ce_b[1])
+    obj_signals.freq_components(time_ce_b[2])
     
     
     
