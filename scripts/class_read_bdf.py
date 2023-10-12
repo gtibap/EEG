@@ -12,20 +12,19 @@ class EEG_components:
         self.signals = signals
         self.sampling_rate = sampling_rate
         
-    def freq_components(self,ids):
-        
-        fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10, 7),sharex=True, sharey=True, squeeze=True)
-        ax = ax.reshape(-1)
+    def freq_components(self,ids, ax, iter):
         
         f1=[[]]*len(self.signals)
         S1=[[]]*len(self.signals)
         
         i=0
         for signal in self.signals:
-            (f1[i], S1[i])= scipy.signal.welch(signal[ids[0]:ids[1]], self.sampling_rate, nperseg=2*1024, scaling='density')
-            ax[i].axes.plot(f1[i], np.sqrt(S1[i]))
+            (f1[i], S1[i])= scipy.signal.welch(signal[ids[0]:ids[1]], self.sampling_rate, nperseg=3*1024, scaling='density')
+            ax[i].axes.plot(f1[i], np.sqrt(S1[i]), label=f'iter. {iter}', alpha=0.9)
+            ax[i].legend()
             i=i+1
             
-        ax[0].set_xlim([0,50])
+        ax[0].set_xlim([0,30])
         
-        return 0
+        
+        return ax

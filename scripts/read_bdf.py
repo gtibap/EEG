@@ -14,6 +14,26 @@ import pandas as pd
 
 from class_read_bdf import EEG_components
 
+def labels_activity(ax):
+    ax.annotate('Delta', xy=(0.5, 1.5e-5),
+                    color='blue',
+                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                    )
+    ax.annotate('Theta', xy=(4.3, 1.5e-5),
+                    color='blue',
+                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                    )
+    ax.annotate('Alpha', xy=(8.7, 1.5e-5),
+                    color='blue',
+                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                    )
+    ax.annotate('Beta', xy=(15, 1.5e-5),
+                    color='blue',
+                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                    )
+    return ax
+
+
 def main(args):
     
     print(f'arg {args[1]}')
@@ -25,8 +45,7 @@ def main(args):
     # Filter settings
     low_cut = 0.1
     hi_cut  = 40    
-    # raw_data = mne.io.read_raw_bdf('../001SCNT_TPD_T3.bdf')
-    # raw_data = mne.io.read_raw_bdf('../data/eeg_test-p2_s1.bdf')
+   
     raw_data = mne.io.read_raw_bdf(args[1], preload=True)
     raw_filt = raw_data.copy().filter(l_freq=low_cut, h_freq=hi_cut)
     
@@ -66,15 +85,6 @@ def main(args):
     df_c_eyes=pd.DataFrame()
     df_o_eyes=pd.DataFrame()
 
-    # for index, row in df_events.iterrows():
-        # print(row['section'], row['action'])
-        # if row['action'] == 'closed_eyes_start':
-            # id_ce = index
-        # elif row['action'] == 'opened_eyes_start':
-            # id_oe = index
-        # else:
-            # pass
-        # print(f'')
         
     # print(df_events.loc[df_events['action'].isin(['closed_eyes_start','opened_eyes_start'])])
     # df_cs = df_events.loc[(df_events['action']=='closed_eyes_start') & (df_events['section']=='A')]
@@ -103,27 +113,7 @@ def main(args):
     
     print(f'time closed eyes A: {time_ce_a}')
     print(f'time closed eyes B: {time_ce_b}')
-        # print(f'index: {index}, row: {row}')
-        # print(row['section'], row['action'])
-        # if row['action'] == 'closed_eyes_start':
-            # id_ce = index
-        # elif row['action'] == 'opened_eyes_start':
-            # id_oe = index
-        # else:
-            # pass
-        # print(f'')
-    
-    # print(df_cs)
-    # print(f'df_cs.index: {df_cs.index}')
-    # print(f'{8} in df_cs ? {8 in df_cs.index}')
-    # print(f'{9} in df_cs ? {9 in df_cs.index}')
-    # print(df_os)
-    # print(df_ps)
-    
-    
-    
-    
-    
+
     # print(type(raw_data.info))
     print(f'{type(raw_data.info)}, {raw_data.info}')
     print(f"sfreq: {type(raw_data.info['sfreq'])}, {raw_data.info['sfreq']}")
@@ -164,18 +154,19 @@ def main(args):
     # data_2 = raw_data.get_data(picks=['OCU3','ECG5'],tmin=0,tmax=60*5)
     # plt.plot(data_2[1])
     
-    offset=0.002
-    
-    # signals = raw_filt.get_data(picks=['Cz','Fpz','Oz'])
-    signals = raw_filt.get_data(picks=['P3','P4','O1','O2'])
-    # data_2 = raw_filt.get_data(picks=['Fp1','O2'],tmin=0,tmax=60*5)
-    # data_2 = raw_filt.get_data(picks=['OCU3','ECG5'],tmin=0,tmax=60*5)
-    
+    offset=-0.0001
+
+    label_signals=['P3','P4','O1','O2']
+    signals = raw_filt.get_data(picks=label_signals)
+
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12,5), squeeze=False)
     ax = ax.reshape(-1)
     # ax[0].plot(signals[1]+offset, label='Fpz')
     # ax[0].plot(signals[0], label='Cz')
-    ax[0].plot(signals[0], label='P3')
+    ax[0].plot(signals[0]+offset*0, label=label_signals[0])
+    ax[0].plot(signals[1]+offset*1, label=label_signals[1])
+    ax[0].plot(signals[2]+offset*2, label=label_signals[2])
+    ax[0].plot(signals[3]+offset*3, label=label_signals[3])
     
     # print()
     for ta,section,action in zip(df_events['time'].tolist(), df_events['section'].tolist(), df_events['action'].tolist()):
@@ -183,15 +174,34 @@ def main(args):
         ax[0].axvline(x = ts, color = 'b', alpha=0.5)
         print(f'{ts}, {section}, {action}')
     
-    ax[0].set_ylim([-0.0005, 0.0005])
-    ax[0].set_xlim([0, 150000])
-    # ax[0].set_xlim([0, len(signals[0])])
+    fig.canvas.draw()
+    ax[0].set_ylim([-0.0004, 0.0001])
+    ax[0].set_xlim([65000, 140000])
     
-    ax[0].set_ylabel('amplitude [uV]')
-    ax[0].set_xlabel(f'samples ({sfreq} Hz)')
+    x_labels = [item.get_text() for item in ax[0].get_xticklabels()]
+    x_labels = (np.array(x_labels).astype(int)/(sfreq)).astype(int)
+    print(f'x_labels {x_labels}')
+    # x_labels[1] = 'Testing'
+    ax[0].set_xticklabels(x_labels)
     
-    plt.legend(loc='lower right')
-    plt.suptitle(f'{title}')
+    ax[0].set_yticks([offset*0,offset*1,offset*2,offset*3])
+    ax[0].set_yticklabels(label_signals)
+    
+    # ax[0].set_ylabel('amplitude [uV]')
+    ax[0].set_xlabel(f'time (s)')
+    ax[0].annotate('eyes-closed', xy=(80500, offset*3.7),
+                    color='blue',
+                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                    )
+    ax[0].annotate('eyes-opened', xy=(115500, offset*3.7),
+                    color='blue',
+                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
+                    )
+    # plt.legend(loc='lower right')
+    ax[0].set_title(f'{title}')
+    
+    # plt.savefig(f'figures/{title}.png', bbox_inches='tight')
+    # plt.suptitle(f'{title}')
     # raw_data.set_montage('standard_1005')
     # raw_data.plot_sensors()
     
@@ -200,6 +210,7 @@ def main(args):
     
     time_ce_a=np.array(time_ce_a)
     time_ce_b=np.array(time_ce_b)
+    
     time_ce_a = ((time_ce_a - start_eeg)*sfreq).astype(int)
     time_ce_b = ((time_ce_b - start_eeg)*sfreq).astype(int)
     
@@ -207,8 +218,71 @@ def main(args):
     print(f'{time_ce_b}')
     ## frequency components signals segments closed eyes and open eyes
     obj_signals = EEG_components(signals, sfreq)
-    obj_signals.freq_components(time_ce_b[1])
-    obj_signals.freq_components(time_ce_b[2])
+    
+    fig1, ax1 = plt.subplots(nrows=2, ncols=2, figsize=(10, 7),sharex=True, sharey=True)
+    ax1 = ax1.reshape(-1)
+    
+     ## vertical lines
+    ax1[0].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    ax1[0].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    ax1[0].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    
+    ax1[1].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    ax1[1].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    ax1[1].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    
+    ax1[2].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    ax1[2].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    ax1[2].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    
+    ax1[3].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    ax1[3].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    ax1[3].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    
+    arr = np.array(time_ce_a[0])
+    arr[arr<0]=0
+    ax1 = obj_signals.freq_components(arr, ax1,'0')
+    
+    arr = np.array(time_ce_a[1])
+    arr[arr<0]=0
+    ax1 = obj_signals.freq_components(arr, ax1,'1')
+    
+    arr = np.array(time_ce_a[2])
+    arr[arr<0]=0
+    ax1 = obj_signals.freq_components(arr, ax1,'2')
+    
+    
+    # label_signals=['P3','P4','O1','O2']
+    ax1[0] = labels_activity(ax1[0])
+    ax1[1] = labels_activity(ax1[1])
+    ax1[2] = labels_activity(ax1[2])
+    ax1[3] = labels_activity(ax1[3])
+   
+                    
+                    
+    ax1[0].set_title(label_signals[0])
+    ax1[1].set_title(label_signals[1])
+    ax1[2].set_title(label_signals[2])
+    ax1[3].set_title(label_signals[3])
+     
+                
+    ax1[2].set_xlabel('frequency (Hz)')
+    ax1[3].set_xlabel('frequency (Hz)')
+    
+    ax1[0].set_ylabel('PSD (V**2/Hz)')
+    ax1[2].set_ylabel('PSD (V**2/Hz)')
+    
+    plt.suptitle(f'{title}__eyes-closed')
+    
+    plt.savefig(f'figures/{title}_freq.png', bbox_inches='tight')
+
+    # plt.legend(loc='lower right')
+    
+    
+    # ax1 = obj_signals.freq_components(arr, ax1)
+    
+    # obj_signals.freq_components(time_ce_a[3])
+    # obj_signals.freq_components(time_ce_b[2])
     
     
     
