@@ -25,6 +25,7 @@ class EEG_components:
             i=i+1
             
         ax[0].set_xlim([0,30])
+        ax[0].set_ylim([-0.05e-5,1.8e-5])
         
         
         return ax

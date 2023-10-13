@@ -14,20 +14,25 @@ import pandas as pd
 
 from class_read_bdf import EEG_components
 
-def labels_activity(ax):
-    ax.annotate('Delta', xy=(0.5, 1.5e-5),
+def labels_activity(ax, pos_y):
+    
+    ax.axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    ax.axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    ax.axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    
+    ax.annotate('Delta', xy=(0.5, pos_y),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
-    ax.annotate('Theta', xy=(4.3, 1.5e-5),
+    ax.annotate('Theta', xy=(4.3, pos_y),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
-    ax.annotate('Alpha', xy=(8.7, 1.5e-5),
+    ax.annotate('Alpha', xy=(8.7, pos_y),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
-    ax.annotate('Beta', xy=(15, 1.5e-5),
+    ax.annotate('Beta', xy=(15, pos_y),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
@@ -176,12 +181,27 @@ def main(args):
     
     fig.canvas.draw()
     ax[0].set_ylim([-0.0004, 0.0001])
-    ax[0].set_xlim([65000, 140000])
+    
+    ## Subject 1
+    # ax[0].set_xlim([195000, 326000])
+    # pos_xlabel1=222000
+    # pos_xlabel2=285000
+
+    ## Subject 2
+    ax[0].set_xlim([105000, 175000])
+    pos_xlabel1=120000
+    pos_xlabel2=155000    
+    
+    
+    ## Subject 3
+    # ax[0].set_xlim([65000, 140000])
+    # pos_xlabel1=80500
+    # pos_xlabel2=115500
     
     x_labels = [item.get_text() for item in ax[0].get_xticklabels()]
     x_labels = (np.array(x_labels).astype(int)/(sfreq)).astype(int)
     print(f'x_labels {x_labels}')
-    # x_labels[1] = 'Testing'
+    
     ax[0].set_xticklabels(x_labels)
     
     ax[0].set_yticks([offset*0,offset*1,offset*2,offset*3])
@@ -189,18 +209,18 @@ def main(args):
     
     # ax[0].set_ylabel('amplitude [uV]')
     ax[0].set_xlabel(f'time (s)')
-    ax[0].annotate('eyes-closed', xy=(80500, offset*3.7),
+    ax[0].annotate('eyes-closed', xy=(pos_xlabel1, -offset*0.5),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
-    ax[0].annotate('eyes-opened', xy=(115500, offset*3.7),
+    ax[0].annotate('eyes-opened', xy=(pos_xlabel2, -offset*0.5),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
     # plt.legend(loc='lower right')
     ax[0].set_title(f'{title}')
     
-    # plt.savefig(f'figures/{title}.png', bbox_inches='tight')
+    plt.savefig(f'figures/{title}.png', bbox_inches='tight')
     # plt.suptitle(f'{title}')
     # raw_data.set_montage('standard_1005')
     # raw_data.plot_sensors()
@@ -222,22 +242,22 @@ def main(args):
     fig1, ax1 = plt.subplots(nrows=2, ncols=2, figsize=(10, 7),sharex=True, sharey=True)
     ax1 = ax1.reshape(-1)
     
-     ## vertical lines
-    ax1[0].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    ax1[0].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    ax1[0].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+     # ## vertical lines
+    # ax1[0].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    # ax1[0].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    # ax1[0].axvline(x = 13,color = 'tab:gray', alpha=0.5)
     
-    ax1[1].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    ax1[1].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    ax1[1].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    # ax1[1].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    # ax1[1].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    # ax1[1].axvline(x = 13,color = 'tab:gray', alpha=0.5)
     
-    ax1[2].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    ax1[2].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    ax1[2].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    # ax1[2].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    # ax1[2].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    # ax1[2].axvline(x = 13,color = 'tab:gray', alpha=0.5)
     
-    ax1[3].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    ax1[3].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    ax1[3].axvline(x = 13,color = 'tab:gray', alpha=0.5)
+    # ax1[3].axvline(x = 4, color = 'tab:gray', alpha=0.5)
+    # ax1[3].axvline(x = 8, color = 'tab:gray', alpha=0.5)
+    # ax1[3].axvline(x = 13,color = 'tab:gray', alpha=0.5)
     
     arr = np.array(time_ce_a[0])
     arr[arr<0]=0
@@ -251,21 +271,19 @@ def main(args):
     arr[arr<0]=0
     ax1 = obj_signals.freq_components(arr, ax1,'2')
     
-    
+    # pos_y=4.0e-6
+    pos_y=1.6e-5
     # label_signals=['P3','P4','O1','O2']
-    ax1[0] = labels_activity(ax1[0])
-    ax1[1] = labels_activity(ax1[1])
-    ax1[2] = labels_activity(ax1[2])
-    ax1[3] = labels_activity(ax1[3])
-   
-                    
+    ax1[0] = labels_activity(ax1[0], pos_y)
+    ax1[1] = labels_activity(ax1[1], pos_y)
+    ax1[2] = labels_activity(ax1[2], pos_y)
+    ax1[3] = labels_activity(ax1[3], pos_y)
                     
     ax1[0].set_title(label_signals[0])
     ax1[1].set_title(label_signals[1])
     ax1[2].set_title(label_signals[2])
     ax1[3].set_title(label_signals[3])
-     
-                
+    
     ax1[2].set_xlabel('frequency (Hz)')
     ax1[3].set_xlabel('frequency (Hz)')
     
