@@ -31,7 +31,7 @@ class App():
         self.root = tk.Tk()
         # self.root.title('Centre de Recherche, Hôpital du Sacré-Coeur de Montréal')
         self.root.title('EEG Acquisition, Centre de Recherche, HSCM')
-        self.root.geometry('480x240+300+300')
+        self.root.geometry('480x300+300+300')
         self.root.resizable(False, False)
         self.id_var=tk.StringVar()
         self.section_var = tk.StringVar(None, 'T')
@@ -84,6 +84,11 @@ class App():
                            text="Pause\nStart", 
                            fg="purple",
                            command=self.re_clock)
+                           
+        self.redo_button = tk.Button(
+                           text="error\nredo", 
+                           fg="orange",
+                           command=self.error_redo)
 
         # self.final_label0 = tk.Label(text='')
         
@@ -117,6 +122,7 @@ class App():
         self.ce_label.grid(row=4, column=0)
         self.oe_label.grid(row=4, column=1)
         self.re_label.grid(row=4, column=2)
+        self.redo_button.grid(row=4, column=3)
         ## row 4
         ## bottons for closed eyes (ce), opened eyes (oe), and resting (re)
         self.ce_button.grid(row=5, column=0)
@@ -129,6 +135,7 @@ class App():
         self.oe_count_label.grid(row=6, column=1)
         self.re_count_label.grid(row=6, column=2)
         ## row 6
+        
         # self.final_label1.grid(row=7, column=0)
         # self.final_label2.grid(row=7, column=1)
         # self.final_label3.grid(row=7, column=2)
@@ -182,9 +189,20 @@ class App():
         self.flag_ini = True
         self.flag_end = False
         
+        ## restart clocks and counters
         self.ce_count=0
         self.oe_count=0
         self.re_count=0
+        self.ce_label.configure(text="00:00")
+        self.oe_label.configure(text="00:00")
+        self.re_label.configure(text="00:00")
+        self.ce_label.config(bg="gray")
+        self.oe_label.config(bg="gray")
+        self.re_label.config(bg="gray")
+        self.flag_ce = False
+        self.flag_oe = False
+        self.flag_re = False
+
         
         ## read id participant and hide cursor
         self.id_participant=self.id_var.get()
@@ -262,6 +280,27 @@ class App():
             self.re_count+=1
         else:
             pass
+
+    def error_redo(self):
+        if self.flag_ini == True:
+            self.time_redo = datetime.now()
+            ## writing
+            textline = f'{self.time_redo} error_redo section {self.section_var.get()}'
+            self.write_data(textline)
+            
+            if self.flag_ce == True:
+                self.ce_count-=1
+                self.flag_ce = False
+                self.ce_label.configure(text="00:00")
+            elif self.flag_oe == True:
+                self.oe_count-=1
+                self.flag_oe = False
+                self.oe_label.configure(text="00:00")
+            else:
+                pass
+        
+        return 0
+
 
     def display_time(self, time_ini, time_now):
         
