@@ -44,8 +44,10 @@ def main(args):
     print(f'arg {args[1]}')
     print(f'arg {args[2]}')
     print(f'arg {args[3]}')
+    print(f'arg {args[4]}')
     
     title=args[3]
+    filename_out=args[4]
 
     # Filter settings
     low_cut = 0.1
@@ -159,7 +161,7 @@ def main(args):
     # data_2 = raw_data.get_data(picks=['OCU3','ECG5'],tmin=0,tmax=60*5)
     # plt.plot(data_2[1])
     
-    offset=-0.0001
+    offset=-0.001
 
     label_signals=['P3','P4','O1','O2']
     signals = raw_filt.get_data(picks=label_signals)
@@ -180,7 +182,8 @@ def main(args):
         print(f'{ts}, {section}, {action}')
     
     fig.canvas.draw()
-    ax[0].set_ylim([-0.0004, 0.0001])
+    # ax[0].set_ylim([-0.0004, 0.0001])
+    ax[0].set_ylim([-0.004, 0.001])
     
     ## Subject 1
     # ax[0].set_xlim([195000, 326000])
@@ -188,15 +191,20 @@ def main(args):
     # pos_xlabel2=285000
 
     ## Subject 2
-    ax[0].set_xlim([105000, 175000])
-    pos_xlabel1=120000
-    pos_xlabel2=155000    
+    # ax[0].set_xlim([105000, 175000])
+    # pos_xlabel1=120000
+    # pos_xlabel2=155000    
     
     
     ## Subject 3
     # ax[0].set_xlim([65000, 140000])
     # pos_xlabel1=80500
     # pos_xlabel2=115500
+    
+    ## Subject 4
+    ax[0].set_xlim([70000, 135000])
+    pos_xlabel1=82000
+    pos_xlabel2=115000
     
     x_labels = [item.get_text() for item in ax[0].get_xticklabels()]
     x_labels = (np.array(x_labels).astype(int)/(sfreq)).astype(int)
@@ -209,18 +217,18 @@ def main(args):
     
     # ax[0].set_ylabel('amplitude [uV]')
     ax[0].set_xlabel(f'time (s)')
-    ax[0].annotate('eyes-closed', xy=(pos_xlabel1, -offset*0.5),
+    ax[0].annotate('eyes-closed', xy=(pos_xlabel1, -offset*0.7),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
-    ax[0].annotate('eyes-opened', xy=(pos_xlabel2, -offset*0.5),
+    ax[0].annotate('eyes-opened', xy=(pos_xlabel2, -offset*0.7),
                     color='blue',
                     bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
                     )
     # plt.legend(loc='lower right')
     ax[0].set_title(f'{title}')
     
-    plt.savefig(f'figures/{title}.png', bbox_inches='tight')
+    plt.savefig(f'figures/{filename_out}.png', bbox_inches='tight')
     # plt.suptitle(f'{title}')
     # raw_data.set_montage('standard_1005')
     # raw_data.plot_sensors()
@@ -259,17 +267,43 @@ def main(args):
     # ax1[3].axvline(x = 8, color = 'tab:gray', alpha=0.5)
     # ax1[3].axvline(x = 13,color = 'tab:gray', alpha=0.5)
     
-    arr = np.array(time_ce_a[0])
+    
+    # #################
+    # ## resting state
+    
+    # arr = np.array(time_ce_a[0])
+    # arr[arr<0]=0
+    # ax1 = obj_signals.freq_components(arr, ax1,'0')
+    
+    # arr = np.array(time_ce_a[1])
+    # arr[arr<0]=0
+    # ax1 = obj_signals.freq_components(arr, ax1,'1')
+    
+    # arr = np.array(time_ce_a[2])
+    # arr[arr<0]=0
+    # ax1 = obj_signals.freq_components(arr, ax1,'2')
+    
+    # ## resting state
+    # #################
+    
+    #################
+    ## activity-based therapy
+    
+    arr = np.array(time_ce_b[0])
     arr[arr<0]=0
     ax1 = obj_signals.freq_components(arr, ax1,'0')
     
-    arr = np.array(time_ce_a[1])
+    arr = np.array(time_ce_b[1])
     arr[arr<0]=0
     ax1 = obj_signals.freq_components(arr, ax1,'1')
     
-    arr = np.array(time_ce_a[2])
+    arr = np.array(time_ce_b[2])
     arr[arr<0]=0
     ax1 = obj_signals.freq_components(arr, ax1,'2')
+    
+    ## activity-based therapy
+    #################
+    
     
     # pos_y=4.0e-6
     pos_y=1.6e-5
@@ -290,9 +324,10 @@ def main(args):
     ax1[0].set_ylabel('PSD (V**2/Hz)')
     ax1[2].set_ylabel('PSD (V**2/Hz)')
     
-    plt.suptitle(f'{title}__eyes-closed')
+    plt.suptitle(f'{title}\nFrequency components\neyes-closed')
     
-    plt.savefig(f'figures/{title}_freq.png', bbox_inches='tight')
+    # plt.savefig(f'figures/{title}_freq.png', bbox_inches='tight')
+    plt.savefig(f'figures/{filename_out}_freq.png', bbox_inches='tight')
 
     # plt.legend(loc='lower right')
     
