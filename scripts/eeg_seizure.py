@@ -5,117 +5,82 @@ import matplotlib.pyplot as plt
 
 mne.set_log_level('error')
 
-def read_data(flag_plot):
+def read_data(filename):
 
-    dir_data = '../data/'
-    filename_eeg = 'chb01_03.edf'
-
-    raw = mne.io.read_raw_edf(dir_data+filename_eeg)
-    # raw.crop(tmax=60).load_data()
+    # read data
+    raw = mne.io.read_raw_edf(filename)
     raw.load_data()
 
+    # data info and channels' names
     print(f'data:\n{raw.info}')
     print('channels: ', raw.info['ch_names'])
-
-    if flag_plot:
-        raw.plot(
-            start=0,
-            duration=60,
-            scalings=dict(eeg=1e-4, resp=1e3, eog=1e-4, emg=1e-7, misc=1e-1),
-        )
-    else:
-        pass
 
     return raw
 
 
-def spectral_density(raw):
+def frequency_components(raw, t, nsec, nseg):
 
-    spectrum = raw.compute_psd()
-    spectrum.plot(average=True, picks="data", exclude="bads", amplitude=False)
+    # selected range of frequencies 
+    freq_min =  0.0
+    freq_max = 25.0
+    # frequency spectrum calculation
+    spectrum = raw.compute_psd(tmin=t, tmax=t+nsec, fmin=freq_min, fmax=freq_max)
+    # spectrum' magnitude (psds) and frequencies (freqs) from selected channels
+    psds, freqs = spectrum.get_data(return_freqs=True)
+    # Normalize the PSDs of each channel
+    psds = psds / np.sum(psds, axis=1, keepdims=True)
 
-    return 0
+    # spectrum segmentation being nseg number of segments (partitions)
+    seg_len = (freq_max-freq_min) / nseg
 
+    X = []
+    # take each segment and calculate the mean value from all selected channels
+    for i in np.arange(nseg):
+        # segment's begining
+        f1 = seg_len*i + freq_min
+        # segment's end
+        f2 = seg_len*(i+1) + freq_min
+        print(f'f1, f2: {f1}, {f2}')
+        # extraction of selected segment from each channel
+        seg_freq = psds[:, (freqs>=f1) & (freqs<f2)]
+        mean_values = seg_freq.mean(axis=1)
+        # print(f'mean_values: {mean_values}')
+        X.append(mean_values)
 
-def segments_raw():
+    X = np.transpose(X)
+    # print(f'{X}\nX {X.shape}')
 
-    # ann_data = mne.read_annotations(dir_data+filename_ann)
-    # print(f'ann: {ann_data}')
+    # frequency spectrum plotting from selected eeg signals
+    spectrum.plot(average=True, picks="data", exclude="bads", amplitude=False,)
 
-    freq = raw.info['sfreq']
-    print('freq: ', freq, ' Hz')
+    # plot eeg signals
+    raw.plot(start=t, duration=nsec, scalings=dict(eeg=1e-4),)
 
-    fp1_f7 = raw.get_data(picks='FP1-F7',tmin=2990, tmax=3050)[0]
-    print(fp1_f7.shape)
-
-    # number of seconds per segment
-    nsec = 4
-
-    # number of samples per segment
-    nsam = int(freq * nsec)
-
-    # number of segments per signal
-    nseg = len(fp1_f7) // nsam
-
-    # selected interval in seconds
-    ta=2990
-    tb=3050
-
-    # specific frequency bands
-    FREQ_BANDS = {
-        "delta": [0.5, 4.5],
-        "theta": [4.5, 8.5],
-        "alpha": [8.5, 11.5],
-        "sigma": [11.5, 15.5],
-        "beta": [15.5, 30],
-    }
-
-    # for i in np.arange(nseg):
-    for t in np.arange(ta,tb,nsec):
-        # samples = fp1_f7[nsam*i : nsam*(i+1)]
-        # print(f'{i}:{samples}')
-        spectrum = raw_data.compute_psd(picks='FP1-F7',tmin=t, tmax=t+nsec, fmin=0.0, fmax=25.0)
-        # print(f'spectrum {t}: {spectrum}')
-        # raw_data.compute_psd(picks='FP1-F7',tmin=nsec*i, tmax=nsec*(i+1))
-        psds, freqs = spectrum.get_data(return_freqs=True)
-        # print(f'spectrum: {psds}')
-        # Normalize the PSDs
-        psds /= np.sum(psds, axis=-1, keepdims=True)
-        # print(f'normaliz: {psds}')
-
-        X = []
-        for fmin, fmax in FREQ_BANDS.values():
-            psds_band = psds[:, (freqs >= fmin) & (freqs < fmax)].mean(axis=-1)
-            X.append(psds_band.reshape(len(psds), -1))
-
-        # print(f'X={X}')
-
-    fig, ax = plt.subplots(nrows=1, ncols=1)
-    spectrum.plot(
-                ci=None,
-                axes=ax,
-                show=False,
-                average=True,
-                amplitude=False,
-                spatial_colors=False,
-                picks="data",
-                exclude="bads",
-            )
-
-    return 0
-
-
-
-    # plt.plot(fp1_f7)
-    # raw_data.plot()
-    # plt.show()
+    return X
 
 
 if __name__ == "__main__":
 
-    flag_plot=True
-    raw = read_data(flag_plot)
-    spectral_density(raw)
+    # data location
+    dir_data = '../data/'
+    filename_eeg = 'chb01_03.edf'
+
+    # eeg data reading
+    raw = read_data(dir_data+filename_eeg)
+
+    # frequency spectrum calculation from a selected segment of eeg signals
+    
+    # beginning of a selected eeg segment in seconds
+    t = 2900
+    # eeg segment length in seconds
+    nsec = 5
+    # number of segments from the frequency spectrum
+    nseg = 8
+    # frequency components selected segments from selected channels
+    feature_vector = frequency_components(raw, t, nsec, nseg)
+    
+    feature_vector = feature_vector.reshape(1,-1)
+    print(f'feature vector:\n{feature_vector}')
     
     plt.show()
 
