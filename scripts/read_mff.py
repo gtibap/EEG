@@ -14,46 +14,12 @@ import pandas as pd
 import pytz
 import datetime
 
-from autoreject import AutoReject
-
-from class_read_bdf import EEG_components
-
-# from mne.viz import set_browser_backend
-# set_browser_backend("qt")
-
-def labels_activity(ax, pos_y):
-    
-    ax.axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    ax.axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    ax.axvline(x = 13,color = 'tab:gray', alpha=0.5)
-    
-    ax.annotate('Delta', xy=(0.5, pos_y),
-                    color='blue',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                    )
-    ax.annotate('Theta', xy=(4.3, pos_y),
-                    color='blue',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                    )
-    ax.annotate('Alpha', xy=(8.7, pos_y),
-                    color='blue',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                    )
-    ax.annotate('Beta', xy=(15, pos_y),
-                    color='blue',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                    )
-    return ax
-
 
 def main(args):
     
     print(f'arg {args[1]}')
     print(f'arg {args[2]}')
     print(f'arg {args[3]}')
-    # print(f'arg {args[2]}')
-    # print(f'arg {args[3]}')
-    # print(f'arg {args[4]}')
     
     path=args[1]
     fn_in=args[2]
@@ -82,6 +48,7 @@ def main(args):
     print(f"date: {raw_data.info['meas_date']}")
     time_of_first_sample = raw_data.first_samp / raw_data.info["sfreq"]
     print(f"first sample: {time_of_first_sample}")
+    print(f'first and last samples: {raw_data.first_samp/ raw_data.info["sfreq"], raw_data.last_samp/ raw_data.info["sfreq"]}')
 
     date_time = raw_data.info['meas_date']
     now_gmt = date_time.astimezone(pytz.timezone('Europe/London'))
@@ -101,12 +68,55 @@ def main(args):
 
     print(f'annotations:\n{df_an}')
 
+    # my_annot = mne.Annotations(
+    # onset=[5.31, 64.88, 159.946, 221.796, 335.634, 395.476, 468.664, 531.538,],  # in seconds
+    # duration=[59.57, 57.844, 61.85, 59.698, 59.842, 61.24, 62.874, 60.574, ],  # in seconds, too
+    # description=['a_ce', 'a_oe', 'a_ce', 'a_oe', 'b_ce', 'b_oe', 'b_ce', 'b_oe', ],
+    # )
+    # print(my_annot)
+
+    labels = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    # print(f"closed eyes:\n{df_an[df_an['label']==labels[0]]}")
+    # print(f"closed eyes:\n{df_an[df_an['label']==labels[0]]['onset'].to_numpy()}")
+    # print(f"closed eyes:\n{df_an[df_an['label']==labels[0]]['label'].to_numpy()}")
+
+    arr_onset=np.array([])
+    arr_label=np.array([])
+
+    for d in labels:
+        arr_onset = np.append(arr_onset, df_an[df_an['label'] == d]['onset'].to_numpy())
+        arr_label = np.append(arr_label, df_an[df_an['label'] == d]['label'].to_numpy())
+
+    ## we expect every segment last 60 seconds
+    arr_durat = len(arr_onset)*[58]
+
+    ######################
+    ## for BAD_ segments 
+    arr_onset_bad = df_an[df_an['label'] == 'BAD_']['onset'].to_numpy()
+    arr_label_bad = df_an[df_an['label'] == 'BAD_']['label'].to_numpy()
+
+    ## we define every BAD segment last 2 seconds
+    arr_durat_bad = len(arr_onset_bad)*[2]
+
+    arr_onset = np.append(arr_onset, arr_onset_bad)
+    arr_label = np.append(arr_label, arr_label_bad)
+    arr_durat = np.append(arr_durat, arr_durat_bad)
+
+    ## for BAD_ segments 
+    ######################
+
+    print (f'arr_onset:\n{arr_onset}')
+    print (f'arr_label:\n{arr_label}')
+    print (f'arr_durat:\n{arr_durat}')
+
+
     my_annot = mne.Annotations(
-    onset=[5.31, 64.88, 159.946, 221.796, 335.634, 395.476, 468.664, 531.538,],  # in seconds
-    duration=[59.57, 57.844, 61.85, 59.698, 59.842, 61.24, 62.874, 60.574, ],  # in seconds, too
-    description=['a_ce', 'a_oe', 'a_ce', 'a_oe', 'b_ce', 'b_oe', 'b_ce', 'b_oe', ],
+    onset=arr_onset,  # in seconds
+    duration=arr_durat,  # in seconds, too
+    description=arr_label,
     )
     print(my_annot)
+
 
     raw_data.set_annotations(my_annot)
     print(raw_data.annotations)
@@ -116,17 +126,6 @@ def main(args):
     orig_time = raw_data.annotations.orig_time
     print(meas_date == orig_time)
 
-    # fig = raw_data.plot(start=2, duration=6)
-
-    # arr_x = [x.total_seconds() for x in df_markersTime]
-    # print(f'total seconds:\n{df_markersTime.total_seconds()}')
-    # print(f'arr_x: {arr_x}')
-
-    # print(f'Decribe:\n{raw_data.describe}')
-    # print(f"{raw_data.info['dig']}")
-    # print(f"{raw_data.info['ch_names']}")
-    # print(f"{mne.events_from_annotations(raw_data)}")
-
 
     ## choosing channels whose names start with E
     ch_names = raw_data.info['ch_names']
@@ -135,11 +134,6 @@ def main(args):
 
     ## plot raw data
     # raw_data.plot()
-
-    ## plot power spectral density
-    start_time=0
-    end_time=500
-    # raw_data.compute_psd(picks=ch_with_E, tmin=start_time, tmax=end_time, fmax=5).plot()
 
     ## band pass filter settings
     low_cut = 0.1
@@ -168,7 +162,7 @@ def main(args):
 
     fig = raw_ica.plot(start=0, duration=120, scalings=scale_dict, block=True)
     # fig.fake_keypress("a")
-    plt.show()
+    # plt.show()
 
     for ann in raw_ica.annotations:
         descr = ann["description"]
@@ -176,342 +170,81 @@ def main(args):
         end = ann["onset"] + ann["duration"]
         print(f"interactive '{descr}' goes from {start} to {end}")
 
-    interactive_annot = raw_ica.annotations
-    ## annotations
-    raw_ica.set_annotations(interactive_annot)
+    ## segments of EEG signals without labels (description) are considered out of analysis; therefore, those segments will be labeled as BAD_
+    ini_time = raw_ica.first_samp/ raw_data.info["sfreq"]
+    end_time = raw_ica.last_samp/ raw_data.info["sfreq"]
+    print(f'time start and end: {ini_time, end_time}')
+
+    arr_ini = np.array([])
+    arr_end = np.array([])
+    arr_des = np.array([])
+    label_bad = 'BAD_'
+
+    arr_ini= np.append(arr_ini, ini_time)
+
+    for ann in raw_ica.annotations:
+        
+        descr = ann["description"]
+        start = ann["onset"]
+        end = ann["onset"] + ann["duration"]
+
+        if descr != 'BAD_':
+            arr_end = np.append(arr_end, start)
+            arr_des= np.append(arr_des, label_bad)
+
+            arr_ini = np.append(arr_ini, start)
+            arr_end = np.append(arr_end, end)
+            arr_des = np.append(arr_des, descr)
+
+            arr_ini = np.append(arr_ini, end)
+        else:
+            pass
+
+    arr_end = np.append(arr_end, end_time)
+    arr_des= np.append(arr_des, label_bad)
+
+    df_an_all = pd.DataFrame()
+    df_an_all['start']=arr_ini
+    df_an_all['end']=arr_end
+    df_an_all['label']=arr_des
+
+    print(f'annotations:\n{df_an_all}')
+
+    my_annot = mne.Annotations(
+    onset=arr_ini,  # in seconds
+    duration=arr_end - arr_ini,  # in seconds, too
+    description=arr_des,
+    )
+    print(my_annot)
+
+    # ######################
+    # ## for BAD_ segments 
+    # arr_onset_bad = df_an[df_an['label'] == 'BAD_']['onset'].to_numpy()
+    # arr_label_bad = df_an[df_an['label'] == 'BAD_']['label'].to_numpy()
+
+    # ## we define every BAD segment last 2 seconds
+    # arr_durat_bad = len(arr_onset_bad)*[2]
+    
+    # my_bad_annot = mne.Annotations(
+    # onset=arr_onset_bad,  # in seconds
+    # duration=arr_durat_bad,  # in seconds, too
+    # description=arr_label_bad,
+    # )
+    # print(my_bad_annot)
+    # ## for BAD_ segments 
+    # ######################
+    # raw_ica.set_annotations(my_annot+my_bad_annot)
+
+    raw_ica.set_annotations(my_annot)
+    print(raw_ica.annotations)
+
     fig = raw_ica.plot(start=0, duration=120, scalings=scale_dict, block=True)
-    # fig.fake_keypress("a")
+        
+
     plt.show()
-    raw_ica.annotations.save(path+"events/saved-annotations.csv", overwrite=True)
-
-    # ###############################
-    # ## ICA components
-    # # Break raw data into 1 s epochs
-    # tstep = 1.0
-    # events_ica = mne.make_fixed_length_events(raw_ica, duration=tstep)
-    # epochs_ica = mne.Epochs(raw_ica, events_ica,
-    #                         tmin=0.0, tmax=tstep,
-    #                         baseline=None,
-    #                         preload=True)
-    
-    # print(f'events_ica: {events_ica}')
-    # print(f'epochs_ica: {epochs_ica}')
-    # ###############################
-
-    # #################
-    # ## autoreject ###
-    # ar = AutoReject(n_interpolate=[1, 2, 4],
-    #                 random_state=42,
-    #                 picks=mne.pick_types(epochs_ica.info, 
-    #                                     eeg=True,
-    #                                     eog=False
-    #                                     ),
-    #                 n_jobs=-1, 
-    #                 verbose=False
-    #                 )
-
-    # ar.fit(epochs_ica)
-
-    # reject_log = ar.get_reject_log(epochs_ica)
-
-    # # fig, ax = plt.subplots(figsize=[15, 5])
-    # # reject_log.plot('horizontal', ax=ax, aspect='auto')
-    # ## autoreject ###
-    # #################
-
-    # ################
-    # ## ICA ##
-    # # ICA parameters
-    # random_state = 42   # ensures ICA is reproducible each time it's run
-    # ica_n_components = .99     # Specify n_components as a decimal to set % explained variance
-
-    # # Fit ICA
-    # ica = mne.preprocessing.ICA(n_components=ica_n_components,
-    #                             random_state=random_state,
-    #                             )
-    # ica.fit(epochs_ica[~reject_log.bad_epochs], decim=3)
-
-    # ica.plot_components()
-    # ## ICA ##
-    # ################
-    
-    # ################
-    # ## identify components related to eyes movements and blinking
-    # ica.exclude = []
-    # num_excl = 0
-    # max_ic = 2
-    # z_thresh = 3.5
-    # z_step = .05
-
-    # while num_excl < max_ic:
-    #     eog_indices, eog_scores = ica.find_bads_eog(epochs_ica,
-    #                                                 ch_name=['E8','E9','E14','E17','E21','E22','E25',], 
-    #                                                 threshold=z_thresh
-    #                                                 )
-    #     num_excl = len(eog_indices)
-    #     z_thresh -= z_step # won't impact things if num_excl is ≥ n_max_eog
-    #     print(f'num_excl, z_thresh: {num_excl, z_thresh}')
-
-    # # assign the bad EOG components to the ICA.exclude attribute so they can be removed later
-    # ica.exclude = eog_indices
-
-    # print('Final z threshold = ' + str(round(z_thresh, 2)))
-    # ## plot components' scores
-    # ica.plot_scores(eog_scores)
-    # ## identify components related to eyes movements and blinking
-    # # #######################
-
-    # #######################
-    # ## save ica components
-    # p_id = 'out'
-    # ica.save(path + p_id + '-ica.fif', 
-    #     overwrite=True)
-    # ## save ica components
-    # #######################
-    
-
-    
-
-
-    ## plot filtered data
-    # raw_data.plot(start=15, duration=5)
-    # raw_filt.plot(start=60, duration=60)
-
-    # sfreq = raw_data.info['sfreq']
-    # meas_date = raw_data.info['meas_date']
-    
-    # start_eeg = meas_date.hour*3600 + meas_date.minute*60 + meas_date.second
-    # print(f'start eeg: {start_eeg} s')
-    
-
-    # raw_data.plot_sensors(show_names=True)
-    # raw_filt.plot()
-    # mne.io.Raw.plot_sensors(raw_data, show_names=True)
-    # raw_data.compute_psd().plot()
-    # raw_filt.compute_psd().plot()
-    plt.show()
-    
 
     return 0
     
-    
-    # data_dict = raw_data.__dict__
-    # print(data_dict)
-    # raw_dict  = data_dict["_raw_extras"][0]
-    # print(f'extras: {raw_dict}')
-    
-    # print(type(data_dict))
-    # print(raw_dict["ch_names"])
-    # print(raw_dict["ch_names"][64])
-    # print(raw_dict["ch_names"][64+63])
-    # print(type())
-    
-    
-    # raw_filt.plot_psd(picks=['Fp1'], fmax=10);
-    # raw_filt.plot_psd(picks=['Fp1'], fmax=10);
-    
-    # raw_data.plot(picks=['Fp1'])
-    # raw_filt.plot(picks=['Fp1'])
-    # raw_data.plot_psd(picks=['Fp1'], fmax=400);
-    
-    
-    # data_2 = raw_data.get_data(picks=['Fp1'])
-    # print(data_2.shape)
-    # data_2 = raw_data.get_data(picks=['Fp1','O2'],tmin=0,tmax=60*5)
-    # data_2 = raw_data.get_data(picks=['OCU3','ECG5'],tmin=0,tmax=60*5)
-    # plt.plot(data_2[1])
-    
-    offset=-0.001
-
-    label_signals=['P3','P4','O1','O2']
-    signals = raw_filt.get_data(picks=label_signals)
-
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12,5), squeeze=False)
-    ax = ax.reshape(-1)
-    # ax[0].plot(signals[1]+offset, label='Fpz')
-    # ax[0].plot(signals[0], label='Cz')
-    ax[0].plot(signals[0]+offset*0, label=label_signals[0])
-    ax[0].plot(signals[1]+offset*1, label=label_signals[1])
-    ax[0].plot(signals[2]+offset*2, label=label_signals[2])
-    ax[0].plot(signals[3]+offset*3, label=label_signals[3])
-    
-    # print()
-    for ta,section,action in zip(df_events['time'].tolist(), df_events['section'].tolist(), df_events['action'].tolist()):
-        ts = int((ta - start_eeg)*sfreq)
-        ax[0].axvline(x = ts, color = 'b', alpha=0.5)
-        print(f'{ts}, {section}, {action}')
-    
-    fig.canvas.draw()
-    # ax[0].set_ylim([-0.0004, 0.0001])
-    ax[0].set_ylim([-0.004, 0.001])
-    
-    ## Subject 1
-    # ax[0].set_xlim([195000, 326000])
-    # pos_xlabel1=222000
-    # pos_xlabel2=285000
-
-    ## Subject 2
-    # ax[0].set_xlim([105000, 175000])
-    # pos_xlabel1=120000
-    # pos_xlabel2=155000    
-    
-    
-    ## Subject 3
-    # ax[0].set_xlim([65000, 140000])
-    # pos_xlabel1=80500
-    # pos_xlabel2=115500
-    
-    ## Subject 4
-    ax[0].set_xlim([70000, 135000])
-    pos_xlabel1=82000
-    pos_xlabel2=115000
-    
-    x_labels = [item.get_text() for item in ax[0].get_xticklabels()]
-    x_labels = (np.array(x_labels).astype(int)/(sfreq)).astype(int)
-    print(f'x_labels {x_labels}')
-    
-    ax[0].set_xticklabels(x_labels)
-    
-    ax[0].set_yticks([offset*0,offset*1,offset*2,offset*3])
-    ax[0].set_yticklabels(label_signals)
-    
-    # ax[0].set_ylabel('amplitude [uV]')
-    ax[0].set_xlabel(f'time (s)')
-    ax[0].annotate('eyes-closed', xy=(pos_xlabel1, -offset*0.7),
-                    color='blue',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                    )
-    ax[0].annotate('eyes-opened', xy=(pos_xlabel2, -offset*0.7),
-                    color='blue',
-                    bbox=dict(boxstyle='round,pad=0.2', fc='yellow', alpha=0.3),
-                    )
-    # plt.legend(loc='lower right')
-    ax[0].set_title(f'{title}')
-    
-    plt.savefig(f'figures/{filename_out}.png', bbox_inches='tight')
-    # plt.suptitle(f'{title}')
-    # raw_data.set_montage('standard_1005')
-    # raw_data.plot_sensors()
-    
-    # print(data_2.shape)
-    # print(data_2)
-    
-    time_ce_a=np.array(time_ce_a)
-    time_ce_b=np.array(time_ce_b)
-    
-    time_ce_a = ((time_ce_a - start_eeg)*sfreq).astype(int)
-    time_ce_b = ((time_ce_b - start_eeg)*sfreq).astype(int)
-    
-    print(f'{time_ce_a}')
-    print(f'{time_ce_b}')
-    ## frequency components signals segments closed eyes and open eyes
-    obj_signals = EEG_components(signals, sfreq)
-    
-    fig1, ax1 = plt.subplots(nrows=2, ncols=2, figsize=(10, 7),sharex=True, sharey=True)
-    ax1 = ax1.reshape(-1)
-    
-     # ## vertical lines
-    # ax1[0].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    # ax1[0].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    # ax1[0].axvline(x = 13,color = 'tab:gray', alpha=0.5)
-    
-    # ax1[1].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    # ax1[1].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    # ax1[1].axvline(x = 13,color = 'tab:gray', alpha=0.5)
-    
-    # ax1[2].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    # ax1[2].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    # ax1[2].axvline(x = 13,color = 'tab:gray', alpha=0.5)
-    
-    # ax1[3].axvline(x = 4, color = 'tab:gray', alpha=0.5)
-    # ax1[3].axvline(x = 8, color = 'tab:gray', alpha=0.5)
-    # ax1[3].axvline(x = 13,color = 'tab:gray', alpha=0.5)
-    
-    
-    # #################
-    # ## resting state
-    
-    # arr = np.array(time_ce_a[0])
-    # arr[arr<0]=0
-    # ax1 = obj_signals.freq_components(arr, ax1,'0')
-    
-    # arr = np.array(time_ce_a[1])
-    # arr[arr<0]=0
-    # ax1 = obj_signals.freq_components(arr, ax1,'1')
-    
-    # arr = np.array(time_ce_a[2])
-    # arr[arr<0]=0
-    # ax1 = obj_signals.freq_components(arr, ax1,'2')
-    
-    # ## resting state
-    # #################
-    
-    #################
-    ## activity-based therapy
-    
-    arr = np.array(time_ce_b[0])
-    arr[arr<0]=0
-    ax1 = obj_signals.freq_components(arr, ax1,'0')
-    
-    arr = np.array(time_ce_b[1])
-    arr[arr<0]=0
-    ax1 = obj_signals.freq_components(arr, ax1,'1')
-    
-    arr = np.array(time_ce_b[2])
-    arr[arr<0]=0
-    ax1 = obj_signals.freq_components(arr, ax1,'2')
-    
-    ## activity-based therapy
-    #################
-    
-    
-    # pos_y=4.0e-6
-    pos_y=1.6e-5
-    # label_signals=['P3','P4','O1','O2']
-    ax1[0] = labels_activity(ax1[0], pos_y)
-    ax1[1] = labels_activity(ax1[1], pos_y)
-    ax1[2] = labels_activity(ax1[2], pos_y)
-    ax1[3] = labels_activity(ax1[3], pos_y)
-                    
-    ax1[0].set_title(label_signals[0])
-    ax1[1].set_title(label_signals[1])
-    ax1[2].set_title(label_signals[2])
-    ax1[3].set_title(label_signals[3])
-    
-    ax1[2].set_xlabel('frequency (Hz)')
-    ax1[3].set_xlabel('frequency (Hz)')
-    
-    ax1[0].set_ylabel('PSD (V**2/Hz)')
-    ax1[2].set_ylabel('PSD (V**2/Hz)')
-    
-    plt.suptitle(f'{title}\nFrequency components\neyes-closed')
-    
-    # plt.savefig(f'figures/{title}_freq.png', bbox_inches='tight')
-    plt.savefig(f'figures/{filename_out}_freq.png', bbox_inches='tight')
-
-    # plt.legend(loc='lower right')
-    
-    
-    # ax1 = obj_signals.freq_components(arr, ax1)
-    
-    # obj_signals.freq_components(time_ce_a[3])
-    # obj_signals.freq_components(time_ce_b[2])
-    
-    
-    
-    # print(raw_data['cal'])
-    # raw_data.plot()
-    # data = raw_data.get_data()
-    # print(type(data))
-    # print(data.shape)
-    # plt.plot(data[133])
-    
-    # raw_data.plot_psd(fmax=100)
-    
-    plt.show()
-    
-    
-    return 0
 
 if __name__ == '__main__':
     import sys
