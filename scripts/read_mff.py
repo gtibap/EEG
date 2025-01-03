@@ -11,7 +11,21 @@ import glob
 import pandas as pd
 import pytz
 import datetime
+import pathlib
 
+######################
+## Description
+# Interactive annotations editing that means manual adjusting of start and ending of each label, which includes:
+# * a_opened_eyes
+# * a_closed_eyes
+# * b_opened_eyes
+# * b_closed_eyes
+# Segments without label will be labeling as BAD_ to exclude them from posterior analyses
+######################
+######################
+## labels during the EEG signals acquisition should correspond to the following
+labels_ref = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+######################
 
 def main(args):
     
@@ -23,9 +37,18 @@ def main(args):
     fn_in=args[2]
     fn_csv=args[3]
 
+    # function to return the file extension
+    file_extension = pathlib.Path(fn_in).suffix
+    print("File Extension: ", file_extension)
+
     ##########################
     ## read raw data
-    raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+    if file_extension == '.mff':
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+    elif file_extension == '.bdf':
+        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
+    else:
+        return 0
     ## read raw data
     ##########################
     ########################
@@ -34,7 +57,8 @@ def main(args):
     df = pd.read_csv(path + fn_csv)
     print(f'markers:\n{df}')
     # transform column data from type string to type datetime 
-    df['beginTime'] = pd.to_datetime(df['beginTime'])
+    df['beginTime'] = pd.to_datetime(df['beginTime'], utc=True)
+    # print(f"type datetime:\n{df['beginTime']}")
     ## open csv markers file
     ########################
 
@@ -54,13 +78,13 @@ def main(args):
     print(f'annotations:\n{df}')
     ############################
     ############################
-    ## extract selected data from dataframe
-    labels = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    # ## extract selected data from dataframe
+    # labels = labels_ref
     
     arr_onset=np.array([])
     arr_label=np.array([])
 
-    for d in labels:
+    for d in labels_ref:
         arr_onset = np.append(arr_onset, df[df['label'] == d]['onset'].to_numpy())
         arr_label = np.append(arr_label, df[df['label'] == d]['label'].to_numpy())
 
@@ -153,6 +177,11 @@ def main(args):
 
     ## data visualization
     fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
+
+    ## save annotations
+    raw_data.annotations.save(path+"saved-annotations.csv", overwrite=True)
+    raw_data.annotations.save(path+"saved-annotations.fif", overwrite=True)
+    raw_data.annotations.save(path+"saved-annotations.txt", overwrite=True)
 
     plt.show()
 
