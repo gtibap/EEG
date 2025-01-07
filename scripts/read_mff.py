@@ -73,6 +73,7 @@ def main(args):
     markersTime = df['beginTime'] - raw_data.info['meas_date']
     print(f'markers time:\n{markersTime}')
     serie_sec = markersTime.dt.total_seconds()
+    print(f'markers sec:\n{serie_sec}')
     ## adding a column to the dataframe
     df['onset']=serie_sec
     print(f'annotations:\n{df}')
@@ -119,7 +120,7 @@ def main(args):
     ############################
     ## adding original annotations to raw data
     raw_data.set_annotations(my_annot)
-    print(raw_data.annotations)
+    # print(raw_data.annotations)
     ############################
     ############################
     ## signals visualization and
@@ -146,6 +147,8 @@ def main(args):
         descr = ann["description"]
         start = ann["onset"]
         end = ann["onset"] + ann["duration"]
+
+        # print(f"annotations: {start, end, descr}")
 
         if descr != 'BAD_':
             ## region labeled as BAD_
@@ -179,9 +182,9 @@ def main(args):
     fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
 
     ## save annotations
-    raw_data.annotations.save(path+"saved-annotations.csv", overwrite=True)
-    raw_data.annotations.save(path+"saved-annotations.fif", overwrite=True)
-    raw_data.annotations.save(path+"saved-annotations.txt", overwrite=True)
+    # raw_data.annotations.save(path+"saved-annotations.csv", overwrite=True)
+    # raw_data.annotations.save(path+"saved-annotations.fif", overwrite=True)
+    # raw_data.annotations.save(path+"saved-annotations.txt", overwrite=True)
 
     plt.show()
 
