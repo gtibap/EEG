@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import pathlib
+import time
 
 #############################
 ## EEG filtering and signals prepocessing
@@ -86,12 +87,12 @@ def main(args):
 
     #############################
     ## 2D location electrodes
-    fig = raw_data.plot_sensors(show_names=True,)
+    # fig = raw_data.plot_sensors(show_names=True,)
     #########################    
     
     #########################
     ## reduce data size for training purposes
-    raw_data.crop(tmax=120.0)  # raw.crop() always happens in-place
+    # raw_data.crop(tmax=120.0)  # raw.crop() always happens in-place
     ## reduce data size for training purposes
     #########################
 
@@ -113,6 +114,9 @@ def main(args):
     print(raw_data.annotations)
     ############################
 
+    # to run GUI event loop
+    plt.ion()
+
     ############################
     ## signals visualization and
     ## interactive annotations editing avoiding overlaping 
@@ -124,7 +128,57 @@ def main(args):
     # plot
     fig = mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
     ############################
+    ## frequency spectrum
+    spectrum = raw_data.compute_psd(fmin=0,fmax=30,tmin=201, tmax=254) ## opened eyes
+    # spectrum = raw_data.compute_psd(fmin=0,fmax=30,tmin=133, tmax=198) ## closed eyes
+    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=490, tmax=537) ## opened eyes
+    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=268, tmax=318) ## opened eyes
+    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=418, tmax=476) ## closed eyes
+    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=198, tmax=256) ## closed eyes
+    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=10, tmax=70) ## closed eyes
+    print(f'spectrum: {spectrum}')
 
+    # spectrum.plot()
+    data_spectrum = spectrum.get_data()
+    print(f'data spectrum: {data_spectrum}\nshape:{data_spectrum.shape}\nfreqs:{spectrum.freqs}')
+
+    # mne.viz.plot_topomap(spectrum[:,col], spectrum.info, vlim=(0.0, 1.0), contours=0, cmap='winter', axes=ax)
+
+
+
+    # mne.viz.plot_raw_psd(raw_data,tmin=10, tmax=70)
+
+    # data = raw_data.get_data()
+
+    # mne.viz.plot_topomap(, raw_data.info, vlim=(0.0, 1.0), contours=0, cmap='winter', axes=ax)
+
+    # spectrum.plot_topomap()
+    # data = raw_data.get_data()
+    # print(f'shape: {data[:,5000].shape, min(data[:,5000]), max(data[:,5000])}')
+    
+    fig, ax = plt.subplots(1, 1, figsize=(5,5))
+
+    # arr_rand = np.random.rand(64,100)
+
+    col = 0
+    for f in spectrum.freqs:
+        # print(f'freq:{f}')
+        # print(f'data: {data[:,col]}')
+        print(f'freq min max: {f}, {min(data_spectrum[:,col]), max(data_spectrum[:,col])}')
+        mne.viz.plot_topomap(data_spectrum[:,col], spectrum.info, contours=0, vlim=(1.0e-14, 0.5e-12), cmap='magma', axes=ax)
+        # mne.viz.plot_topomap(data[:,col], raw_data.info, vlim=(-0.0001, 0.0001), contours=0, axes=ax)
+        # mne.viz.plot_topomap(arr_rand[:,col], raw_data.info, vlim=(0.0, 1.0), contours=0, cmap='winter', axes=ax)
+        # drawing updated values
+        fig.canvas.draw()
+        # This will run the GUI event
+        # loop until all UI events
+        # currently waiting have been processed
+        fig.canvas.flush_events()
+    
+        time.sleep(0.1)
+        col+=1
+   
+    
     plt.show()
 
     ## save data selected channels
