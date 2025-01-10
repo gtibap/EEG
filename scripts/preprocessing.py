@@ -8,13 +8,42 @@ mne.set_log_level('error')
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
 import pathlib
 import time
+
+# def onClick(event):
+#     global pause
+#     print(f'pause: {pause}')
+#     pause = not(pause)
+
+
+ani = 0
+flag=False
+images=[]
+spectrum = []
+data_spectrum = []
+fig, ax = plt.subplots(1, 1, figsize=(5,5))
+draw_image = []
+
+# fig.canvas.mpl_connect('button_press_event', onClick)
+
+def toggle_pause(event):
+        global flag
+        if flag==True:
+            ani.resume()
+        else:
+            ani.pause()
+        flag = not flag
 
 #############################
 ## EEG filtering and signals prepocessing
 
 def main(args):
+    global spectrum, data_spectrum, fig, ax, ani, draw_image
+
+    ## interactive mouse pause the image visualization
+    fig.canvas.mpl_connect('button_press_event', toggle_pause)
 
     print(f'arg {args[1]}') ## folder location
     print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia}
@@ -23,6 +52,9 @@ def main(args):
     path=args[1]
     subject= int(args[2])
     abt= int(args[3])
+
+    t0=0
+    t1=0
 
     #########################
     ## data subject selection
@@ -45,6 +77,11 @@ def main(args):
         ## electrodes montage
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
+        
+        ## resting closed eyes
+        t0 = 198 
+        t1 = 256
+
     ############################
     # Mr Taha
     elif subject == 1:
@@ -63,6 +100,10 @@ def main(args):
         ## electrodes montage
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
+
+        ## resting closed eyes
+        t0 = 134 
+        t1 = 198
     ############################
     # Mme Carlie
     elif subject == 2:
@@ -71,7 +112,11 @@ def main(args):
         fn_csv = 'saved-annotations.csv'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=False)
-        # fig = raw_data.plot_sensors(show_names=True,)
+        # raw_data.plot_sensors(show_names=True,)
+
+        ## resting closed eyes
+        t0 = 160 
+        t1 = 220
     ############################
     # Mme Iulia
     elif subject == 3:
@@ -106,16 +151,13 @@ def main(args):
     ## read annotations (.csv file)
     print(f'CSV file: {fn_csv}')
     my_annot = mne.read_annotations(path + fn_csv)
-    print(f'annotations:\n{my_annot}')
+    # print(f'annotations:\n{my_annot}')
     ## read annotations (.csv file)
     ############################
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
     print(raw_data.annotations)
     ############################
-
-    # to run GUI event loop
-    plt.ion()
 
     ############################
     ## signals visualization and
@@ -126,65 +168,35 @@ def main(args):
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=5e-3, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
     # plot
-    fig = mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
-    ############################
-    ## frequency spectrum
-    spectrum = raw_data.compute_psd(fmin=0,fmax=30,tmin=201, tmax=254) ## opened eyes
-    # spectrum = raw_data.compute_psd(fmin=0,fmax=30,tmin=133, tmax=198) ## closed eyes
-    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=490, tmax=537) ## opened eyes
-    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=268, tmax=318) ## opened eyes
-    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=418, tmax=476) ## closed eyes
-    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=198, tmax=256) ## closed eyes
-    # spectrum = raw_data.compute_psd(fmin=0,fmax=42,tmin=10, tmax=70) ## closed eyes
-    print(f'spectrum: {spectrum}')
+    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
+    # ############################
+    # ## frequency spectrum
+    # spectrum = raw_data.compute_psd(fmin=1,fmax=30,tmin=t0, tmax=t1) ## opened eyes
+    # print(f'spectrum: {spectrum}')
 
-    # spectrum.plot()
-    data_spectrum = spectrum.get_data()
-    print(f'data spectrum: {data_spectrum}\nshape:{data_spectrum.shape}\nfreqs:{spectrum.freqs}')
+    # # spectrum.plot()
+    # data_spectrum = spectrum.get_data()
+    # print(f'data spectrum: {data_spectrum}\nshape:{data_spectrum.shape}\nfreqs:{spectrum.freqs}')
 
-    # mne.viz.plot_topomap(spectrum[:,col], spectrum.info, vlim=(0.0, 1.0), contours=0, cmap='winter', axes=ax)
+    # ani = FuncAnimation(fig=fig, func=update, frames=len(spectrum.freqs), interval=250, repeat=False,)
+    # plt.show()
+    ##############################
 
+    ecg_epochs = mne.preprocessing.create_ecg_epochs(raw_data, ch_name='E8', tmin=t0, tmax=t1)
+    ecg_epochs.plot_image(combine="mean")
 
-
-    # mne.viz.plot_raw_psd(raw_data,tmin=10, tmax=70)
-
-    # data = raw_data.get_data()
-
-    # mne.viz.plot_topomap(, raw_data.info, vlim=(0.0, 1.0), contours=0, cmap='winter', axes=ax)
-
-    # spectrum.plot_topomap()
-    # data = raw_data.get_data()
-    # print(f'shape: {data[:,5000].shape, min(data[:,5000]), max(data[:,5000])}')
-    
-    fig, ax = plt.subplots(1, 1, figsize=(5,5))
-
-    # arr_rand = np.random.rand(64,100)
-
-    col = 0
-    for f in spectrum.freqs:
-        # print(f'freq:{f}')
-        # print(f'data: {data[:,col]}')
-        print(f'freq min max: {f}, {min(data_spectrum[:,col]), max(data_spectrum[:,col])}')
-        mne.viz.plot_topomap(data_spectrum[:,col], spectrum.info, contours=0, vlim=(1.0e-14, 0.5e-12), cmap='magma', axes=ax)
-        # mne.viz.plot_topomap(data[:,col], raw_data.info, vlim=(-0.0001, 0.0001), contours=0, axes=ax)
-        # mne.viz.plot_topomap(arr_rand[:,col], raw_data.info, vlim=(0.0, 1.0), contours=0, cmap='winter', axes=ax)
-        # drawing updated values
-        fig.canvas.draw()
-        # This will run the GUI event
-        # loop until all UI events
-        # currently waiting have been processed
-        fig.canvas.flush_events()
-    
-        time.sleep(0.1)
-        col+=1
-   
-    
     plt.show()
 
-    ## save data selected channels
-    # raw_data.save(path + fn_out + '_raw.fif')
-
     return 0
+
+def update(frame):
+    global spectrum, data_spectrum, ax
+
+    im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 4.0e-13), cmap='magma', axes=ax, show=False)
+
+    print(f"updated freq: {spectrum.freqs[frame]}")
+    return (0) 
+
 
 if __name__ == '__main__':
     import sys
