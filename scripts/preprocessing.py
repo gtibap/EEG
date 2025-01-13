@@ -46,7 +46,7 @@ def main(args):
     fig.canvas.mpl_connect('button_press_event', toggle_pause)
 
     print(f'arg {args[1]}') ## folder location
-    print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia}
+    print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
     print(f'arg {args[3]}') ## ABT = {0:resting, 1:biking}
     
     path=args[1]
@@ -127,6 +127,21 @@ def main(args):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=False)
         # fig = raw_data.plot_sensors(show_names=True,)
     ############################
+    # Mr Andre Caron
+    elif subject == 4:
+        path = path + 'neuroplasticity/n_001/'
+        fn_in = 'Neuro001_session1_20250113_111350.mff'
+        fn_csv = 'annotations.csv'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=False)
+        # fig = raw_data.plot_sensors(show_names=True,)
+        ## resting closed eyes
+        # t0 = 15
+        # t1 = 85
+        ## resting opened eyes
+        t0 = 130
+        t1 = 200
+    ############################
     else:
         return 0
 
@@ -165,25 +180,37 @@ def main(args):
     ## visualization scale
 
     ## scale selection
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=5e-3, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
     # plot
     mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
-    # ############################
-    # ## frequency spectrum
-    # spectrum = raw_data.compute_psd(fmin=1,fmax=30,tmin=t0, tmax=t1) ## opened eyes
-    # print(f'spectrum: {spectrum}')
+    ############################
+    ## frequency spectrum
+    spectrum = raw_data.compute_psd(picks='eeg',fmin=1,fmax=120,tmin=t0, tmax=t1,) ## opened eyes
+    print(f'spectrum infor: {spectrum.info}')
+    # spectrum.plot(picks=['ECG'])
+    spectrum.plot(picks=['E8','E9','E10'])
 
-    # # spectrum.plot()
+    # print(f'spectrum open eyes: between {t0}s and {t1}s')
+
+    # print(f"channel names: {raw_data.info['ch_names']}")
+    # # eeg_channels = [channel_name for channel_name in raw_data.info['ch_names'] if channel_name.startswith('E')]
+
+    # eeg_channels = raw_data.info['ch_names'][0:128]
+    # print(f"eeg_channels names: {eeg_channels}")
+    # spectrum.plot(picks=eeg_channels, amplitude=False)
+
+
+    # spectrum.plot()
     # data_spectrum = spectrum.get_data()
     # print(f'data spectrum: {data_spectrum}\nshape:{data_spectrum.shape}\nfreqs:{spectrum.freqs}')
 
     # ani = FuncAnimation(fig=fig, func=update, frames=len(spectrum.freqs), interval=250, repeat=False,)
-    # plt.show()
-    ##############################
+    plt.show()
+    #############################
 
-    ecg_epochs = mne.preprocessing.create_ecg_epochs(raw_data, ch_name='E8', tmin=t0, tmax=t1)
-    ecg_epochs.plot_image(combine="mean")
+    # ecg_epochs = mne.preprocessing.create_ecg_epochs(raw_data, ch_name='E8', tmin=t0, tmax=t1)
+    # ecg_epochs.plot_image(combine="mean")
 
     plt.show()
 
@@ -192,7 +219,7 @@ def main(args):
 def update(frame):
     global spectrum, data_spectrum, ax
 
-    im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 4.0e-13), cmap='magma', axes=ax, show=False)
+    im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 5.0e-13), cmap='magma', axes=ax, show=False)
 
     print(f"updated freq: {spectrum.freqs[frame]}")
     return (0) 

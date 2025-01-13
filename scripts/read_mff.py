@@ -181,10 +181,10 @@ def main(args):
     ## data visualization
     fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
 
-    ## save annotations
-    # raw_data.annotations.save(path+"saved-annotations.csv", overwrite=True)
-    # raw_data.annotations.save(path+"saved-annotations.fif", overwrite=True)
-    # raw_data.annotations.save(path+"saved-annotations.txt", overwrite=True)
+    # save annotations
+    raw_data.annotations.save(path+"annotations.csv", overwrite=True)
+    raw_data.annotations.save(path+"annotations.fif", overwrite=True)
+    raw_data.annotations.save(path+"annotations.txt", overwrite=True)
 
     plt.show()
 
