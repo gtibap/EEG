@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import pathlib
 import time
+from autoreject import AutoReject
 
 # def onClick(event):
 #     global pause
@@ -143,17 +144,17 @@ def main(args):
         ## resting closed eyes
         # t0 = 15
         # t1 = 85
-        segment = "closed eyes"
+        # segment = "closed eyes"
         # t0 = 244
         # t1 = 304
         ## resting opened eyes
-        # segment = "opened eyes"
-        # t0 = 130
-        # t1 = 200
+        segment = "opened eyes"
+        t0 = 130
+        t1 = 200
         ####
-        t0 = 240
-        t1 = 400
-        print(f'section: {t0}s - {t1}s')
+        # t0 = 240
+        # t1 = 400
+        print(f'{segment}: {t0}s - {t1}s')
     ############################
     else:
         return 0
@@ -184,29 +185,89 @@ def main(args):
     ############################
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
-    print(raw_data.annotations)
+    # print(raw_data.annotations)
     ############################
+
+    ## scale selection
+    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+
+    # ############################
+    # ## crop by annotations
+    # crop_list = raw_data.crop_by_annotations()
+    # # print(f'raw crop: {raw_crop}')
+    # count0 = 0
+    # count1 = 0
+    # for crop in crop_list:
+    #     for ann in crop.annotations:
+    #         descr = ann["description"]
+    #         print(f'counts:{count0, count1, descr}')
+    #         if descr == 'a_opened_eyes':
+    #             print('a open eyes')
+    #             # mne.viz.plot_raw(crop, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
+    #         else:
+    #             pass
+    #         count1+=1
+    #     count0+=1
+
+    # count1 = 0
+
+    # for ann in raw_data.annotations:
+    #     descr = ann["description"]
+    #     print(f'counts:{count1, descr}')
+    #     if descr == 'a_opened_eyes':
+    #         print('a open eyes')
+    #         # mne.viz.plot_raw(crop, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
+    #     else:
+    #         pass
+    #     count1+=1
+
+    ############################
+
 
     ############################
     ## signals visualization and
     ## interactive annotations editing avoiding overlaping 
     ## visualization scale
 
-    ## scale selection
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
-
     # plot
-    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=True)
-    ############################
+    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
+    # mne.viz.plot_raw(raw_data.crop(tmin=t0,tmax=t1,include_tmax=True), scalings=scale_dict, highpass=0.3, lowpass=70.0, block=False)
+    # ############################
     # Filter settings
-    low_cut = 0.3
-    hi_cut  = 30
+    low_cut =  0.3
+    hi_cut  = 40.0
 
     raw_filt = raw_data.copy().filter(low_cut, hi_cut)
+    raw_filt.crop(tmin=t0,tmax=t1,include_tmax=True)
 
-    ############################
+    # ############################
 
-    print(f"bad channels: {raw_data.info['bads']}")
+    mne.viz.plot_raw(raw_filt, scalings=scale_dict, block=False)
+
+    ch_list = ['E25','E17','E8']
+    topo_dict = {'contours':0}
+
+    # eog_epochs = mne.preprocessing.create_eog_epochs(raw_filt, ch_name=ch_list,)
+    # # print(f'eog_epochs:\n{eog_epochs}')
+    # # baseline=(-0.5, -0.2)
+    # eog_epochs.plot_image(combine="mean")
+    # eog_epochs.average().plot_joint(topomap_args=topo_dict)
+
+    # eog_evoked = mne.preprocessing.create_eog_epochs(raw_data.crop(tmin=t0,tmax=t1,include_tmax=True), ch_name=ch_list,).average()
+
+    ##############
+    # events due to blinking
+    # eog_evoked = mne.preprocessing.create_eog_epochs(raw_filt, ch_name=ch_list,).average()
+    # eog_evoked.apply_baseline(baseline=(None, -0.2))
+    # eog_evoked.plot_joint(topomap_args=topo_dict)
+    ##############
+    # events due to heart beats
+    ecg_evoked = mne.preprocessing.create_ecg_epochs(raw_filt, ch_name='ECG').average()
+    ecg_evoked.apply_baseline(baseline=(None, -0.2))
+    ecg_evoked.plot_joint(topomap_args=topo_dict)
+    ##############
+
+    # print(f"bad channels: {raw_data.info['bads']}")
 
     # events, events_dict = mne.events_from_annotations(raw_filt)
     # print(f'events: {events}')
@@ -222,34 +283,31 @@ def main(args):
     # print (f'epochs[0]: {epochs[0]}')
     # baseline=(None, 0), picks=None, preload=True, reject=None, flat=None, proj=True, decim=1, reject_tmin=None, reject_tmax=None, detrend=None, on_missing='raise', reject_by_annotation=True, metadata=None, event_repeated='error', verbose=None
 
-    # ############################
-    # Break raw data into 1 s epochs
-    tstep = 1.0
-    events_ica = mne.make_fixed_length_events(raw_filt, start=t0, stop=t1, duration=tstep, overlap= 0)
-    # print(f'events_ica: {events_ica}')
-    epochs_ica = mne.Epochs(raw_filt, events=events_ica, tmin=0.0, tmax=tstep, baseline=None, preload=True)
-    # picks=['E8','E9',]
-    print(f'epochs_ica: {epochs_ica}')  
 
-    # ############################
-    from autoreject import AutoReject
+    # # ############################
+    # # Break raw data into epochs
+    # tstep = 5.0
+    # events_ica = mne.make_fixed_length_events(raw_filt, start=t0, stop=t1, duration=tstep, overlap= 0)
+    # # print(f'events_ica: {events_ica}')
+    # epochs_ica = mne.Epochs(raw_filt, events=events_ica, tmin=0.0, tmax=tstep, baseline=None, preload=True)
+    # # picks=['E8','E9',]
+    # print(f'epochs_ica: {epochs_ica}')  
 
-    ar = AutoReject(n_interpolate=[1, 2, 4],
-                    random_state=42,
-                    picks=mne.pick_types(epochs_ica.info, 
-                                        eeg=True,
-                                        eog=False
-                                        ),
-                    n_jobs=-1, 
-                    verbose=False
-                    )
+    # # ############################
+    # ## identify bad recordings
+    # ar = AutoReject(n_interpolate=[1, 2, 4],
+    #                 random_state=42,
+    #                 picks=mne.pick_types(epochs_ica.info, eeg=True, eog=False),
+    #                 n_jobs=-1,
+    #                 verbose=False)
 
-    ar.fit(epochs_ica)
+    # ar.fit(epochs_ica)
 
-    reject_log = ar.get_reject_log(epochs_ica)
-    fig_r, ax_r = plt.subplots(figsize=[15, 5])
-    reject_log.plot('horizontal', ax=ax_r, aspect='auto')
-    # ############################
+    # reject_log = ar.get_reject_log(epochs_ica)
+    # fig_r, ax_r = plt.subplots(figsize=[15, 5])
+    # reject_log.plot('horizontal', ax=ax_r, aspect='auto')
+    # # ############################
+
 
     # # ICA parameters
     # random_state = 42   # ensures ICA is reproducible each time it's run
