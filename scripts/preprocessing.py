@@ -12,6 +12,7 @@ from matplotlib.animation import FuncAnimation
 import pathlib
 import time
 from autoreject import AutoReject
+from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
 
 # def onClick(event):
 #     global pause
@@ -139,7 +140,9 @@ def main(args):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         ## bad channels by visual inspection
-        # raw_data.info["bads"] = ['E48','E119','E126','E127']
+        # channels in the boundaries that could turn and have a poor contact with the patient's skin
+        raw_data.info["bads"] = ['E48','E119','E126','E127']
+        raw_data.interpolate_bads()
         # fig = raw_data.plot_sensors(show_names=True,)
         ## resting closed eyes
         # t0 = 15
@@ -169,6 +172,12 @@ def main(args):
     # raw_data.crop(tmax=120.0)  # raw.crop() always happens in-place
     ## reduce data size for training purposes
     #########################
+
+    ##########################
+    # The regression technique works regardless of chosen reference. However, it is
+    # important to choose a reference before proceeding with the analysis.
+    raw_data.set_eeg_reference("average",ch_type='eeg',)
+    ##########################
 
     ##########################
     # printing basic information from data
@@ -229,43 +238,121 @@ def main(args):
     ## interactive annotations editing avoiding overlaping 
     ## visualization scale
 
-    # plot
-    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
-    # mne.viz.plot_raw(raw_data.crop(tmin=t0,tmax=t1,include_tmax=True), scalings=scale_dict, highpass=0.3, lowpass=70.0, block=False)
+    # # plot
+    mne.viz.plot_raw(raw_data, start=0, duration=20, scalings=scale_dict, highpass=0.3, lowpass=40.0, block=False)
+    # mne.viz.plot_raw(raw_data.crop(tmin=t0,tmax=t1,include_tmax=True), scalings=scale_dict, highpass=0.3, lowpass=70.0, block=True)
+
     # ############################
     # Filter settings
-    low_cut =  0.3
-    hi_cut  = 40.0
+    # low_cut =  0.3
+    # hi_cut  = 40.0
 
-    raw_filt = raw_data.copy().filter(low_cut, hi_cut)
-    raw_filt.crop(tmin=t0,tmax=t1,include_tmax=True)
+    filt_raw = raw_data.copy().filter(l_freq=1.0, h_freq=None)
+    # raw_filt = raw_data.copy().filter(low_cut, hi_cut)
+    # raw_filt.crop(tmin=t0,tmax=t1,include_tmax=True)
 
-    # ############################
+    # # ############################
+    # ## signals visualization
+    # mne.viz.plot_raw(raw_filt, scalings=scale_dict, block=False)
+  
+    # ##############
+    #  ## selected channels for eyes-blinking
+    # ch_blink = ['E25','E17','E8']
 
-    mne.viz.plot_raw(raw_filt, scalings=scale_dict, block=False)
+    # # events due to blinking for all the recording data excluding "BAD_" sectors (reject_by_annotation=True)
+    # # eog_evoked = mne.preprocessing.create_eog_epochs(raw_filt, ch_name=ch_blink, reject_by_annotation=True).average()
 
-    ch_list = ['E25','E17','E8']
-    topo_dict = {'contours':0}
+    # eog_epochs = mne.preprocessing.create_eog_epochs(filt_raw, ch_name=ch_blink, reject_by_annotation=True)
 
-    # eog_epochs = mne.preprocessing.create_eog_epochs(raw_filt, ch_name=ch_list,)
-    # # print(f'eog_epochs:\n{eog_epochs}')
-    # # baseline=(-0.5, -0.2)
-    # eog_epochs.plot_image(combine="mean")
-    # eog_epochs.average().plot_joint(topomap_args=topo_dict)
+    # eog_evoked = eog_epochs.average("all")
 
-    # eog_evoked = mne.preprocessing.create_eog_epochs(raw_data.crop(tmin=t0,tmax=t1,include_tmax=True), ch_name=ch_list,).average()
-
-    ##############
-    # events due to blinking
-    # eog_evoked = mne.preprocessing.create_eog_epochs(raw_filt, ch_name=ch_list,).average()
     # eog_evoked.apply_baseline(baseline=(None, -0.2))
+    # ## option zero contours to avoid visualization problems
+    # topo_dict = {'contours':0}
     # eog_evoked.plot_joint(topomap_args=topo_dict)
-    ##############
-    # events due to heart beats
-    ecg_evoked = mne.preprocessing.create_ecg_epochs(raw_filt, ch_name='ECG').average()
-    ecg_evoked.apply_baseline(baseline=(None, -0.2))
-    ecg_evoked.plot_joint(topomap_args=topo_dict)
-    ##############
+    # ##############
+    # # events due to heart beats
+    # ecg_epochs = mne.preprocessing.create_ecg_epochs(filt_raw, ch_name='ECG', reject_by_annotation=True)
+    # ecg_evoked = ecg_epochs.average("all")
+    # ecg_evoked.apply_baseline(baseline=(None, -0.2))
+    # ecg_evoked.plot_joint(topomap_args=topo_dict)
+    
+    # ##############
+    ## ICA
+
+    ica = ICA(n_components=15, max_iter="auto", random_state=97)
+    ica.fit(filt_raw, reject_by_annotation=True)
+    print(f'ica:\n{ica}')
+
+    # explained_var_ratio = ica.get_explained_variance_ratio(filt_raw)
+    # for channel_type, ratio in explained_var_ratio.items():
+    #     print(f"Fraction of {channel_type} variance explained by all components: {ratio}")
+
+    # explained_var_ratio = ica.get_explained_variance_ratio(
+    #     filt_raw, components=[0], ch_type="eeg"
+    # )
+    # # This time, print as percentage.
+    # ratio_percent = round(100 * explained_var_ratio["eeg"])
+    # print(
+    #     f"Fraction of variance in EEG signal explained by first component: "
+    #     f"{ratio_percent}%"
+    # )
+
+    # raw_data.load_data()
+    # ica.plot_sources(filt_raw, show_scrollbars=False)
+
+    # ica.plot_components(contours=0)
+    # topo_dict = {'contours':0}
+    # ica.plot_properties(filt_raw, picks=[0,1,2,3],topomap_args=topo_dict)
+
+    ica.exclude = [0]  # indices chosen based on various plots above
+
+    reconst_raw = raw_data.copy()
+    ica.apply(reconst_raw)
+    mne.viz.plot_raw(reconst_raw, start=0, duration=20, scalings=scale_dict, highpass=0.3, lowpass=40.0, block=False)
+
+    # blinks
+    # ica.plot_overlay(filt_raw, exclude=[0], picks="eeg")
+
+
+#     # perform regression on the evoked blink response
+#     model_evoked = EOGRegression(picks="eeg", picks_artifact=ch_blink,).fit(eog_evoked)
+#     fig = model_evoked.plot(vlim=(None, 0.4),contours=0,)
+#     fig.set_size_inches(3, 2)
+
+#     # for good measure, also show the effect on the blink evoked
+#     eog_evoked_clean = model_evoked.apply(eog_evoked)
+#     eog_evoked_clean.apply_baseline()
+#     eog_evoked_clean.plot("all")
+#     fig.set_size_inches(6, 6)
+
+
+#     order = np.concatenate(
+#     [# plotting order: EOG first, then EEG
+#         mne.pick_types(raw_filt.info, meg=False, eeg=True),
+#     ])
+
+#     raw_kwargs = dict(
+#     events=eog_epochs.events,
+#     order=order,
+#     start=0,
+#     duration=120,
+#     n_channels=20,
+#     scalings=dict(eeg=200e-6, eog=250e-6),
+# )
+#     # regress (using coefficients computed previously) and plot
+#     raw_clean = model_evoked.apply(raw_filt)
+#     raw_clean.plot(**raw_kwargs)
+
+#     ## scale selection
+#     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=250e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+#     # # plot
+#     mne.viz.plot_raw(raw_filt, start=0, duration=120, scalings=scale_dict, block=True,)
+
+#     ##############
+
+
+
 
     # print(f"bad channels: {raw_data.info['bads']}")
 
