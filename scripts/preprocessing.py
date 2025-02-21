@@ -14,10 +14,14 @@ import time
 from autoreject import AutoReject
 from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
 
-# def onClick(event):
-#     global pause
-#     print(f'pause: {pause}')
-#     pause = not(pause)
+from mne_icalabel import label_components
+
+from bad_channels import bad_channels_dict
+
+def onClick(event):
+    global pause
+    print(f'pause: {pause}')
+    pause = not(pause)
 
 
 ani = 0
@@ -25,10 +29,10 @@ flag=False
 images=[]
 spectrum = []
 data_spectrum = []
-fig, ax = plt.subplots(1, 1, figsize=(5,5))
 draw_image = []
 
-# fig.canvas.mpl_connect('button_press_event', onClick)
+fig, ax = plt.subplots(1, 1, figsize=(5,5))
+fig.canvas.mpl_connect('button_press_event', onClick)
 
 def toggle_pause(event):
         global flag
@@ -45,7 +49,7 @@ def main(args):
     global spectrum, data_spectrum, fig, ax, ani, draw_image
 
     ## interactive mouse pause the image visualization
-    fig.canvas.mpl_connect('button_press_event', toggle_pause)
+    # fig.canvas.mpl_connect('button_press_event', toggle_pause)
 
     print(f'arg {args[1]}') ## folder location
     print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
@@ -81,8 +85,8 @@ def main(args):
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
         
         ## resting closed eyes
-        t0 = 198 
-        t1 = 256
+        # t0 = 198 
+        # t1 = 256
 
     ############################
     # Mr Taha
@@ -104,8 +108,8 @@ def main(args):
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
 
         ## resting closed eyes
-        t0 = 134 
-        t1 = 260
+        # t0 = 134 
+        # t1 = 260
     ############################
     # Mme Carlie
     elif subject == 2:
@@ -117,8 +121,8 @@ def main(args):
         # raw_data.plot_sensors(show_names=True,)
 
         ## resting closed eyes
-        t0 = 160 
-        t1 = 220
+        # t0 = 160 
+        # t1 = 220
     ############################
     # Mme Iulia
     elif subject == 3:
@@ -129,20 +133,23 @@ def main(args):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # fig = raw_data.plot_sensors(show_names=True,)
          ## resting closed eyes
-        t0 = 178 
-        t1 = 236
+        # t0 = 178 
+        # t1 = 236
     ############################
     # Mr Andre Caron
     elif subject == 4:
         path = path + 'neuroplasticity/n_001/'
         fn_in = 'Neuro001_session1_20250113_111350.mff'
         fn_csv = 'annotations.csv'
+        fn_out = 'neuro_001_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         ## bad channels by visual inspection
         # channels in the boundaries that could turn and have a poor contact with the patient's skin
-        raw_data.info["bads"] = ['E48','E119','E126','E127']
-        raw_data.interpolate_bads()
+        
+        # raw_data.info["bads"] = ['E48','E119','E126','E127']
+        # raw_data.interpolate_bads()
+
         # fig = raw_data.plot_sensors(show_names=True,)
         ## resting closed eyes
         # t0 = 15
@@ -151,33 +158,26 @@ def main(args):
         # t0 = 244
         # t1 = 304
         ## resting opened eyes
-        segment = "opened eyes"
-        t0 = 130
-        t1 = 200
+        # segment = "opened eyes"
+        # t0 = 130
+        # t1 = 200
         ####
         # t0 = 240
         # t1 = 400
-        print(f'{segment}: {t0}s - {t1}s')
+        # print(f'{segment}: {t0}s - {t1}s')
     ############################
     else:
         return 0
-
+    
     #############################
     ## 2D location electrodes
     # fig = raw_data.plot_sensors(show_names=True,)
     #########################    
     
-    #########################
-    ## reduce data size for training purposes
-    # raw_data.crop(tmax=120.0)  # raw.crop() always happens in-place
-    ## reduce data size for training purposes
-    #########################
-
-    ##########################
-    # The regression technique works regardless of chosen reference. However, it is
-    # important to choose a reference before proceeding with the analysis.
-    raw_data.set_eeg_reference("average",ch_type='eeg',)
-    ##########################
+    #########################    
+    ## It is important to choose a reference before proceeding with the analysis.
+    # raw_data.set_eeg_reference("average",ch_type='eeg',)
+    #########################    
 
     ##########################
     # printing basic information from data
@@ -196,52 +196,248 @@ def main(args):
     raw_data.set_annotations(my_annot)
     # print(raw_data.annotations)
     ############################
-
+    # Passband filter in place
+    low_cut =   0.1
+    hi_cut  = 100.0
+    raw_data.filter(low_cut, hi_cut, picks='eeg')
+    ############################
     ## scale selection
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
+    ## signals visualization 
+    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
+    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
+
+    ############################################
+    ## cropping data according to annotations
+    ## usually segments of each label have different duration
+
+    count1 = 0
+    ## we could add padding at the begining and end of each segment if required
+    tpad = 0 # seconds
+
+    ## a for resting and b for biking
+    a_closed_eyes_list = []
+    a_opened_eyes_list = []
+    b_closed_eyes_list = []
+    b_opened_eyes_list = []
+
+
+    for ann in raw_data.annotations:
+        # print(f'ann:\n{ann}')
+        label = ann["description"]
+        duration = ann["duration"]
+        onset = ann["onset"]
+        # print(f'annotation:{count1, onset, duration, label}')
+        t1 = onset - tpad
+        t2 = onset + duration + tpad
+        if label == 'a_closed_eyes':
+            # print('a closed eyes')
+            a_closed_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+
+        elif label == 'a_opened_eyes':
+            # print('a opened eyes')
+            a_opened_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+
+        elif label == 'b_closed_eyes':
+            # print('a opened eyes')
+            b_closed_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+
+        elif label == 'b_opened_eyes':
+            # print('a opened eyes')
+            b_opened_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+
+        else:
+            pass
+        count1+=1
+
+    print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
+    print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
+    print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
+    print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
+
+    ##########################
+    # pre-processing selected segment: resting, closed eyes
+    id = 0
+    raw_cropped = a_closed_eyes_list[id]
+    ## replace bad channels (selected manually) by interpolation
+    raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
+    raw_cropped.interpolate_bads()
+    ## re-referencing average (this technique is good for dense EEG)
+    raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+
+    # ## frequency spectrum visualization
+    # mne.viz.plot_raw_psd(raw_cropped,)
+
+    id = 0
+    raw_cropped = a_opened_eyes_list[id]
+    ## replace bad channels (selected manually) by interpolation
+    raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
+    raw_cropped.interpolate_bads()
+    # ## re-referencing average (this technique is good for dense EEG)
+    raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+
+    ## visualization selected segment
+    # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, block=False)
+    # mne.viz.plot_raw(raw_re_ref, start=0, duration=80, scalings=scale_dict, block=True)
+    # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
+
+    ##########################
+    # frequency spectrums
+    fig_psd, ax_psd = plt.subplots(2, 1, sharex=True, sharey=True)
+    
+    mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[0], fmax=180)
+    mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1], fmax=180)
+
+    # print(f'raw_cropped.info: {raw_cropped.info}')
+    ## visualization topographic views
+    # times = np.arange(0, 60, 10)
+    # raw_cropped.plot_topomap(times, ch_type='eeg', average=1.0, ncols=3, nrows="auto")
+
+    ###########################
+    ## ICA for artifact removal
+    # Filter settings
+    ica_low_cut  =   1.0 # For ICA, we filter out more low-frequency power
+    ica_high_cut = 100.0
+    raw_closed_eyes_ica = raw_closed_eyes.copy().filter(ica_low_cut, ica_high_cut)
+
+    ##############
+    ica = mne.preprocessing.ICA(
+    n_components=0.99,
+    max_iter="auto",
+    method="infomax",
+    random_state=97,
+    fit_params=dict(extended=True),
+    )
+    ica.fit(raw_closed_eyes_ica)
+
+    ic_labels = label_components(raw_closed_eyes_ica, ica, method="iclabel")
+
+    # ICA0 was correctly identified as an eye blink, whereas ICA12 was
+    # classified as a muscle artifact.
+    print(ic_labels["labels"])
+    labels = ic_labels["labels"]
+    exclude_idx = [idx for idx, label in enumerate(labels) if label not in ["brain", "other"]]
+    print(f"Excluding these ICA components: {exclude_idx}")
+
+    ica.plot_sources(raw_closed_eyes, show_scrollbars=False, show=True)
+    ica.plot_components(contours=0,colorbar=True)
+
+    plt.show()
+    return 0
+    # ica.plot_properties(raw, picks=[0, 12], verbose=False)
+
+    # blinks
+    # ica.plot_overlay(raw, exclude=[0], picks="eeg")
+    # ica
+    ##############
+    # Break raw data into 1 s epochs
+    tstep = 1.0
+    events_ica = mne.make_fixed_length_events(raw_closed_eyes_ica, duration=tstep)
+    epochs_ica = mne.Epochs(raw_closed_eyes_ica, events_ica,
+                            tmin=0.0, tmax=tstep,
+                            baseline=None,
+                            preload=True)
+    
+    ###############
+    ##  autoreject
+    # from autoreject import AutoReject
+
+    ar = AutoReject(n_interpolate=[1, 2, 4],
+                    random_state=42,
+                    picks=mne.pick_types(epochs_ica.info, 
+                                        eeg=True,
+                                        eog=False
+                                        ),
+                    n_jobs=-1, 
+                    verbose=False
+                    )
+
+    ar.fit(epochs_ica)
+
+    reject_log = ar.get_reject_log(epochs_ica)
+
+    ## plot autoreject results
+    # import matplotlib.pyplot as plt
+
+    # fig, ax = plt.subplots(figsize=[15, 5])
+    # reject_log.plot('horizontal', ax=ax, aspect='auto')
+    # plt.show()
+
+    #################
+    ## ICA
+    # ICA parameters
+    random_state = 42   # ensures ICA is reproducible each time it's run
+    ica_n_components = .99     # Specify n_components as a decimal to set % explained variance
+
+    # Fit ICA
+    ica = mne.preprocessing.ICA(n_components=ica_n_components,
+                                random_state=random_state,
+                                )
+    ica.fit(epochs_ica[~reject_log.bad_epochs], decim=3)
+
+    ## automatic ICA labeling
+
+    ic_labels = label_components(epochs_ica[~reject_log.bad_epochs], ica, method="iclabel")
+
+    # ICA0 was correctly identified as an eye blink, whereas ICA12 was
+    # classified as a muscle artifact.
+    print(f"labels components: {ic_labels['labels']}")
+
+    ica.plot_components(contours=0,colorbar=True)
+
+    ############################
+    ## epochs of 1s from every segment that had been labeled as a_closed_eyes, a_opened_eyes, b_closed_eyes, b_opened_eyes
+
+    ts = 10.0 # s
+    delta = 1.0 # s
+    arr_data = raw_cropped.get_data(picks=['eeg'], tmin=ts-delta/2, tmax=ts+delta/2)
+    arr_mean = np.mean(arr_data,axis=1)
+    print(f'data: {arr_mean}')
+    print(f'data: {len(arr_mean)}, {arr_mean.shape}')
+
+    pos_ch = raw_cropped.get_montage().get_positions()['ch_pos']
+    print(f'pos_ch:\n{pos_ch}')
+
+    # mne.viz.plot_evoked_topomap(mne.grand_average(diff_waves), 
+                            # times=.500, average=0.200, 
+                            # size=3
+                        #    )
+    # mne.viz.plot_topomap(arr_mean, pos_ch, ch_type='eeg',contours=0, )
+    plt.show()
+    return 0
+
+    # ## frequency spectrum
+    spectrum = raw_cropped.compute_psd(picks='eeg',) ## opened eyes
+    data_spectrum = spectrum.get_data()
+    print(f'data_spectrum size:\n{len(data_spectrum)}')
+
+    ## first step: visualizing power spectrum density (frequency)
+    mne.viz.plot_raw_psd(raw_cropped, picks=['eeg'], area_mode='std', show=True, average=False, xscale='log')
+    # raw_cropped.plot_psd(area_mode='range', tmax=10.0, show=False, average=True)
+    frame=0
+    # im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 5.0e-13), cmap='magma')
+
+    # ani = FuncAnimation(fig=fig, func=update, frames=len(spectrum.freqs), interval=250, repeat=False,)
+    # plt.show()
+
+    ## visualization selected segment
+    # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, highpass=0.1, lowpass=45.0, block=False)
+
+    ###########################
+    ## pre-processing selected segment: resting, opened eyes
+    raw_cropped = a_opened_eyes_list[0]
+    ## first step: visualizing power spectrum density (frequency)
+    mne.viz.plot_raw_psd(raw_cropped, picks=['eeg'], area_mode='std', show=True, average=False, xscale='log')
+
+
+   
+
+    
+
     # ############################
-    # ## crop by annotations
-    # crop_list = raw_data.crop_by_annotations()
-    # # print(f'raw crop: {raw_crop}')
-    # count0 = 0
-    # count1 = 0
-    # for crop in crop_list:
-    #     for ann in crop.annotations:
-    #         descr = ann["description"]
-    #         print(f'counts:{count0, count1, descr}')
-    #         if descr == 'a_opened_eyes':
-    #             print('a open eyes')
-    #             # mne.viz.plot_raw(crop, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
-    #         else:
-    #             pass
-    #         count1+=1
-    #     count0+=1
-
-    # count1 = 0
-
-    # for ann in raw_data.annotations:
-    #     descr = ann["description"]
-    #     print(f'counts:{count1, descr}')
-    #     if descr == 'a_opened_eyes':
-    #         print('a open eyes')
-    #         # mne.viz.plot_raw(crop, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
-    #     else:
-    #         pass
-    #     count1+=1
-
-    ############################
-
-
-    ############################
-    ## signals visualization and
-    ## interactive annotations editing avoiding overlaping 
-    ## visualization scale
-
-    # # plot
-    mne.viz.plot_raw(raw_data, start=0, duration=20, scalings=scale_dict, highpass=0.3, lowpass=40.0, block=False)
-    # mne.viz.plot_raw(raw_data.crop(tmin=t0,tmax=t1,include_tmax=True), scalings=scale_dict, highpass=0.3, lowpass=70.0, block=True)
-
+    
+    '''
     # ############################
     # Filter settings
     # low_cut =  0.3
@@ -474,8 +670,8 @@ def main(args):
     # data_spectrum = spectrum.get_data()
     # print(f'data spectrum: {data_spectrum}\nshape:{data_spectrum.shape}\nfreqs:{spectrum.freqs}')
 
-    # ani = FuncAnimation(fig=fig, func=update, frames=len(spectrum.freqs), interval=250, repeat=False,)
-    # plt.show()
+    ani = FuncAnimation(fig=fig, func=update, frames=len(spectrum.freqs), interval=250, repeat=False,)
+    plt.show()
     #############################
 
     # ecg_epochs = mne.preprocessing.create_ecg_epochs(raw_data, ch_name='E8', tmin=t0, tmax=t1)
@@ -483,14 +679,25 @@ def main(args):
     # ecg_epochs = mne.preprocessing.create_ecg_epochs(raw_data,)
     # ecg_epochs.plot_image(combine="mean")
 
-    plt.show()
+    '''
 
+    plt.show()
+    
     return 0
 
 def update(frame):
-    global spectrum, data_spectrum, ax
+    global spectrum, data_spectrum, ax, fig
 
     im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 5.0e-13), cmap='magma', axes=ax, show=False)
+
+    # manually fiddle the position of colorbar
+    ax_x_start = 0.95
+    ax_x_width = 0.04
+    ax_y_start = 0.1
+    ax_y_height = 0.9
+    cbar_ax = fig.add_axes([ax_x_start, ax_y_start, ax_x_width, ax_y_height])
+    clb = fig.colorbar(im, cax=cbar_ax)
+    clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
 
     print(f"updated freq: {spectrum.freqs[frame]}")
     return (0) 
