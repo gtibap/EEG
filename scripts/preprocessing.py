@@ -65,7 +65,7 @@ def main(args):
     #########################
     ## data subject selection
     
-    ############################
+    #########################
     # Mme Chen
     if subject == 0:
         path = path + 'aug04_MsChen/'
@@ -84,10 +84,6 @@ def main(args):
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
         
-        ## resting closed eyes
-        # t0 = 198 
-        # t1 = 256
-
     ############################
     # Mr Taha
     elif subject == 1:
@@ -107,10 +103,29 @@ def main(args):
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
 
-        ## resting closed eyes
-        # t0 = 134 
-        # t1 = 260
     ############################
+    # Mr Peltier
+    if subject == 100:
+        path = path + 'oct24_Peltier/'
+        fn_in = 'eeg_pat_oct24.bdf'
+        fn_csv = 'annotations.csv'
+
+        ## read raw data
+        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
+        ## select channels
+        sel_ch = np.arange(0,64)
+        raw_data.pick(sel_ch)
+        ## rename channels
+        # maps_dict = {'C1-1':'C1', 'C2-1':'C2', 'C3-1':'C3', 'C4-1':'C4', 'C5-1':'C5', 'C6-1':'C6'}
+        # mne.rename_channels(raw_data.info, maps_dict)
+        # maps_dict = {'MAS1':'misc', 'MAS2':'misc', 'OCU3':'ecg', 'OCU4':'ecg', 'ECG5':'eog', 'ECG6':'eog', 'EXG7':'misc', 'EXG8':'misc'}
+        # mne.set_channel_types(raw_data.info, maps_dict)
+        ## electrodes montage
+        raw_data.set_montage("biosemi64")
+        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
+
+    #########################
+
     # Mme Carlie
     elif subject == 2:
         path = path + 'apic_data/initial_testing/p01/'
@@ -119,10 +134,7 @@ def main(args):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # raw_data.plot_sensors(show_names=True,)
-
-        ## resting closed eyes
-        # t0 = 160 
-        # t1 = 220
+        
     ############################
     # Mme Iulia
     elif subject == 3:
@@ -132,11 +144,9 @@ def main(args):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # fig = raw_data.plot_sensors(show_names=True,)
-         ## resting closed eyes
-        # t0 = 178 
-        # t1 = 236
+
     ############################
-    # Mr Andre Caron
+    # neuro_001
     elif subject == 4:
         path = path + 'neuroplasticity/n_001/'
         fn_in = 'Neuro001_session1_20250113_111350.mff'
@@ -144,31 +154,75 @@ def main(args):
         fn_out = 'neuro_001_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        ## bad channels by visual inspection
-        # channels in the boundaries that could turn and have a poor contact with the patient's skin
         
-        # raw_data.info["bads"] = ['E48','E119','E126','E127']
-        # raw_data.interpolate_bads()
-
-        # fig = raw_data.plot_sensors(show_names=True,)
-        ## resting closed eyes
-        # t0 = 15
-        # t1 = 85
-        # segment = "closed eyes"
-        # t0 = 244
-        # t1 = 304
-        ## resting opened eyes
-        # segment = "opened eyes"
-        # t0 = 130
-        # t1 = 200
-        ####
-        # t0 = 240
-        # t1 = 400
-        # print(f'{segment}: {t0}s - {t1}s')
+    ############################
+    ############################
+    # neuro_002
+    elif subject == 5:
+        path = path + 'neuroplasticity/n_002/'
+        fn_in = 'Neuro_002_20250117_110033.mff'
+        fn_csv = 'annotations.csv'
+        fn_out = 'neuro_002_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        
+    ############################
+    ############################
+    # neuro_003
+    elif subject == 6:
+        path = path + 'neuroplasticity/n_003/'
+        fn_in = 'neuro_003_20221231_080823.mff'
+        fn_csv = 'annotations.csv'
+        fn_out = 'neuro_003_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+    ############################
+    # neuro_004
+    elif subject == 7:
+        path = path + 'neuroplasticity/n_004/'
+        fn_in = 'neuro_004_20230102_063924.mff'
+        fn_csv = 'annotations.csv'
+        fn_out = 'neuro_004_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+    ############################
+    # neuro_005
+    elif subject == 8:
+        path = path + 'neuroplasticity/n_005/'
+        fn_in = 'Neuro_005_20250106_111519.mff'
+        fn_csv = 'annotations.csv'
+        fn_out = 'neuro_005_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+    ############################
+    # neuro_006
+    elif subject == 9:
+        path = path + 'neuroplasticity/n_006/'
+        fn_in = 'NEURO_006_20250111_113255.mff'
+        fn_csv = 'annotations.csv'
+        fn_out = 'neuro_006_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        
+    ############################
+    ############################
+    # neuro_007
+    elif subject == 10:
+        path = path + 'neuroplasticity/n_007/'
+        fn_in = 'neuro007_S1_20221231_100552.mff'
+        fn_csv = 'annotations.csv'
+        fn_out = 'neuro_007_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        
     ############################
     else:
         return 0
     
+    ############################
+    ## run matplotlib in interactive mode
+    plt.ion()
+    ############################
     #############################
     ## 2D location electrodes
     # fig = raw_data.plot_sensors(show_names=True,)
@@ -199,12 +253,12 @@ def main(args):
     # Passband filter in place
     low_cut =   0.1
     hi_cut  = 100.0
-    raw_data.filter(low_cut, hi_cut, picks='eeg')
+    raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
     ############################
     ## scale selection
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    ## signals visualization 
+    ## signals visualization
     mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
     # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
 
@@ -297,16 +351,16 @@ def main(args):
     ###########################
     ## ICA for artifact removal
     # Filter settings
-    ica_low_cut  =   1.0 # For ICA, we filter out more low-frequency power
-    ica_high_cut = 100.0
-    raw_closed_eyes_ica = raw_closed_eyes.copy().filter(ica_low_cut, ica_high_cut)
+    ica_low_cut  =  1.0 # For ICA, we filter out more low-frequency power
+    ica_high_cut = None
+    raw_closed_eyes_ica = raw_closed_eyes.copy().filter(l_freq=ica_low_cut, h_freq=ica_high_cut)
 
     ##############
     ica = mne.preprocessing.ICA(
     n_components=0.99,
     max_iter="auto",
-    method="infomax",
     random_state=97,
+    method="infomax",
     fit_params=dict(extended=True),
     )
     ica.fit(raw_closed_eyes_ica)
@@ -315,15 +369,35 @@ def main(args):
 
     # ICA0 was correctly identified as an eye blink, whereas ICA12 was
     # classified as a muscle artifact.
+    print(f'ic_labels:\n{ic_labels}')
     print(ic_labels["labels"])
-    labels = ic_labels["labels"]
-    exclude_idx = [idx for idx, label in enumerate(labels) if label not in ["brain", "other"]]
-    print(f"Excluding these ICA components: {exclude_idx}")
 
+    # for idx, label in enumerate(ic_labels["labels"]):
+    #     print(f'{idx}: {label}')
+    
+    # exclude_idx = [idx for idx, label in enumerate(ic_labels["labels"]) if label not in ["brain", "other"]]
+    # print(f"Excluding these ICA components: {exclude_idx}")
+
+    # signals' components
     ica.plot_sources(raw_closed_eyes, show_scrollbars=False, show=True)
-    ica.plot_components(contours=0,colorbar=True)
+    # topographic maps
+    ica.plot_components(inst=raw_closed_eyes, contours=0,colorbar=True)
 
-    plt.show()
+    ## ica components related to noise and artifacts in the EEG signals
+    # ica.exclude = [2, 3, 4, 6, 7, 14, 38, 47,]  # indices chosen based on various plots above
+
+    # ica.plot_overlay(inst=raw_closed_eyes, picks="eeg")
+
+    # ## apply ica to the raw data
+    # # ica.apply() changes the Raw object in-place, so let's make a copy first:
+    # reconst_raw = raw_closed_eyes.copy()
+    # ica.apply(reconst_raw)
+
+    # raw_closed_eyes.plot(show_scrollbars=False)
+    # reconst_raw.plot(show_scrollbars=False)
+    # del reconst_raw
+
+    plt.show(block=True)
     return 0
     # ica.plot_properties(raw, picks=[0, 12], verbose=False)
 

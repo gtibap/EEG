@@ -128,7 +128,7 @@ def main(args):
     ## visualization scale
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=5e-4, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
+    fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=0.1, lowpass=100.0, block=True)
     ############################
     ############################
     ## regions that do not have labels will be labeled as BAD_
