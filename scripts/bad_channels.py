@@ -1,10 +1,58 @@
 bad_channels_dict = {
-    0:{
+    100:{
         'a_closed_eyes':[['F4','FT8','T8'],['FT8','T8'],['FT8','T8'],['FT8','T8'],],
         'a_opened_eyes':[['F4','FT8','T8'],['FT8','T8'],['FT8','T8'],['FT8','T8'],],
     
         'b_closed_eyes':[['FT8',],['FT8',],['FT8',],],
         'b_opened_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
+    },
+    101:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    102:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    103:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    104:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    105:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    200:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    201:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
+    },
+    202:{
+        'a_closed_eyes':[[],[],[]],
+        'a_opened_eyes':[[],[],[]],
+        'b_closed_eyes':[[],[],[]],
+        'b_opened_eyes':[[],[],[]],
     },
     1:{
         'a_closed_eyes':[[],[],[]],
@@ -43,30 +91,6 @@ bad_channels_dict = {
         'b_opened_eyes':[[],[],[]],
     },
     7:{
-        'a_closed_eyes':[[],[],[]],
-        'a_opened_eyes':[[],[],[]],
-        'b_closed_eyes':[[],[],[]],
-        'b_opened_eyes':[[],[],[]],
-    },
-    8:{
-        'a_closed_eyes':[[],[],[]],
-        'a_opened_eyes':[[],[],[]],
-        'b_closed_eyes':[[],[],[]],
-        'b_opened_eyes':[[],[],[]],
-    },
-    9:{
-        'a_closed_eyes':[[],[],[]],
-        'a_opened_eyes':[[],[],[]],
-        'b_closed_eyes':[[],[],[]],
-        'b_opened_eyes':[[],[],[]],
-    },
-    10:{
-        'a_closed_eyes':[[],[],[]],
-        'a_opened_eyes':[[],[],[]],
-        'b_closed_eyes':[[],[],[]],
-        'b_opened_eyes':[[],[],[]],
-    },
-    100:{
         'a_closed_eyes':[[],[],[]],
         'a_opened_eyes':[[],[],[]],
         'b_closed_eyes':[[],[],[]],

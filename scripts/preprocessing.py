@@ -59,15 +59,18 @@ def main(args):
     subject= int(args[2])
     abt= int(args[3])
 
+    fn_in=''
+
     t0=0
     t1=0
 
     #########################
     ## data subject selection
-    
+    # print(f'subject out:{subject}')
     #########################
     # Mme Chen
-    if subject == 0:
+    if subject == 100:
+        # print(f'subject in:{subject}')
         path = path + 'aug04_MsChen/'
         fn_in = 'eeg_test-p3-chen_s01.bdf'
         fn_csv = 'saved-annotations.csv'
@@ -83,10 +86,10 @@ def main(args):
         ## electrodes montage
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-        
+        print(f'raw_data.info:\n{raw_data.info}')
     ############################
     # Mr Taha
-    elif subject == 1:
+    elif subject == 101:
         path = path + 'oct06_Taha/'
         if abt == 0: # resting
             fn_in = 'eeg_taha_test_rest.bdf'
@@ -105,8 +108,9 @@ def main(args):
 
     ############################
     # Mr Peltier
-    if subject == 100:
+    elif subject == 102:
         path = path + 'oct24_Peltier/'
+        
         fn_in = 'eeg_pat_oct24.bdf'
         fn_csv = 'annotations.csv'
 
@@ -115,19 +119,82 @@ def main(args):
         ## select channels
         sel_ch = np.arange(0,64)
         raw_data.pick(sel_ch)
-        ## rename channels
-        # maps_dict = {'C1-1':'C1', 'C2-1':'C2', 'C3-1':'C3', 'C4-1':'C4', 'C5-1':'C5', 'C6-1':'C6'}
-        # mne.rename_channels(raw_data.info, maps_dict)
-        # maps_dict = {'MAS1':'misc', 'MAS2':'misc', 'OCU3':'ecg', 'OCU4':'ecg', 'ECG5':'eog', 'ECG6':'eog', 'EXG7':'misc', 'EXG8':'misc'}
-        # mne.set_channel_types(raw_data.info, maps_dict)
         ## electrodes montage
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
 
-    #########################
+    ############################
+    # Mr Eric feb20
+    elif subject == 103:
+        path = path + 'feb20_Eric/'
+        
+        if abt == 0: 
+            # resting
+            fn_in = 'eeg_001_session1_rest.bdf'
+            fn_csv = 'annotations_rest.csv'
+        else:
+            # active-based therapy (ABT)
+            fn_in = 'eeg_001_session1_velo.bdf'
+            fn_csv = 'annotations_velo.csv'
+
+        ## read raw data
+        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
+        ## select channels
+        sel_ch = np.arange(0,64)
+        raw_data.pick(sel_ch)
+        ## electrodes montage
+        raw_data.set_montage("biosemi64")
+        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
+
+    ############################
+    # feb22
+    elif subject == 104:
+        path = path + 'feb22/'
+        
+        if abt == 0: 
+            # resting
+            fn_in = 'eeg_002_session1_rest.bdf'
+            fn_csv = 'annotations_rest_1.csv'
+        elif abt == 1:
+            # active-based therapy (ABT) 1
+            fn_in = 'eeg_002_session1_velo.bdf'
+            fn_csv = 'annotations_velo_1.csv'
+        else:
+            # active-based therapy (ABT) 2
+            fn_in = 'eeg_002_session1_velo2.bdf'
+            fn_csv = 'annotations_velo_2.csv'
+
+        ## read raw data
+        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
+        ## select channels
+        sel_ch = np.arange(0,64)
+        raw_data.pick(sel_ch)
+        ## electrodes montage
+        raw_data.set_montage("biosemi64")
+        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
+
+    ############################
+    # Ms Cristina
+    elif subject == 105:
+        path = path + 'aug11_Cristina/'
+        if abt == 0: # resting
+            fn_in = 'eeg_test_p4_s1_rest.bdf'
+            fn_csv = 'annotations_rest.csv'
+        else:
+            fn_in = 'eeg_test_p4_s1_bike.bdf'
+            fn_csv = 'annotations_velo.csv'
+        ## read raw data
+        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
+        ## select channels
+        sel_ch = np.arange(64,128)
+        raw_data.pick(sel_ch)
+        ## electrodes montage
+        raw_data.set_montage("biosemi64")
+        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
+    ############################        
 
     # Mme Carlie
-    elif subject == 2:
+    elif subject == 200:
         path = path + 'apic_data/initial_testing/p01/'
         fn_in = 'APIC_TEST_CM_20241205_023522.mff'
         fn_csv = 'saved-annotations.csv'
@@ -137,7 +204,7 @@ def main(args):
         
     ############################
     # Mme Iulia
-    elif subject == 3:
+    elif subject == 201:
         path = path + 'apic_data/initial_testing/p02/'
         fn_in = 'APIC_TEST_IULIA_20241217_011900.mff'
         fn_csv = 'saved-annotations.csv'
@@ -146,8 +213,18 @@ def main(args):
         # fig = raw_data.plot_sensors(show_names=True,)
 
     ############################
+    # Mme Dafne
+    elif subject == 202:
+        path = path + 'neuroplasticity/control_test/'
+        fn_in = 'Control_001_20230107_063228.mff'
+        fn_csv = 'annotations.csv'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        # fig = raw_data.plot_sensors(show_names=True,)
+
+    ############################
     # neuro_001
-    elif subject == 4:
+    elif subject == 1:
         path = path + 'neuroplasticity/n_001/'
         fn_in = 'Neuro001_session1_20250113_111350.mff'
         fn_csv = 'annotations.csv'
@@ -158,7 +235,7 @@ def main(args):
     ############################
     ############################
     # neuro_002
-    elif subject == 5:
+    elif subject == 2:
         path = path + 'neuroplasticity/n_002/'
         fn_in = 'Neuro_002_20250117_110033.mff'
         fn_csv = 'annotations.csv'
@@ -169,7 +246,7 @@ def main(args):
     ############################
     ############################
     # neuro_003
-    elif subject == 6:
+    elif subject == 3:
         path = path + 'neuroplasticity/n_003/'
         fn_in = 'neuro_003_20221231_080823.mff'
         fn_csv = 'annotations.csv'
@@ -178,7 +255,7 @@ def main(args):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
     ############################
     # neuro_004
-    elif subject == 7:
+    elif subject == 4:
         path = path + 'neuroplasticity/n_004/'
         fn_in = 'neuro_004_20230102_063924.mff'
         fn_csv = 'annotations.csv'
@@ -187,7 +264,7 @@ def main(args):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
     ############################
     # neuro_005
-    elif subject == 8:
+    elif subject == 5:
         path = path + 'neuroplasticity/n_005/'
         fn_in = 'Neuro_005_20250106_111519.mff'
         fn_csv = 'annotations.csv'
@@ -196,7 +273,7 @@ def main(args):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
     ############################
     # neuro_006
-    elif subject == 9:
+    elif subject == 6:
         path = path + 'neuroplasticity/n_006/'
         fn_in = 'NEURO_006_20250111_113255.mff'
         fn_csv = 'annotations.csv'
@@ -207,7 +284,7 @@ def main(args):
     ############################
     ############################
     # neuro_007
-    elif subject == 10:
+    elif subject == 7:
         path = path + 'neuroplasticity/n_007/'
         fn_in = 'neuro007_S1_20221231_100552.mff'
         fn_csv = 'annotations.csv'
@@ -219,6 +296,7 @@ def main(args):
     else:
         return 0
     
+    print(f'file: {fn_in}')
     ############################
     ## run matplotlib in interactive mode
     plt.ion()
@@ -260,7 +338,7 @@ def main(args):
 
     ## signals visualization
     mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
-    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
+    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=30.0, block=False)
 
     ############################################
     ## cropping data according to annotations
@@ -311,25 +389,46 @@ def main(args):
     print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
 
     ##########################
-    # pre-processing selected segment: resting, closed eyes
-    id = 0
-    raw_cropped = a_closed_eyes_list[id]
-    ## replace bad channels (selected manually) by interpolation
-    raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
-    raw_cropped.interpolate_bads()
-    ## re-referencing average (this technique is good for dense EEG)
-    raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+    if abt == 0:
+        # pre-processing selected segment: resting, closed eyes
+        id = 0
+        raw_cropped = a_closed_eyes_list[id]
+        ## replace bad channels (selected manually) by interpolation
+        raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
+        raw_cropped.interpolate_bads()
+        ## re-referencing average (this technique is good for dense EEG)
+        raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
 
-    # ## frequency spectrum visualization
-    # mne.viz.plot_raw_psd(raw_cropped,)
+        # ## frequency spectrum visualization
+        # mne.viz.plot_raw_psd(raw_cropped,)
 
-    id = 0
-    raw_cropped = a_opened_eyes_list[id]
-    ## replace bad channels (selected manually) by interpolation
-    raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
-    raw_cropped.interpolate_bads()
-    # ## re-referencing average (this technique is good for dense EEG)
-    raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        id = 0
+        raw_cropped = a_opened_eyes_list[id]
+        ## replace bad channels (selected manually) by interpolation
+        raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
+        raw_cropped.interpolate_bads()
+        # ## re-referencing average (this technique is good for dense EEG)
+        raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+    else:
+        # pre-processing selected segment: resting, closed eyes
+        id = 0
+        raw_cropped = b_closed_eyes_list[id]
+        ## replace bad channels (selected manually) by interpolation
+        raw_cropped.info["bads"] = bad_channels_dict[subject]['b_closed_eyes'][id]
+        raw_cropped.interpolate_bads()
+        ## re-referencing average (this technique is good for dense EEG)
+        raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+
+        # ## frequency spectrum visualization
+        # mne.viz.plot_raw_psd(raw_cropped,)
+
+        id = 0
+        raw_cropped = b_opened_eyes_list[id]
+        ## replace bad channels (selected manually) by interpolation
+        raw_cropped.info["bads"] = bad_channels_dict[subject]['b_opened_eyes'][id]
+        raw_cropped.interpolate_bads()
+        # ## re-referencing average (this technique is good for dense EEG)
+        raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
 
     ## visualization selected segment
     # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, block=False)
@@ -348,7 +447,11 @@ def main(args):
     # times = np.arange(0, 60, 10)
     # raw_cropped.plot_topomap(times, ch_type='eeg', average=1.0, ncols=3, nrows="auto")
 
-    ###########################
+    ##########################
+    plt.show(block=True)
+    return 0
+    ##########################
+
     ## ICA for artifact removal
     # Filter settings
     ica_low_cut  =  1.0 # For ICA, we filter out more low-frequency power

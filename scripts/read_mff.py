@@ -88,6 +88,7 @@ def main(args):
     for d in labels_ref:
         arr_onset = np.append(arr_onset, df[df['label'] == d]['onset'].to_numpy())
         arr_label = np.append(arr_label, df[df['label'] == d]['label'].to_numpy())
+        print(f'onset+label: {arr_onset}, {arr_label}')
 
     ## we expect every segment last 60 seconds
     arr_durat = len(arr_onset)*[60]
