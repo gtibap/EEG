@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Button, Slider
+
 import pathlib
 import time
 from autoreject import AutoReject
@@ -17,6 +19,7 @@ from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, cr
 from mne_icalabel import label_components
 
 from bad_channels import bad_channels_dict
+from list_participants import participants_list
 
 def onClick(event):
     global pause
@@ -31,8 +34,17 @@ spectrum = []
 data_spectrum = []
 draw_image = []
 
-fig, ax = plt.subplots(1, 1, figsize=(5,5))
-fig.canvas.mpl_connect('button_press_event', onClick)
+frame_slider = []
+data_eeg =[]
+raw_closed_eyes = []
+ax_topoplot = []
+axfreq = []
+fig_topoplot = []
+cbar_ax = []
+
+
+# fig, ax = plt.subplots(1, 1, figsize=(5,5))
+# fig.canvas.mpl_connect('button_press_event', onClick)
 
 def toggle_pause(event):
         global flag
@@ -42,11 +54,23 @@ def toggle_pause(event):
             ani.pause()
         flag = not flag
 
+
 #############################
+# The function to be called anytime a slider's value changes
+def update(val):
+    frame = int(frame_slider.val)
+    print(f'!!! update frame: {frame} !!!')
+    print(f'!!! data_eeg: {data_eeg.shape} !!!')
+    im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_closed_eyes.info, contours=0, axes=ax_topoplot, cmap='magma')
+    # colorbar
+    fig_topoplot.colorbar(im, cax=cbar_ax)
+    fig_topoplot.canvas.draw_idle()
+#############################
+
 ## EEG filtering and signals prepocessing
 
 def main(args):
-    global spectrum, data_spectrum, fig, ax, ani, draw_image
+    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -68,235 +92,22 @@ def main(args):
     ## data subject selection
     # print(f'subject out:{subject}')
     #########################
-    # Mme Chen
-    if subject == 100:
-        # print(f'subject in:{subject}')
-        path = path + 'aug04_MsChen/'
-        fn_in = 'eeg_test-p3-chen_s01.bdf'
-        fn_csv = 'saved-annotations.csv'
-
-        ## read raw data
-        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
-        ## select channels
-        sel_ch = np.arange(64,128)
-        raw_data.pick(sel_ch)
-        ## rename channels
-        maps_dict = {'C1-1':'C1', 'C2-1':'C2', 'C3-1':'C3', 'C4-1':'C4', 'C5-1':'C5', 'C6-1':'C6'}
-        mne.rename_channels(raw_data.info, maps_dict)
-        ## electrodes montage
-        raw_data.set_montage("biosemi64")
-        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-        print(f'raw_data.info:\n{raw_data.info}')
-    ############################
-    # Mr Taha
-    elif subject == 101:
-        path = path + 'oct06_Taha/'
-        if abt == 0: # resting
-            fn_in = 'eeg_taha_test_rest.bdf'
-            fn_csv = 'annotations_rest.csv'
-        else:
-            fn_in = 'eeg_taha_test_velo.bdf'
-            fn_csv = 'annotations_velo.csv'
-        ## read raw data
-        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
-        ## select channels
-        sel_ch = np.arange(64,128)
-        raw_data.pick(sel_ch)
-        ## electrodes montage
-        raw_data.set_montage("biosemi64")
-        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-
-    ############################
-    # Mr Peltier
-    elif subject == 102:
-        path = path + 'oct24_Peltier/'
-        
-        fn_in = 'eeg_pat_oct24.bdf'
-        fn_csv = 'annotations.csv'
-
-        ## read raw data
-        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
-        ## select channels
-        sel_ch = np.arange(0,64)
-        raw_data.pick(sel_ch)
-        ## electrodes montage
-        raw_data.set_montage("biosemi64")
-        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-
-    ############################
-    # Mr Eric feb20
-    elif subject == 103:
-        path = path + 'feb20_Eric/'
-        
-        if abt == 0: 
-            # resting
-            fn_in = 'eeg_001_session1_rest.bdf'
-            fn_csv = 'annotations_rest.csv'
-        else:
-            # active-based therapy (ABT)
-            fn_in = 'eeg_001_session1_velo.bdf'
-            fn_csv = 'annotations_velo.csv'
-
-        ## read raw data
-        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
-        ## select channels
-        sel_ch = np.arange(0,64)
-        raw_data.pick(sel_ch)
-        ## electrodes montage
-        raw_data.set_montage("biosemi64")
-        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-
-    ############################
-    # feb22
-    elif subject == 104:
-        path = path + 'feb22/'
-        
-        if abt == 0: 
-            # resting
-            fn_in = 'eeg_002_session1_rest.bdf'
-            fn_csv = 'annotations_rest_1.csv'
-        elif abt == 1:
-            # active-based therapy (ABT) 1
-            fn_in = 'eeg_002_session1_velo.bdf'
-            fn_csv = 'annotations_velo_1.csv'
-        else:
-            # active-based therapy (ABT) 2
-            fn_in = 'eeg_002_session1_velo2.bdf'
-            fn_csv = 'annotations_velo_2.csv'
-
-        ## read raw data
-        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
-        ## select channels
-        sel_ch = np.arange(0,64)
-        raw_data.pick(sel_ch)
-        ## electrodes montage
-        raw_data.set_montage("biosemi64")
-        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-
-    ############################
-    # Ms Cristina
-    elif subject == 105:
-        path = path + 'aug11_Cristina/'
-        if abt == 0: # resting
-            fn_in = 'eeg_test_p4_s1_rest.bdf'
-            fn_csv = 'annotations_rest.csv'
-        else:
-            fn_in = 'eeg_test_p4_s1_bike.bdf'
-            fn_csv = 'annotations_velo.csv'
-        ## read raw data
-        raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
-        ## select channels
-        sel_ch = np.arange(64,128)
-        raw_data.pick(sel_ch)
-        ## electrodes montage
-        raw_data.set_montage("biosemi64")
-        # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
-    ############################        
-
-    # Mme Carlie
-    elif subject == 200:
-        path = path + 'apic_data/initial_testing/p01/'
-        fn_in = 'APIC_TEST_CM_20241205_023522.mff'
-        fn_csv = 'saved-annotations.csv'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        # raw_data.plot_sensors(show_names=True,)
-        
-    ############################
-    # Mme Iulia
-    elif subject == 201:
-        path = path + 'apic_data/initial_testing/p02/'
-        fn_in = 'APIC_TEST_IULIA_20241217_011900.mff'
-        fn_csv = 'saved-annotations.csv'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        # fig = raw_data.plot_sensors(show_names=True,)
-
-    ############################
-    # Mme Dafne
-    elif subject == 202:
-        path = path + 'neuroplasticity/control_test/'
-        fn_in = 'Control_001_20230107_063228.mff'
-        fn_csv = 'annotations.csv'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        # fig = raw_data.plot_sensors(show_names=True,)
-
-    ############################
-    # neuro_001
-    elif subject == 1:
-        path = path + 'neuroplasticity/n_001/'
-        fn_in = 'Neuro001_session1_20250113_111350.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_001_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        
-    ############################
-    ############################
-    # neuro_002
-    elif subject == 2:
-        path = path + 'neuroplasticity/n_002/'
-        fn_in = 'Neuro_002_20250117_110033.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_002_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        
-    ############################
-    ############################
-    # neuro_003
-    elif subject == 3:
-        path = path + 'neuroplasticity/n_003/'
-        fn_in = 'neuro_003_20221231_080823.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_003_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-    ############################
-    # neuro_004
-    elif subject == 4:
-        path = path + 'neuroplasticity/n_004/'
-        fn_in = 'neuro_004_20230102_063924.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_004_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-    ############################
-    # neuro_005
-    elif subject == 5:
-        path = path + 'neuroplasticity/n_005/'
-        fn_in = 'Neuro_005_20250106_111519.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_005_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-    ############################
-    # neuro_006
-    elif subject == 6:
-        path = path + 'neuroplasticity/n_006/'
-        fn_in = 'NEURO_006_20250111_113255.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_006_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        
-    ############################
-    ############################
-    # neuro_007
-    elif subject == 7:
-        path = path + 'neuroplasticity/n_007/'
-        fn_in = 'neuro007_S1_20221231_100552.mff'
-        fn_csv = 'annotations.csv'
-        fn_out = 'neuro_007_ann'
-        ## read raw data
-        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        
-    ############################
-    else:
+    ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
+    path, fn_in, fn_csv, raw_data = participants_list(path, subject, abt)
+    if fn_csv == '':
+        print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
+    else:
+        pass
     
-    print(f'file: {fn_in}')
+    ##########################
+    # printing basic information from data
+    print(f'raw data filename: {fn_in}')
+    print(f'annotations filename: {fn_csv}')
+    print(f'raw data info:\n{raw_data.info}')
+    # printing basic information from data
+    ############################
+    
     ############################
     ## run matplotlib in interactive mode
     plt.ion()
@@ -311,17 +122,11 @@ def main(args):
     # raw_data.set_eeg_reference("average",ch_type='eeg',)
     #########################    
 
-    ##########################
-    # printing basic information from data
-    print(f'Info:\n{raw_data.info}')
-    # printing basic information from data
-    ############################
-
     ############################
     ## read annotations (.csv file)
-    print(f'CSV file: {fn_csv}')
+    # print(f'CSV file: {fn_csv}')
     my_annot = mne.read_annotations(path + fn_csv)
-    # print(f'annotations:\n{my_annot}')
+    print(f'annotations:\n{my_annot}')
     ## read annotations (.csv file)
     ############################
     ## adding annotations to raw data
@@ -336,9 +141,11 @@ def main(args):
     ## scale selection
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
+    ############################
     ## signals visualization
     mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
-    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=30.0, block=False)
+    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=30.0, block=False)
+    ############################
 
     ############################################
     ## cropping data according to annotations
@@ -388,10 +195,13 @@ def main(args):
     print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
     print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
 
+    ## resting (abt=0), biking (abt=1)
+    ## id first sequence closed-eyes and opened-eyes
+    id = 0
     ##########################
-    if abt == 0:
-        # pre-processing selected segment: resting, closed eyes
-        id = 0
+    if abt == 0 and  len(a_closed_eyes_list) > 0 and len(a_opened_eyes_list) > 0:
+        # pre-processing selected segment: resting, closed- and opened-eyes
+        
         raw_cropped = a_closed_eyes_list[id]
         ## replace bad channels (selected manually) by interpolation
         raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
@@ -399,56 +209,87 @@ def main(args):
         ## re-referencing average (this technique is good for dense EEG)
         raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
 
-        # ## frequency spectrum visualization
-        # mne.viz.plot_raw_psd(raw_cropped,)
-
-        id = 0
         raw_cropped = a_opened_eyes_list[id]
         ## replace bad channels (selected manually) by interpolation
         raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
         raw_cropped.interpolate_bads()
         # ## re-referencing average (this technique is good for dense EEG)
         raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-    else:
-        # pre-processing selected segment: resting, closed eyes
-        id = 0
+
+    elif abt >= 1 and  len(b_closed_eyes_list) > 0 and len(b_opened_eyes_list) > 0:
+        # pre-processing selected segment: biking, closed- and opened-eyes
+
         raw_cropped = b_closed_eyes_list[id]
         ## replace bad channels (selected manually) by interpolation
         raw_cropped.info["bads"] = bad_channels_dict[subject]['b_closed_eyes'][id]
         raw_cropped.interpolate_bads()
         ## re-referencing average (this technique is good for dense EEG)
-        raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        raw_closed_eyes = raw_cropped.copy()
 
         # ## frequency spectrum visualization
         # mne.viz.plot_raw_psd(raw_cropped,)
 
-        id = 0
         raw_cropped = b_opened_eyes_list[id]
         ## replace bad channels (selected manually) by interpolation
         raw_cropped.info["bads"] = bad_channels_dict[subject]['b_opened_eyes'][id]
         raw_cropped.interpolate_bads()
         # ## re-referencing average (this technique is good for dense EEG)
-        raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        raw_opened_eyes = raw_cropped.copy()
 
+    else:
+        print(f'There is not data to show')
+        return 0
     ## visualization selected segment
     # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, block=False)
     # mne.viz.plot_raw(raw_re_ref, start=0, duration=80, scalings=scale_dict, block=True)
     # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
 
     ##########################
-    # frequency spectrums
-    fig_psd, ax_psd = plt.subplots(2, 1, sharex=True, sharey=True)
+    # power spectrum density visualization
+    # useful for bad-electrodes identification
+    # fig_psd, ax_psd = plt.subplots(2, 1, sharex=True, sharey=True)
     
-    mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[0], fmax=180)
-    mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1], fmax=180)
+    # mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[0], fmax=180)
+    # mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1], fmax=180)
+    ##########################
 
-    # print(f'raw_cropped.info: {raw_cropped.info}')
     ## visualization topographic views
+    # useful for bad-electrodes identification
     # times = np.arange(0, 60, 10)
     # raw_cropped.plot_topomap(times, ch_type='eeg', average=1.0, ncols=3, nrows="auto")
+    data_eeg = raw_closed_eyes.get_data(picks=['eeg'])
+    df_eeg = raw_closed_eyes.to_data_frame(picks=['eeg'], index='time')
+    print(f'shape: raw_closed_eyes:\n{data_eeg.shape}\n{data_eeg}')
+    print(f'dataframe: raw_closed_eyes:\n{df_eeg}')
+    # mne.viz.plot_topomap()
+
+    # adjust the main plot to make room for the sliders
+    fig_topoplot, ax_topoplot = plt.subplots(1, 1, sharex=True, sharey=True)
+    fig_topoplot.subplots_adjust(bottom=0.25)
+
+    init_frame = 15000
+
+    # vlim=(1.0e-14, 5.0e-13)
+    im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_closed_eyes.info, contours=0, axes=ax_topoplot, cmap='magma')
+
+    # Make a horizontal slider to control the frequency.
+    axfreq = fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+
+    
+    cbar_ax = fig_topoplot.add_axes([0.05, 0.25, 0.03, 0.65])
+    clb = fig_topoplot.colorbar(im, cax=cbar_ax)
+    # clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
+    # fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+    frame_slider = Slider( ax=axfreq, label='Frame [samples]', valmin=0, valmax=len(df_eeg), valinit=init_frame, )
+
+    # register the update function with each slider
+    frame_slider.on_changed(update)
 
     ##########################
     plt.show(block=True)
+    # plt.show()
     return 0
     ##########################
 
@@ -862,22 +703,22 @@ def main(args):
     
     return 0
 
-def update(frame):
-    global spectrum, data_spectrum, ax, fig
+# def update(frame):
+#     global spectrum, data_spectrum, ax, fig
 
-    im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 5.0e-13), cmap='magma', axes=ax, show=False)
+#     im, cn = mne.viz.plot_topomap(data_spectrum[:,frame], spectrum.info, contours=0, vlim=(1.0e-14, 5.0e-13), cmap='magma', axes=ax, show=False)
 
-    # manually fiddle the position of colorbar
-    ax_x_start = 0.95
-    ax_x_width = 0.04
-    ax_y_start = 0.1
-    ax_y_height = 0.9
-    cbar_ax = fig.add_axes([ax_x_start, ax_y_start, ax_x_width, ax_y_height])
-    clb = fig.colorbar(im, cax=cbar_ax)
-    clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
+#     # manually fiddle the position of colorbar
+#     ax_x_start = 0.95
+#     ax_x_width = 0.04
+#     ax_y_start = 0.1
+#     ax_y_height = 0.9
+#     cbar_ax = fig.add_axes([ax_x_start, ax_y_start, ax_x_width, ax_y_height])
+#     clb = fig.colorbar(im, cax=cbar_ax)
+#     clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
 
-    print(f"updated freq: {spectrum.freqs[frame]}")
-    return (0) 
+#     print(f"updated freq: {spectrum.freqs[frame]}")
+#     return (0) 
 
 
 if __name__ == '__main__':

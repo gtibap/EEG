@@ -51,72 +51,75 @@ def main(args):
         return 0
     ## read raw data
     ##########################
-    ########################
-    ## open csv markers file (annotations that were saved with an online application that transforms xml to csv. The xml file is found inside the file (folder) with the extension .mff)
-    print(f'CSV file: {fn_csv}')
-    df = pd.read_csv(path + fn_csv)
-    print(f'markers:\n{df}')
-    # transform column data from type string to type datetime 
-    df['beginTime'] = pd.to_datetime(df['beginTime'], utc=True)
-    # print(f"type datetime:\n{df['beginTime']}")
-    ## open csv markers file
-    ########################
-
-    ############################
     # printing basic information from data
     print(f'Info:\n{raw_data.info}')
     first_sample = raw_data.first_samp / raw_data.info["sfreq"]
     last_sample = raw_data.last_samp / raw_data.info["sfreq"]
     print(f"first and last samples:\n{first_sample, last_sample} in seconds")
-    ############################
-    # subtract initial recording time from each markers time
-    markersTime = df['beginTime'] - raw_data.info['meas_date']
-    print(f'markers time:\n{markersTime}')
-    serie_sec = markersTime.dt.total_seconds()
-    print(f'markers sec:\n{serie_sec}')
-    ## adding a column to the dataframe
-    df['onset']=serie_sec
-    print(f'annotations:\n{df}')
-    ############################
-    ############################
-    # ## extract selected data from dataframe
-    # labels = labels_ref
+    ########################
+    ## read raw annotations
+    if fn_csv.startswith('raw'):
+        ## open csv markers file (annotations that were saved with an online application that transforms xml to csv. The xml file is found inside the file (folder) with the extension .mff)
+        print(f'CSV file: {fn_csv}')
+        df = pd.read_csv(path + fn_csv)
+        print(f'markers:\n{df}')
+        # transform column data from type string to type datetime 
+        df['beginTime'] = pd.to_datetime(df['beginTime'], utc=True)
+        # print(f"type datetime:\n{df['beginTime']}")
+        ## open csv markers file
+        # subtract initial recording time from each markers time
+        markersTime = df['beginTime'] - raw_data.info['meas_date']
+        print(f'markers time:\n{markersTime}')
+        serie_sec = markersTime.dt.total_seconds()
+        print(f'markers sec:\n{serie_sec}')
+        ## adding a column to the dataframe
+        df['onset']=serie_sec
+        print(f'annotations:\n{df}')
     
-    arr_onset=np.array([])
-    arr_label=np.array([])
+        # ## extract selected data from dataframe
+        # labels = labels_ref
+        
+        arr_onset=np.array([])
+        arr_label=np.array([])
 
-    for d in labels_ref:
-        arr_onset = np.append(arr_onset, df[df['label'] == d]['onset'].to_numpy())
-        arr_label = np.append(arr_label, df[df['label'] == d]['label'].to_numpy())
-        print(f'onset+label: {arr_onset}, {arr_label}')
+        for d in labels_ref:
+            arr_onset = np.append(arr_onset, df[df['label'] == d]['onset'].to_numpy())
+            arr_label = np.append(arr_label, df[df['label'] == d]['label'].to_numpy())
+            print(f'onset+label: {arr_onset}, {arr_label}')
 
-    ## we expect every segment last 60 seconds
-    arr_durat = len(arr_onset)*[60]
-    ## latter on we manually adjust segments to avoid overlapping
-    ######
-    ## for BAD_ segments 
-    arr_onset_bad = df[df['label'] == 'BAD_']['onset'].to_numpy()
-    arr_label_bad = df[df['label'] == 'BAD_']['label'].to_numpy()
+        ## we expect every segment last 60 seconds
+        arr_durat = len(arr_onset)*[60]
+        ## latter on we manually adjust segments to avoid overlapping
+        ######
+        ## for BAD_ segments 
+        arr_onset_bad = df[df['label'] == 'BAD_']['onset'].to_numpy()
+        arr_label_bad = df[df['label'] == 'BAD_']['label'].to_numpy()
 
-    ## we define every BAD segment last 2 seconds
-    arr_durat_bad = len(arr_onset_bad)*[2]
+        ## we define every BAD segment last 2 seconds
+        arr_durat_bad = len(arr_onset_bad)*[2]
 
-    arr_onset = np.append(arr_onset, arr_onset_bad)
-    arr_label = np.append(arr_label, arr_label_bad)
-    arr_durat = np.append(arr_durat, arr_durat_bad)
+        arr_onset = np.append(arr_onset, arr_onset_bad)
+        arr_label = np.append(arr_label, arr_label_bad)
+        arr_durat = np.append(arr_durat, arr_durat_bad)
 
-    ## for BAD_ segments 
-    ######
-    print (f'arr_onset:\n{arr_onset}')
-    print (f'arr_label:\n{arr_label}')
-    print (f'arr_durat:\n{arr_durat}')
+        ## for BAD_ segments 
+        ######
+        print (f'arr_onset:\n{arr_onset}')
+        print (f'arr_label:\n{arr_label}')
+        print (f'arr_durat:\n{arr_durat}')
 
-    my_annot = mne.Annotations(
-    onset=arr_onset,  # in seconds
-    duration=arr_durat,  # in seconds, too
-    description=arr_label,
-    )
+        my_annot = mne.Annotations(
+        onset=arr_onset,  # in seconds
+        duration=arr_durat,  # in seconds, too
+        description=arr_label,
+        )
+    ###################    
+    ## read edited annotations
+    else:
+        my_annot = mne.read_annotations(path + fn_csv)
+
     print(my_annot)
+
     ############################
     ############################
     ## adding original annotations to raw data
@@ -183,9 +186,13 @@ def main(args):
     fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
 
     # save annotations
-    raw_data.annotations.save(path+"annotations.csv", overwrite=True)
-    raw_data.annotations.save(path+"annotations.fif", overwrite=True)
-    raw_data.annotations.save(path+"annotations.txt", overwrite=True)
+    flag = int(input("Save annotations ? (1 for yes, 0 for non)"))
+    if flag == 1:
+        raw_data.annotations.save(path+"annotations.csv", overwrite=True)
+        raw_data.annotations.save(path+"annotations.fif", overwrite=True)
+        raw_data.annotations.save(path+"annotations.txt", overwrite=True)
+    else:
+        pass
 
     plt.show()
 
