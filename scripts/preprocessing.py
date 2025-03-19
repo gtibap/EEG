@@ -5,6 +5,7 @@
 import mne
 mne.set_log_level('error')
 
+import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -41,6 +42,7 @@ ax_topoplot = []
 axfreq = []
 fig_topoplot = []
 cbar_ax = []
+sampling_rate = 1.0
 
 
 # fig, ax = plt.subplots(1, 1, figsize=(5,5))
@@ -58,8 +60,8 @@ def toggle_pause(event):
 #############################
 # The function to be called anytime a slider's value changes
 def update(val):
-    frame = int(frame_slider.val)
-    print(f'!!! update frame: {frame} !!!')
+    frame = math.floor(frame_slider.val*sampling_rate)
+    print(f'!!! update frame: {frame_slider.val}, {sampling_rate}, {frame} !!!')
     print(f'!!! data_eeg: {data_eeg.shape} !!!')
     im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_closed_eyes.info, contours=0, axes=ax_topoplot, cmap='magma')
     # colorbar
@@ -70,7 +72,7 @@ def update(val):
 ## EEG filtering and signals prepocessing
 
 def main(args):
-    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax
+    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -134,18 +136,20 @@ def main(args):
     # print(raw_data.annotations)
     ############################
     # Passband filter in place
-    low_cut =   0.1
-    hi_cut  = 100.0
+    low_cut =    0.1
+    hi_cut  =  100.0
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
     ############################
     ## scale selection
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    ############################
-    ## signals visualization
-    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
-    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=30.0, block=False)
-    ############################
+    # ############################
+    # ## signals visualization
+    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
+    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
+    # plt.show()
+    # return 0
+    # ############################
 
     ############################################
     ## cropping data according to annotations
@@ -197,7 +201,7 @@ def main(args):
 
     ## resting (abt=0), biking (abt=1)
     ## id first sequence closed-eyes and opened-eyes
-    id = 0
+    id = 1
     ##########################
     if abt == 0 and  len(a_closed_eyes_list) > 0 and len(a_opened_eyes_list) > 0:
         # pre-processing selected segment: resting, closed- and opened-eyes
@@ -249,10 +253,10 @@ def main(args):
     ##########################
     # power spectrum density visualization
     # useful for bad-electrodes identification
-    # fig_psd, ax_psd = plt.subplots(2, 1, sharex=True, sharey=True)
+    fig_psd, ax_psd = plt.subplots(2, 1, sharex=True, sharey=True)
     
-    # mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[0], fmax=180)
-    # mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1], fmax=180)
+    mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[0], fmax=180)
+    mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1], fmax=180)
     ##########################
 
     ## visualization topographic views
@@ -269,9 +273,14 @@ def main(args):
     fig_topoplot, ax_topoplot = plt.subplots(1, 1, sharex=True, sharey=True)
     fig_topoplot.subplots_adjust(bottom=0.25)
 
-    init_frame = 15000
+    init_frame = 0
+    sampling_rate = raw_closed_eyes.info['sfreq']
 
     # vlim=(1.0e-14, 5.0e-13)
+    ## temporal visualization
+    mne.viz.plot_raw(raw_closed_eyes, start=0, duration=80, butterfly=True, scalings=scale_dict, block=False)
+    
+    ## spatial visualization (topographical maps)
     im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_closed_eyes.info, contours=0, axes=ax_topoplot, cmap='magma')
 
     # Make a horizontal slider to control the frequency.
@@ -282,7 +291,7 @@ def main(args):
     clb = fig_topoplot.colorbar(im, cax=cbar_ax)
     # clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
     # fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
-    frame_slider = Slider( ax=axfreq, label='Frame [samples]', valmin=0, valmax=len(df_eeg), valinit=init_frame, )
+    frame_slider = Slider( ax=axfreq, label='Time [s]', valmin=0, valmax=len(df_eeg)/sampling_rate, valinit=init_frame/sampling_rate, )
 
     # register the update function with each slider
     frame_slider.on_changed(update)

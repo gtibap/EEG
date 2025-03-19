@@ -11,6 +11,7 @@ bad_channels_dict = {
         'b_opened_eyes':[[],[],[]],
     },
     101:{
+        ## POz, AF4, PO3
         'a_closed_eyes':[[],[],[]],
         'a_opened_eyes':[[],[],[]],
         'b_closed_eyes':[[],[],[]],
@@ -29,6 +30,7 @@ bad_channels_dict = {
         'b_opened_eyes':[[],[],[]],
     },
     104:{
+        ## PO3, P5, FT8, AF4
         'a_closed_eyes':[[],[],[]],
         'a_opened_eyes':[[],[],[]],
         'b_closed_eyes':[[],[],[]],
