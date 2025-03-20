@@ -21,6 +21,7 @@ from mne_icalabel import label_components
 
 from bad_channels import bad_channels_dict
 from list_participants import participants_list
+from selected_sequences import selected_sequences_dict
 
 def onClick(event):
     global pause
@@ -68,6 +69,19 @@ def update(val):
     fig_topoplot.colorbar(im, cax=cbar_ax)
     fig_topoplot.canvas.draw_idle()
 #############################
+## Bad channels identification
+def set_bad_channels(data_dict, subject, section, sequence):
+    ## EEG signals of selected section (a_opened_eyes, a_closed_eyes, b_opened_eyes, b_closed_eyes)
+    raw_cropped = data_dict[section][sequence]
+    ## include bad channels previously identified
+    raw_cropped.info["bads"] = bad_channels_dict[subject][section][sequence]
+    ## interpolate only selected bad channels; exclude bad channels that are in the extremes or those who do not have good number of surounding good channels
+    ch_excl_interp = bad_channels_dict[subject][section+'_excl'][sequence]
+    raw_cropped.interpolate_bads(exclude=ch_excl_interp)
+    ## re-referencing average (this technique is good for dense EEG)
+    data_dict[section][sequence] = raw_cropped.set_eeg_reference("average",ch_type='eeg',)
+    return data_dict
+
 
 ## EEG filtering and signals prepocessing
 
@@ -137,7 +151,7 @@ def main(args):
     ############################
     # Passband filter in place
     low_cut =    0.1
-    hi_cut  =  100.0
+    hi_cut  =  200.0
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
     ############################
     ## scale selection
@@ -164,6 +178,8 @@ def main(args):
     a_opened_eyes_list = []
     b_closed_eyes_list = []
     b_opened_eyes_list = []
+
+    eeg_data_dict={}
 
 
     for ann in raw_data.annotations:
@@ -199,65 +215,114 @@ def main(args):
     print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
     print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
 
+    ## eeg data to a dictionary
+    eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
+    eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
+    eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
+    eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
+
+    ##########################
+    # power spectrum density visualization
+    # useful for bad-electrodes identification
+    fig_psd, ax_psd = plt.subplots(2, 2, sharex=True, sharey=True)
+
     ## resting (abt=0), biking (abt=1)
     ## id first sequence closed-eyes and opened-eyes
-    id = 1
+    # id = 1
     ##########################
-    if abt == 0 and  len(a_closed_eyes_list) > 0 and len(a_opened_eyes_list) > 0:
+    if len(a_closed_eyes_list) > 0 and len(a_opened_eyes_list) > 0:
         # pre-processing selected segment: resting, closed- and opened-eyes
-        
-        raw_cropped = a_closed_eyes_list[id]
-        ## replace bad channels (selected manually) by interpolation
-        raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
-        raw_cropped.interpolate_bads()
-        ## re-referencing average (this technique is good for dense EEG)
-        raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
 
-        raw_cropped = a_opened_eyes_list[id]
-        ## replace bad channels (selected manually) by interpolation
-        raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
-        raw_cropped.interpolate_bads()
+        section = 'a_closed_eyes'
+        sequence = selected_sequences_dict[subject][section]
+        eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
+
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[0][0], fmax=180)      
+
+        section = 'a_opened_eyes'
+        sequence = selected_sequences_dict[subject][section]
+        eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)        
+
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[0][1], fmax=180)
+
+
+        # raw_cropped = a_closed_eyes_list[id]
+        # ## replace bad channels (selected manually) by interpolation
+        # raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
+        # # raw_cropped.interpolate_bads()
         # ## re-referencing average (this technique is good for dense EEG)
-        raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # # raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # raw_closed_eyes = raw_cropped.copy()
 
-    elif abt >= 1 and  len(b_closed_eyes_list) > 0 and len(b_opened_eyes_list) > 0:
+        # raw_cropped = a_opened_eyes_list[id]
+        # ## replace bad channels (selected manually) by interpolation
+        # raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
+        # # raw_cropped.interpolate_bads()
+        # # ## re-referencing average (this technique is good for dense EEG)
+        # # raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # raw_opened_eyes = raw_cropped.copy()
+    else:
+        pass
+
+    if len(b_closed_eyes_list) > 0 and len(b_opened_eyes_list) > 0:
         # pre-processing selected segment: biking, closed- and opened-eyes
 
-        raw_cropped = b_closed_eyes_list[id]
-        ## replace bad channels (selected manually) by interpolation
-        raw_cropped.info["bads"] = bad_channels_dict[subject]['b_closed_eyes'][id]
-        raw_cropped.interpolate_bads()
-        ## re-referencing average (this technique is good for dense EEG)
-        # raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-        raw_closed_eyes = raw_cropped.copy()
+        section = 'b_closed_eyes'
+        sequence = selected_sequences_dict[subject][section]
+        eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
-        # ## frequency spectrum visualization
-        # mne.viz.plot_raw_psd(raw_cropped,)
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[1][0], fmax=180)
 
-        raw_cropped = b_opened_eyes_list[id]
-        ## replace bad channels (selected manually) by interpolation
-        raw_cropped.info["bads"] = bad_channels_dict[subject]['b_opened_eyes'][id]
-        raw_cropped.interpolate_bads()
+        section = 'b_opened_eyes'
+        sequence = selected_sequences_dict[subject][section]
+        eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
+
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[1][1], fmax=180)
+
+        # raw_cropped = b_closed_eyes_list[id]
+        # ## mark bad channels
+        # raw_cropped.info["bads"] = bad_channels_dict[subject]['b_closed_eyes'][id]
+        # ## interpolate only selected bad channels; exclude bad channels that are in the extremes or those who do not have good number of surounding good channels
+        # ch_excl_interp = bad_channels_dict[subject]['b_closed_eyes_excl'][id]
+        # raw_cropped.interpolate_bads(exclude=ch_excl_interp)
         # ## re-referencing average (this technique is good for dense EEG)
-        # raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-        raw_opened_eyes = raw_cropped.copy()
+        # raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # # raw_closed_eyes = raw_cropped.copy()
+
+        # # ## frequency spectrum visualization
+        # # mne.viz.plot_raw_psd(raw_cropped,)
+
+        # raw_cropped = b_opened_eyes_list[id]
+        # ## replace bad channels (selected manually) by interpolation
+        # raw_cropped.info["bads"] = bad_channels_dict[subject]['b_opened_eyes'][id]
+        # # raw_cropped.interpolate_bads()
+        # # ## re-referencing average (this technique is good for dense EEG)
+        # # raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
+        # raw_opened_eyes = raw_cropped.copy()
 
     else:
-        print(f'There is not data to show')
-        return 0
+        pass
+        
     ## visualization selected segment
     # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, block=False)
     # mne.viz.plot_raw(raw_re_ref, start=0, duration=80, scalings=scale_dict, block=True)
     # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
 
-    ##########################
-    # power spectrum density visualization
-    # useful for bad-electrodes identification
-    fig_psd, ax_psd = plt.subplots(2, 1, sharex=True, sharey=True)
+    # ##########################
+    # # power spectrum density visualization
+    # # useful for bad-electrodes identification
+    # fig_psd, ax_psd = plt.subplots(2, 2, sharex=True, sharey=True)
     
-    mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[0], fmax=180)
-    mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1], fmax=180)
+    # mne.viz.plot_raw_psd(raw_closed_eyes, exclude=['VREF'], ax=ax_psd[0], fmax=180)
+    # mne.viz.plot_raw_psd(raw_opened_eyes, exclude=['VREF'], ax=ax_psd[1], fmax=180)
+
+    # mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[0][0], fmax=180)
+    # mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[0][1], fmax=180)
+    # mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[1][0], fmax=180)
+    # mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1][1], fmax=180)
     ##########################
+    plt.show(block=True)
+    return 0
 
     ## visualization topographic views
     # useful for bad-electrodes identification
@@ -278,7 +343,7 @@ def main(args):
 
     # vlim=(1.0e-14, 5.0e-13)
     ## temporal visualization
-    mne.viz.plot_raw(raw_closed_eyes, start=0, duration=80, butterfly=True, scalings=scale_dict, block=False)
+    mne.viz.plot_raw(raw_closed_eyes, start=0, duration=80, highpass=0.3, lowpass=30.0, butterfly=False, scalings=scale_dict, block=False)
     
     ## spatial visualization (topographical maps)
     im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_closed_eyes.info, contours=0, axes=ax_topoplot, cmap='magma')
