@@ -44,6 +44,7 @@ axfreq = []
 fig_topoplot = []
 cbar_ax = []
 sampling_rate = 1.0
+raw_data=[]
 
 
 # fig, ax = plt.subplots(1, 1, figsize=(5,5))
@@ -61,13 +62,17 @@ def toggle_pause(event):
 #############################
 # The function to be called anytime a slider's value changes
 def update(val):
+    global fig_topoplot
+
     frame = math.floor(frame_slider.val*sampling_rate)
-    print(f'!!! update frame: {frame_slider.val}, {sampling_rate}, {frame} !!!')
-    print(f'!!! data_eeg: {data_eeg.shape} !!!')
-    im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_closed_eyes.info, contours=0, axes=ax_topoplot, cmap='magma')
+    # print(f'!!! update frame: {frame_slider.val}, {sampling_rate}, {frame} !!!')
+    # print(f'!!! data_eeg: {data_eeg.shape} !!!')
+    im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_data.info, contours=0, axes=ax_topoplot, cmap='magma')
     # colorbar
     fig_topoplot.colorbar(im, cax=cbar_ax)
     fig_topoplot.canvas.draw_idle()
+    return 0
+
 #############################
 ## Bad channels identification
 def set_bad_channels(data_dict, subject, section, sequence):
@@ -79,14 +84,43 @@ def set_bad_channels(data_dict, subject, section, sequence):
     ch_excl_interp = bad_channels_dict[subject][section+'_excl'][sequence]
     raw_cropped.interpolate_bads(exclude=ch_excl_interp)
     ## re-referencing average (this technique is good for dense EEG)
-    data_dict[section][sequence] = raw_cropped.set_eeg_reference("average",ch_type='eeg',)
+    # data_dict[section][sequence] = raw_cropped.set_eeg_reference("average",ch_type='eeg',)
+    data_dict[section][sequence] = raw_cropped
     return data_dict
 
+#############################
+## topographic views
+def plot_topographic_view(data):
+    global frame_slider, data_eeg, axfreq, cbar_ax, fig_topoplot
+    ## spatial visualization (topographical maps)
+    data_eeg = data.get_data(picks=['eeg'])
+    df_eeg = data.to_data_frame(picks=['eeg'], index='time')
+    # print(f'shape data:\n{data_eeg.shape}\n{data_eeg}')
+    # print(f'dataframe data:\n{df_eeg}')
 
+    init_frame = 0
+    im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_data.info, contours=0, axes=ax_topoplot, cmap='magma')
+
+    # Make a horizontal slider to control the frequency.
+    axfreq = fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+
+    # Make colorbar
+    cbar_ax = fig_topoplot.add_axes([0.05, 0.25, 0.03, 0.65])
+    fig_topoplot.colorbar(im, cax=cbar_ax)
+    # clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
+    # fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+    # valmin=0, valmax=len(df_eeg)/sampling_rate,
+    frame_slider = Slider( ax=axfreq, label='Time [s]', valmin=0, valmax=len(df_eeg)/sampling_rate, valinit=init_frame/sampling_rate, )
+
+    # register the update function with each slider
+    frame_slider.on_changed(update)
+    return 0
+
+#############################
 ## EEG filtering and signals prepocessing
 
 def main(args):
-    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate
+    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -150,8 +184,8 @@ def main(args):
     # print(raw_data.annotations)
     ############################
     # Passband filter in place
-    low_cut =    0.1
-    hi_cut  =  200.0
+    low_cut =    0.3
+    hi_cut  =   None
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
     ############################
     ## scale selection
@@ -160,7 +194,15 @@ def main(args):
     # ############################
     # ## signals visualization
     # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
-    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
+    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=None, lowpass=45.0, block=False)
+
+   # adjust the main plot to make room for the sliders
+    fig_topoplot, ax_topoplot = plt.subplots(1, 1, sharex=True, sharey=True)
+    fig_topoplot.subplots_adjust(bottom=0.25)
+
+    sampling_rate = raw_data.info['sfreq']
+    plot_topographic_view(raw_data)
+
     # plt.show()
     # return 0
     # ############################
@@ -237,30 +279,14 @@ def main(args):
         sequence = selected_sequences_dict[subject][section]
         eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[0][0], fmax=180)      
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['bads','VREF'], ax=ax_psd[0][0], fmax=180)      
 
         section = 'a_opened_eyes'
         sequence = selected_sequences_dict[subject][section]
         eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)        
 
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[0][1], fmax=180)
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['bads','VREF'], ax=ax_psd[0][1], fmax=180)
 
-
-        # raw_cropped = a_closed_eyes_list[id]
-        # ## replace bad channels (selected manually) by interpolation
-        # raw_cropped.info["bads"] = bad_channels_dict[subject]['a_closed_eyes'][id]
-        # # raw_cropped.interpolate_bads()
-        # ## re-referencing average (this technique is good for dense EEG)
-        # # raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-        # raw_closed_eyes = raw_cropped.copy()
-
-        # raw_cropped = a_opened_eyes_list[id]
-        # ## replace bad channels (selected manually) by interpolation
-        # raw_cropped.info["bads"] = bad_channels_dict[subject]['a_opened_eyes'][id]
-        # # raw_cropped.interpolate_bads()
-        # # ## re-referencing average (this technique is good for dense EEG)
-        # # raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-        # raw_opened_eyes = raw_cropped.copy()
     else:
         pass
 
@@ -271,34 +297,13 @@ def main(args):
         sequence = selected_sequences_dict[subject][section]
         eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[1][0], fmax=180)
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['bads','VREF'], ax=ax_psd[1][0], fmax=180)
 
         section = 'b_opened_eyes'
         sequence = selected_sequences_dict[subject][section]
         eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[1][1], fmax=180)
-
-        # raw_cropped = b_closed_eyes_list[id]
-        # ## mark bad channels
-        # raw_cropped.info["bads"] = bad_channels_dict[subject]['b_closed_eyes'][id]
-        # ## interpolate only selected bad channels; exclude bad channels that are in the extremes or those who do not have good number of surounding good channels
-        # ch_excl_interp = bad_channels_dict[subject]['b_closed_eyes_excl'][id]
-        # raw_cropped.interpolate_bads(exclude=ch_excl_interp)
-        # ## re-referencing average (this technique is good for dense EEG)
-        # raw_closed_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-        # # raw_closed_eyes = raw_cropped.copy()
-
-        # # ## frequency spectrum visualization
-        # # mne.viz.plot_raw_psd(raw_cropped,)
-
-        # raw_cropped = b_opened_eyes_list[id]
-        # ## replace bad channels (selected manually) by interpolation
-        # raw_cropped.info["bads"] = bad_channels_dict[subject]['b_opened_eyes'][id]
-        # # raw_cropped.interpolate_bads()
-        # # ## re-referencing average (this technique is good for dense EEG)
-        # # raw_opened_eyes = raw_cropped.copy().set_eeg_reference("average",ch_type='eeg',)
-        # raw_opened_eyes = raw_cropped.copy()
+        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['bads','VREF'], ax=ax_psd[1][1], fmax=180)
 
     else:
         pass
@@ -308,19 +313,9 @@ def main(args):
     # mne.viz.plot_raw(raw_re_ref, start=0, duration=80, scalings=scale_dict, block=True)
     # mne.viz.plot_raw(raw_cropped, start=0, duration=80, scalings=scale_dict, highpass=0.3, lowpass=60.0, block=False)
 
-    # ##########################
-    # # power spectrum density visualization
-    # # useful for bad-electrodes identification
-    # fig_psd, ax_psd = plt.subplots(2, 2, sharex=True, sharey=True)
-    
-    # mne.viz.plot_raw_psd(raw_closed_eyes, exclude=['VREF'], ax=ax_psd[0], fmax=180)
-    # mne.viz.plot_raw_psd(raw_opened_eyes, exclude=['VREF'], ax=ax_psd[1], fmax=180)
-
-    # mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], ax=ax_psd[0][0], fmax=180)
-    # mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[0][1], fmax=180)
-    # mne.viz.plot_raw_psd(raw_closed_eyes, ax=ax_psd[1][0], fmax=180)
-    # mne.viz.plot_raw_psd(raw_opened_eyes, ax=ax_psd[1][1], fmax=180)
     ##########################
+    
+
     plt.show(block=True)
     return 0
 
