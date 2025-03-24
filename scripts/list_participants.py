@@ -9,6 +9,8 @@ def participants_list(path, subject, abt):
         path = path + 'aug04_MsChen/'
         fn_in = 'eeg_test-p3-chen_s01.bdf'
         fn_csv = 'saved-annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_biosemi64'
+        rows_plot = 2
 
         ## read raw data
         raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
@@ -22,6 +24,7 @@ def participants_list(path, subject, abt):
         raw_data.set_montage("biosemi64")
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
         # print(f'raw_data.info:\n{raw_data.info}')
+        
     ############################
     # Mr Taha
     elif subject == 101:
@@ -29,9 +32,12 @@ def participants_list(path, subject, abt):
         if abt == 0: # resting
             fn_in = 'eeg_taha_test_rest.bdf'
             fn_csv = 'annotations_rest.csv'
+            title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             fn_in = 'eeg_taha_test_velo.bdf'
             fn_csv = 'annotations_velo.csv'
+            title = 'P_'+str(subject)+'_ABT_biosemi64'
+        rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
         ## select channels
@@ -48,6 +54,8 @@ def participants_list(path, subject, abt):
         
         fn_in = 'eeg_pat_oct24.bdf'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_biosemi64'
+        rows_plot = 1
 
         ## read raw data
         raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
@@ -67,11 +75,13 @@ def participants_list(path, subject, abt):
             # resting
             fn_in = 'eeg_001_session1_rest.bdf'
             fn_csv = 'annotations_rest.csv'
+            title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             # active-based therapy (ABT)
             fn_in = 'eeg_001_session1_velo.bdf'
             fn_csv = 'annotations_velo.csv'
-
+            title = 'P_'+str(subject)+'_ABT_biosemi64'
+        rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
         ## select channels
@@ -90,15 +100,18 @@ def participants_list(path, subject, abt):
             # resting
             fn_in = 'eeg_002_session1_rest.bdf'
             fn_csv = 'annotations_rest_1.csv'
+            title = 'P_'+str(subject)+'_rest_biosemi64'
         elif abt == 1:
             # active-based therapy (ABT) 1
             fn_in = 'eeg_002_session1_velo.bdf'
             fn_csv = 'annotations_velo_1.csv'
+            title = 'P_'+str(subject)+'_ABT_biosemi64'
         else:
             # active-based therapy (ABT) 2
             fn_in = 'eeg_002_session1_velo2.bdf'
             fn_csv = 'annotations_velo_2.csv'
-
+            title = 'P_'+str(subject)+'_ABT_biosemi64'
+        rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
         ## select channels
@@ -115,9 +128,12 @@ def participants_list(path, subject, abt):
         if abt == 0: # resting
             fn_in = 'eeg_test_p4_s1_rest.bdf'
             fn_csv = 'annotations_rest.csv'
+            title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             fn_in = 'eeg_test_p4_s1_bike.bdf'
             fn_csv = 'annotations_velo.csv'
+            title = 'P_'+str(subject)+'_ABT_biosemi64'
+        rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_bdf(path + fn_in, preload=True)
         ## select channels
@@ -133,6 +149,8 @@ def participants_list(path, subject, abt):
         path = path + 'apic_data/initial_testing/p01/'
         fn_in = 'APIC_TEST_CM_20241205_023522.mff'
         fn_csv = 'saved-annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_biosemi64'
+        rows_plot = 2
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # raw_data.plot_sensors(show_names=True,)
@@ -143,6 +161,8 @@ def participants_list(path, subject, abt):
         path = path + 'apic_data/initial_testing/p02/'
         fn_in = 'APIC_TEST_IULIA_20241217_011900.mff'
         fn_csv = 'saved-annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # fig = raw_data.plot_sensors(show_names=True,)
@@ -153,6 +173,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/control_test/'
         fn_in = 'Control_001_20230107_063228.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_geodesic_net_128'
+        rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # fig = raw_data.plot_sensors(show_names=True,)
@@ -163,6 +185,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_001/'
         fn_in = 'Neuro001_session1_20250113_111350.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         # fn_out = 'neuro_001_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -174,6 +198,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_002/'
         fn_in = 'Neuro_002_20250117_110033.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_geodesic_net_128'
+        rows_plot = 1
         # fn_out = 'neuro_002_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -185,6 +211,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_003/'
         fn_in = 'neuro_003_20221231_080823.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         # fn_out = 'neuro_003_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -194,6 +222,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_004/'
         fn_in = 'neuro_004_20230102_063924.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         # fn_out = 'neuro_004_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -203,6 +233,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_005/'
         fn_in = 'Neuro_005_20250106_111519.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         # fn_out = 'neuro_005_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -212,6 +244,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_006/'
         fn_in = 'NEURO_006_20250111_113255.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         # fn_out = 'neuro_006_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -223,6 +257,8 @@ def participants_list(path, subject, abt):
         path = path + 'neuroplasticity/n_007/'
         fn_in = 'neuro007_S1_20221231_100552.mff'
         fn_csv = 'annotations.csv'
+        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
+        rows_plot = 2
         # fn_out = 'neuro_007_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -234,4 +270,4 @@ def participants_list(path, subject, abt):
         raw_data = np.NaN
     
 
-    return path, fn_in, fn_csv, raw_data
+    return path, fn_in, fn_csv, raw_data, title, rows_plot
