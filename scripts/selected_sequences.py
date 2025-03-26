@@ -73,16 +73,16 @@ selected_sequences_dict = {
         'b_opened_eyes':1,
       },
       4:{
-        'a_closed_eyes':1,
-        'a_opened_eyes':1,
-        'b_closed_eyes':1,
-        'b_opened_eyes':1,
+        'a_closed_eyes':2,
+        'a_opened_eyes':2,
+        'b_closed_eyes':2,
+        'b_opened_eyes':2,
       },
       5:{
         'a_closed_eyes':1,
         'a_opened_eyes':1,
-        'b_closed_eyes':1,
-        'b_opened_eyes':1,
+        'b_closed_eyes':2,
+        'b_opened_eyes':2,
       },
       6:{
           'a_closed_eyes':1,

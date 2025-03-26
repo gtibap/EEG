@@ -90,9 +90,15 @@ def set_bad_channels(data_dict, subject, section, sequence):
 
 #############################
 ## topographic views
-def plot_topographic_view(data):
+def plot_topographic_view(raw_data):
     global frame_slider, data_eeg, axfreq, cbar_ax, fig_topoplot
     ## spatial visualization (topographical maps)
+
+    # Passband filter in place
+    low_cut =    0.3
+    hi_cut  =   45.0
+    data = raw_data.copy().filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+
     data_eeg = data.get_data(picks=['eeg'])
     df_eeg = data.to_data_frame(picks=['eeg'], index='time')
     # print(f'shape data:\n{data_eeg.shape}\n{data_eeg}')
@@ -183,18 +189,13 @@ def main(args):
     raw_data.set_annotations(my_annot)
     # print(raw_data.annotations)
     ############################
-    # Passband filter in place
-    low_cut =    0.3
-    hi_cut  =   None
-    raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
-    ############################
     ## scale selection
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
     # ############################
-    # ## signals visualization
-    # mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, block=False)
-    mne.viz.plot_raw(raw_data, start=0, duration=120, scalings=scale_dict, highpass=None, lowpass=45.0, title=fig_title, block=False)
+    ## signals visualization
+    ## band pass filter (0.3 - 45 Hz) only for visualization
+    mne.viz.plot_raw(raw_data, start=0, duration=160, scalings=scale_dict, highpass=0.3, lowpass=45.0, title=fig_title, block=False)
 
     # adjust the main plot to make room for the sliders
     fig_topoplot, ax_topoplot = plt.subplots(1, 1, sharex=True, sharey=True)
@@ -204,7 +205,7 @@ def main(args):
     sampling_rate = raw_data.info['sfreq']
 
     ###########################
-    ## topography 
+    ## topographical map; we apply band pass filter (0.3 - 45 Hz) only for visualization 
     plot_topographic_view(raw_data)
 
     ############################################
