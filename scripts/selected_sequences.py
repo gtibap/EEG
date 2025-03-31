@@ -54,8 +54,8 @@ selected_sequences_dict = {
         'b_opened_eyes':0,
     },
       1:{
-        'a_closed_eyes':1,
-        'a_opened_eyes':1,
+        'a_closed_eyes':0,
+        'a_opened_eyes':0,
         'b_closed_eyes':1,
         'b_opened_eyes':1,
 
