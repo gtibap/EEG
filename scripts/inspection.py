@@ -46,6 +46,10 @@ cbar_ax = []
 sampling_rate = 1.0
 raw_data=[]
 
+y_limits = (None, None)
+# y_limits = (-0.4e-3, 0.4e-3)
+    
+
 
 # fig, ax = plt.subplots(1, 1, figsize=(5,5))
 # fig.canvas.mpl_connect('button_press_event', onClick)
@@ -68,7 +72,7 @@ def update(val):
     # print(f'!!! update frame: {frame_slider.val}, {sampling_rate}, {frame} !!!')
     # print(f'!!! data_eeg: {data_eeg.shape} !!!')
     y_limit = 0.4e-3
-    im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_data.info, vlim=(-y_limit, y_limit), contours=0, axes=ax_topoplot, cmap='magma')
+    im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_data.info, vlim=y_limits, contours=0, axes=ax_topoplot, cmap='magma')
     # colorbar
     fig_topoplot.colorbar(im, cax=cbar_ax)
     fig_topoplot.canvas.draw_idle()
@@ -106,8 +110,7 @@ def plot_topographic_view(raw_data):
     # print(f'dataframe data:\n{df_eeg}')
 
     init_frame = 0
-    y_limit = 0.4e-3
-    im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_data.info, vlim=(-y_limit, y_limit), contours=0, axes=ax_topoplot, cmap='magma')
+    im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_data.info, vlim=y_limits, contours=0, axes=ax_topoplot, cmap='magma')
 
     # Make a horizontal slider to control the frequency.
     axfreq = fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
@@ -197,7 +200,7 @@ def main(args):
     # ############################
     ## signals visualization
     ## band pass filter (0.3 - 45 Hz) only for visualization
-    mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=0.3, lowpass=45.0, title=fig_title, block=False)
+    mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
 
     # adjust the main plot to make room for the sliders
     fig_topoplot, ax_topoplot = plt.subplots(1, 1, sharex=True, sharey=True)
