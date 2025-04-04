@@ -1,5 +1,6 @@
 bad_channels_dict = {
     100:{
+        'general':['T8'],
         # 'a_closed_eyes':[['F4','FT8','T8'],['FT8','T8'],['FT8','T8'],['FT8','T8'],],
         # 'a_opened_eyes':[['F4','FT8','T8'],['FT8','T8'],['FT8','T8'],['FT8','T8'],],
         'a_closed_eyes':[[],[],[],[]],
@@ -108,17 +109,19 @@ bad_channels_dict = {
         'b_opened_eyes_excl':[[]]*3,
     },
     1:{
-        'a_closed_eyes':[['E119']]*3,
-        'a_opened_eyes':[['E119']]*3,
-        'b_closed_eyes':[['E119']]*3,
-        'b_opened_eyes':[['E119']]*3,
+        'general':['E48','E119'],
+        'a_closed_eyes':[['E48','E119']]*3,
+        'a_opened_eyes':[['E48','E119']]*3,
+        'b_closed_eyes':[['E48','E119']]*3,
+        'b_opened_eyes':[['E48','E119']]*3,
         ## channels to exclude from interpolation because close to the head net borders
-        'a_closed_eyes_excl':[['E119']]*3,
-        'a_opened_eyes_excl':[['E119']]*3,
-        'b_closed_eyes_excl':[['E119']]*3,
-        'b_opened_eyes_excl':[['E119']]*3,
+        'a_closed_eyes_excl':[['E48','E119']]*3,
+        'a_opened_eyes_excl':[['E48','E119']]*3,
+        'b_closed_eyes_excl':[['E48','E119']]*3,
+        'b_opened_eyes_excl':[['E48','E119']]*3,
     },
     2:{
+        'general':['E8','E55'],
         'a_closed_eyes':[['E8','E55']]*3,
         'a_opened_eyes':[['E8','E55']]*3,
         'b_closed_eyes':[['E8','E55']]*3,
@@ -177,6 +180,7 @@ bad_channels_dict = {
 
     },
     7:{
+        'general':[],
         'a_closed_eyes':[['E48']]*3,
         'a_opened_eyes':[['E48']]*3,
         'b_closed_eyes':[['E48']]*3,

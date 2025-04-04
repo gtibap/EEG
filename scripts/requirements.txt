@@ -6,4 +6,4 @@ torch
 mne-icalabel
 scikit-learn
 numpy
-
+python-picard
