@@ -2,7 +2,7 @@ import numpy as np
 import mne
 mne.set_log_level('error')
 
-def participants_list(path, subject, abt):
+def participants_list(path, subject, session, abt):
         # Mme Chen
     if subject == 100:
         # print(f'subject in:{subject}')
@@ -183,10 +183,18 @@ def participants_list(path, subject, abt):
     # neuro_001
     elif subject == 1:
         path = path + 'neuroplasticity/n_001/'
-        fn_in = 'Neuro001_session1_20250113_111350.mff'
-        fn_csv = 'annotations.csv'
-        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
-        rows_plot = 2
+        if session==1:
+            fn_in = 'session_'+str(session)+'/'+'Neuro001_session1_20250113_111350.mff'
+            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==2:
+            fn_in = 'session_'+str(session)+'/'+'Neuro_001_3M_20230101_082244.mff'
+            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            pass
         # fn_out = 'neuro_001_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -209,10 +217,18 @@ def participants_list(path, subject, abt):
     # neuro_003
     elif subject == 3:
         path = path + 'neuroplasticity/n_003/'
-        fn_in = 'neuro_003_20221231_080823.mff'
-        fn_csv = 'annotations.csv'
-        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
-        rows_plot = 2
+        if session==1:
+            fn_in = 'session_'+str(session)+'/'+'neuro_003_20221231_080823.mff'
+            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==2:
+            fn_in = 'session_'+str(session)+'/'+'Neuro_003_3M_20221231_090044.mff'
+            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            title = 'P_'+str(subject)+'_rest_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 1
+        else:
+            pass
         # fn_out = 'neuro_003_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
