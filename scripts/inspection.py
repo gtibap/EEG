@@ -93,6 +93,33 @@ def set_bad_channels(data_dict, subject, section, sequence):
     data_dict[section][sequence] = raw_cropped
     return data_dict
 
+
+def interpolation_bad_channels(eeg_data_dict, subject, session):
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    ## eeg data to a dictionary
+    a_closed_eyes_list = eeg_data_dict['a_closed_eyes']
+    a_opened_eyes_list = eeg_data_dict['a_opened_eyes']
+    b_closed_eyes_list = eeg_data_dict['b_closed_eyes']
+    b_opened_eyes_list = eeg_data_dict['b_opened_eyes']
+
+    for label in labels_list:
+        print(f'label: {label}')
+        raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            # print(f'raw data:\n{len(raw)}')
+            raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            raw.interpolate_bads()
+            # print(f'subject, session, label, id: {subject, session, label, id}')
+            # print(f'bad channels:{raw.info["bads"]}')
+            raw_list.append(raw)
+        ## concatenate several segments same label           
+        eeg_data_dict[label] = mne.concatenate_raws(raw_list, )
+        print(f'eeg_data_dict[{label}]: {eeg_data_dict[label]}')
+    # 
+    return eeg_data_dict
+
 #############################
 ## topographic views
 def plot_topographic_view(raw_data):
@@ -128,7 +155,7 @@ def plot_topographic_view(raw_data):
     return 0
 
 #############################
-## EEG filtering and signals prepocessing
+## EEG filtering and signals pre-processing
 
 def main(args):
     global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data
@@ -138,11 +165,13 @@ def main(args):
 
     print(f'arg {args[1]}') ## folder location
     print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
-    print(f'arg {args[3]}') ## ABT = {0:resting, 1:biking}
+    print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
+    print(f'arg {args[4]}') ## ABT = {0:resting, 1:biking}
     
     path=args[1]
     subject= int(args[2])
-    abt= int(args[3])
+    session=int(args[3])
+    abt= int(args[4])
 
     fn_in=''
 
@@ -150,11 +179,11 @@ def main(args):
     t1=0
 
     #########################
-    ## data subject selection
-    # print(f'subject out:{subject}')
+    ## selected data
+    print(f'path:{path}\nsubject:{subject}\nsession:{session}\nabt:{abt}\n')
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
@@ -268,6 +297,12 @@ def main(args):
     eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
     eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
 
+    #########################
+    ## channels interpolation
+    print(f'interpolation_bad_channels')
+    eeg_data_dict = interpolation_bad_channels(eeg_data_dict, subject, session)
+    #########################
+
     ##########################
     # power spectrum density visualization
     # useful for bad-electrodes identification
@@ -283,20 +318,24 @@ def main(args):
         # pre-processing selected segment: resting, closed- and opened-eyes
 
         section = 'a_closed_eyes'
-        sequence = selected_sequences_dict[subject][section]
+        # sequence = selected_sequences_dict[subject][section]
         # eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
+        ## signals visualization
+        ## band pass filter (0.3 - 45 Hz) only for visualization
+        mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=section, block=False)
+
         ## spectrum closed eyes resting
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
+        mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
         ax_psd[ax_number].set_title('rest closed eyes')
         ax_number+=1
 
         section = 'a_opened_eyes'
-        sequence = selected_sequences_dict[subject][section]
+        # sequence = selected_sequences_dict[subject][section]
         # eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)        
 
         ## spectrum opened eyes resting
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
+        mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
         ax_psd[ax_number].set_title('rest opened eyes')
         ax_number+=1
 
@@ -307,21 +346,21 @@ def main(args):
         # pre-processing selected segment: biking, closed- and opened-eyes
 
         section = 'b_closed_eyes'
-        sequence = selected_sequences_dict[subject][section]
+        # sequence = selected_sequences_dict[subject][section]
         # eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
         ## spectrum closed eyes ABT
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
+        mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
         ax_psd[ax_number].set_title('ABT closed eyes')
         ax_number+=1
         
 
         section = 'b_opened_eyes'
-        sequence = selected_sequences_dict[subject][section]
+        # sequence = selected_sequences_dict[subject][section]
         # eeg_data_dict = set_bad_channels(eeg_data_dict, subject, section, sequence)
 
         ## spectrum opened eyes ABT 
-        mne.viz.plot_raw_psd(eeg_data_dict[section][sequence], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
+        mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=['VREF'], ax=ax_psd[ax_number], fmax=180)
         ax_psd[ax_number].set_title('ABT opened eyes')
         
 

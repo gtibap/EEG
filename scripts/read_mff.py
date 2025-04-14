@@ -29,9 +29,9 @@ labels_ref = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
 
 def main(args):
     
-    print(f'arg {args[1]}') ## folder location
-    print(f'arg {args[2]}') ## file name .mff
-    print(f'arg {args[3]}') ## file name annotations .csv
+    print(f'folder location: {args[1]}') ## folder location
+    print(f'filename raw eeg data: {args[2]}') ## file name .mff
+    print(f'filename annotations {args[3]}') ## file name annotations .csv
     
     path=args[1]
     fn_in=args[2]
@@ -132,7 +132,7 @@ def main(args):
     ## visualization scale
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=250e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    fig = raw_data.plot(start=0, duration=240, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
+    fig = raw_data.plot(start=0, duration=240, n_channels=65, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
     ############################
     ############################
     ## regions that do not have labels will be labeled as BAD_
@@ -186,8 +186,8 @@ def main(args):
     fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
 
     # save annotations
-    flag = int(input("Save annotations ? (1 for yes, 0 for non)"))
-    if flag == 1:
+    flag = input("Save annotations ? (1-yes, 0-non) ")
+    if int(flag) == 1 or flag.startswith('y') or flag.startswith('Y'):
         raw_data.annotations.save(path+"annotations.csv", overwrite=True)
         raw_data.annotations.save(path+"annotations.fif", overwrite=True)
         raw_data.annotations.save(path+"annotations.txt", overwrite=True)
