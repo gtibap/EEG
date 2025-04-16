@@ -276,10 +276,16 @@ def participants_list(path, subject, session, abt):
     # neuro_007
     elif subject == 7:
         path = path + 'neuroplasticity/n_007/'
-        fn_in = 'neuro007_S1_20221231_100552.mff'
-        fn_csv = 'annotations.csv'
-        title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
-        rows_plot = 2
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro007_S1_20221231_100552.mff'
+            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==1:
+            fn_in = 'session_'+str(session)+'/'+'neuro_007_3m_20230108_081936.mff'
+            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
         # fn_out = 'neuro_007_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
