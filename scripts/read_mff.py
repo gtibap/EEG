@@ -189,8 +189,8 @@ def main(args):
     flag = input("Save annotations ? (1-yes, 0-non) ")
     if int(flag) == 1 or flag.startswith('y') or flag.startswith('Y'):
         raw_data.annotations.save(path+"annotations.csv", overwrite=True)
-        raw_data.annotations.save(path+"annotations.fif", overwrite=True)
-        raw_data.annotations.save(path+"annotations.txt", overwrite=True)
+        # raw_data.annotations.save(path+"annotations.fif", overwrite=True)
+        # raw_data.annotations.save(path+"annotations.txt", overwrite=True)
     else:
         pass
 

@@ -71,9 +71,9 @@ def data_segmentation(raw_data):
 
 ############################
 ## Bad channels identification
-def bad_channels_interp(raw_data, subject):
+def bad_channels_interp(raw_data, subject, session):
     ## include bad channels previously identified
-    raw_data.info["bads"] = bad_channels_dict[subject]['general']
+    raw_data.info["bads"] = bad_channels_dict[subject]['session_'+str(session)]['general']
     print(f'bad channels: {raw_data.info["bads"]}')
     ## interpolate only selected bad channels
     raw_data.interpolate_bads()
@@ -87,20 +87,21 @@ def main(args):
 
     print(f'folder location: {args[1]}') ## folder location
     print(f'subject: {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
-    print(f'ABT: {args[3]}') ## ABT = {0:resting, 1:biking}
+    print(f'session: {args[3]}') ## session = {0:initial, 1:three months}
+    print(f'ABT: {args[4]}') ## ABT = {0:resting, 1:biking}
     
     path=args[1]
     subject= int(args[2])
-    abt= int(args[3])
+    session= int(args[3])
+    abt= int(args[4])
 
     fn_in=''
     t0=0
     t1=0
 
-
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
@@ -131,12 +132,12 @@ def main(args):
     
     ############################
     ## high-pass filter
-    raw_data.filter(l_freq=0.5, h_freq=None)
+    raw_data.filter(l_freq=0.1, h_freq=None)
 
     ############################
     ## identify bad channels
     ## bad channels interpolation
-    raw_data = bad_channels_interp(raw_data, subject)
+    raw_data = bad_channels_interp(raw_data, subject, session)
 
 
     ## crop segments of raw data according to annotations
@@ -161,7 +162,7 @@ def main(args):
     # for id, raw in enumerate(a_opened_eyes_list):
     #     filt_raw[id] = raw.copy().filter(l_freq=1.0, h_freq=None)
 
-    raw = b_opened_eyes_list[1]
+    raw = a_opened_eyes_list[0]
     # raw = a_closed_eyes_list[0]
     filt_raw = raw.copy().filter(l_freq=1.0, h_freq=None)
 
@@ -183,9 +184,11 @@ def main(args):
     # blinks
     # ica.plot_overlay(raw, exclude=[2], picks="eeg")
 
-    ica.exclude = [2]  # indices chosen based on various plots above
-
+    # plt.show(block=True)
+    # return 0
     
+    
+    ica.exclude = [2]  # indices chosen based on various plots above
 
     # ica.apply() changes the Raw object in-place, so let's make a copy first:
     reconst_raw = raw.copy()
@@ -210,7 +213,6 @@ def main(args):
     mne.viz.plot_raw_psd(reconst_raw, exclude=['VREF'], ax=ax_psd[1], fmax=180)
     
     plt.show(block=True)
-
     return 0
 
 if __name__ == '__main__':
