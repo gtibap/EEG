@@ -22,6 +22,7 @@ from mne_icalabel import label_components
 from bad_channels import bad_channels_dict
 from list_participants import participants_list
 from selected_sequences import selected_sequences_dict
+from blinks_components import blinks_components_dict
 
 def onClick(event):
     global pause
@@ -130,6 +131,37 @@ def set_sigmoid_fun(raw):
 
     return f_ref
 
+def concat_fun(eeg_data_dict):
+    global sigmoid_signal
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    new_eeg_data_dict = {}
+
+    for id_label, label in enumerate(labels_list):
+        
+        print(f'label: {label}')
+
+        raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            ## To create a smooth transition among concatenated signals, we multiply the raw data with a function that makes the EEG signals' boundaries close to zero (we create a function based on sigmoide functions).
+            sigmoid_signal = set_sigmoid_fun(raw)
+            ## sigmoid signal and raw data multiplication
+            raw.apply_function(mult_functions, picks=['all'])
+            ## append results
+            raw_list.append(raw)
+
+        if len(raw_list) > 0:
+            ## concatenate several segments same label  to have continuous data
+            new_eeg_data_dict[label] = mne.concatenate_raws(raw_list, )
+            ## delete all annotations, including bad annotations generated in the concatenation operation
+            ann = new_eeg_data_dict[label].annotations
+            ## actual operation that deletes all annotations (by indexes)
+            new_eeg_data_dict[label].annotations.delete(np.arange(len(ann)))
+        else:
+            new_eeg_data_dict[label]=None
+    # 
+    return new_eeg_data_dict
+
 
 def interpolation_and_concatenation(eeg_data_dict, subject, session):
     global sigmoid_signal
@@ -182,6 +214,33 @@ def interpolation_and_concatenation(eeg_data_dict, subject, session):
     return eeg_data_dict
 
 
+def channels_interpolation(eeg_data_dict, subject, session):
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        print(f'label: {label}')
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            # print(f'raw data:\n{len(raw)}')
+            raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            raw.interpolate_bads()
+            new_raw_list.append(raw)
+        eeg_data_dict[label] = new_raw_list
+
+    return eeg_data_dict
+
+##
+def csd_fun(eeg_data_dict):
+    print(f'current source density calculation...')
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        print(f'label: {label}')
+        eeg_data_dict[label] = mne.preprocessing.compute_current_source_density(eeg_data_dict[label])
+
+    return eeg_data_dict
+
 ##########################
 def ica_simple_func(raw, subject, session):
     print(f'Inside ica function.\nSubject, session: {subject, session}')
@@ -219,41 +278,34 @@ def ica_func(eeg_data_dict, subject, session):
     ## ICA components
     ica = ICA(n_components= 0.99, method='fastica', max_iter="auto", random_state=97)
 
-    # labels_open_eyes = ['a_opened_eyes','b_opened_eyes',]
-    labels_open_eyes = ['a_opened_eyes',]
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    new_eeg_data_dict = {}
 
-    for label in labels_open_eyes:
-        ## raw data open eyes
-        raw = eeg_data_dict[label]
-        ## high pass filter at 1 Hz to raw data before ICA calculation
-        filt_raw = raw.copy().filter(l_freq=1.0, h_freq=None)
-        ## ICA fitting model to the filtered raw data
-        ica.fit(filt_raw)
+    for id_label, label in enumerate(labels_list):
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            print(f'label: {label, id}')
+            # print(f'raw data:\n{len(raw)}')
+            filt_raw = raw.copy().filter(l_freq=1.0, h_freq=None)
+            ## ICA fitting model to the filtered raw data
+            ica.fit(filt_raw)
+            #################
+            ## ica components visualization
+            # ica.plot_sources(raw, show_scrollbars=False, block=False)
+            # ica.plot_components(inst=raw, contours=0,)
+            # plt.show(block=True)
+            #################
+            ica.exclude = blinks_components_dict[subject]['session_'+str(session)][label][id]  # indices chosen based on various plots above
+            print(f'ICA blink component: {ica.exclude}')
+            reconst_raw = raw.copy()
+            ica.apply(reconst_raw)
 
-    # explained_var_ratio = ica.get_explained_variance_ratio(filt_raw)
-    # for channel_type, ratio in explained_var_ratio.items():
-    #     print(f"Fraction of {channel_type} variance explained by all components: {ratio}")
-    
-        # raw.load_data()
-        ica.plot_sources(raw, show_scrollbars=False, block=False)
-        ica.plot_components(inst=raw, contours=0)
+            new_raw_list.append(reconst_raw)
+        new_eeg_data_dict[label] = new_raw_list
 
-        # ica.exclude = [2]  # indices chosen based on various plots above
-        # reconst_raw = raw.copy()
-        # ica.apply(reconst_raw)
+    return new_eeg_data_dict
 
-    # blinks
-    # ica.plot_overlay(raw, exclude=[2], picks="eeg")
-
-    # plt.show(block=True)
-    # return 0
-    
-    # ica.exclude = [2]  # indices chosen based on various plots above
-
-    # ica.apply() changes the Raw object in-place, so let's make a copy first:
-    # reconst_raw = raw.copy()
-    # ica.apply(reconst_raw)
-    return 0
+   
 
 #############################
 ## topographic views
@@ -411,8 +463,42 @@ def main(args):
 
     #########################
     ## interpolation of bad channels and contatenation of segments with same label
-    eeg_data_dict = interpolation_and_concatenation(eeg_data_dict, subject, session)
+    # eeg_data_dict = interpolation_and_concatenation(eeg_data_dict, subject, session)
+    eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
+    
     #########################
+    ## ICA for blink removal
+    eeg_data_dict = ica_func(eeg_data_dict, subject, session)
+
+    ##########################
+    ## segments concatenation
+    eeg_data_dict = concat_fun(eeg_data_dict)
+
+    ##########################
+    ## current source density
+    ## Surface Laplacian 
+    eeg_data_dict = csd_fun(eeg_data_dict)
+
+    # #########################
+    # # Visualization before and after concatenation
+    # labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    # for id, label in enumerate(labels_list):
+    #     # for raw, new_raw in zip(eeg_data_dict[label],new_eeg_data_dict[label]):
+    #     # for raw in eeg_after_concat_dict[label]:
+    #     mne.viz.plot_raw(eeg_after_concat_dict[label], start=0, duration=240, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=label+' '+str(id)+' after concatenation', block=False)
+
+    #########################
+    # # Visualization before and after ICA
+    # labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    # for label in labels_list:
+    #     id=0
+    #     # for raw, new_raw in zip(eeg_data_dict[label],new_eeg_data_dict[label]):
+    #     for new_raw in new_eeg_data_dict[label]:
+    #         mne.viz.plot_raw(new_raw, start=0, duration=240, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=label+' '+str(id)+' after ica', block=True)
+    #         id+=1
+
+    # plt.show(block=True)
+    # return 0
 
     ##########################
     # power spectrum density visualization
@@ -429,16 +515,14 @@ def main(args):
             mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
             ## channels' spectrum of frequencies
             ax_psd[ax_number] = fig_psd.add_subplot(2,2,ax_number+1)
-            mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=['VREF'], ax=ax_psd[ax_number], fmax=100)
+            mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=[], ax=ax_psd[ax_number], fmax=100)
             ax_psd[ax_number].set_title(label_title[ax_number])
             ax_psd[ax_number].set_ylim([-20, 50])    
         else:
             pass
     fig_psd.tight_layout()
 
-    ##############################
-    ## ICA for blink removal
-    ica_func(eeg_data_dict, subject, session)
+    
 
 
 
