@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, Slider
 
+import json
+import pickle
+
 import pathlib
 import time
 from autoreject import AutoReject
@@ -94,6 +97,16 @@ def set_bad_channels(data_dict, subject, section, sequence):
     # data_dict[section][sequence] = raw_cropped.set_eeg_reference("average",ch_type='eeg',)
     data_dict[section][sequence] = raw_cropped
     return data_dict
+
+def crop_fun(raw_data, t1, t2):
+    raw = raw_data.copy().crop(tmin=t1, tmax=t2,)
+    # raw.set_meas_date(None)
+    # mne.io.anonymize_info(raw.info)
+    # print(f'first sample after crop: {raw.first_samp}')
+    ann = raw.annotations
+    print(f'crop annotations:{len(ann)}\n{ann}')
+    raw.annotations.delete(np.arange(len(ann)))
+    return raw
 
 def mult_functions(input):
 
@@ -368,6 +381,9 @@ def main(args):
     #########################
     ## selected data
     print(f'path:{path}\nsubject:{subject}\nsession:{session}\nabt:{abt}\n')
+
+    update_ICA = input("Update ICA calculations ? (1-True, 0-False) ")
+
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
     path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, session, abt)
@@ -418,66 +434,77 @@ def main(args):
     # ## topographical map; we apply band pass filter (0.3 - 45 Hz) only for visualization 
     # plot_topographic_view(raw_data)
     ############################################
-    ## cropping data according to annotations
-    ## prefix:
-    ## a:resting; b:biking
-    a_closed_eyes_list = []
-    a_opened_eyes_list = []
-    b_closed_eyes_list = []
-    b_opened_eyes_list = []
+    if int(update_ICA)==1:
+        ## cropping data according to annotations
+        ## prefix:
+        ## a:resting; b:biking
+        a_closed_eyes_list = []
+        a_opened_eyes_list = []
+        b_closed_eyes_list = []
+        b_opened_eyes_list = []
 
-    for ann in raw_data.annotations:
-        # print(f'ann:\n{ann}')
-        label = ann["description"]
-        duration = ann["duration"]
-        onset = ann["onset"]
-        # print(f'annotation:{count1, onset, duration, label}')
-        t1 = onset
-        t2 = onset + duration
-        if label == 'a_closed_eyes':
-            a_closed_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+        for ann in raw_data.annotations:
+            # print(f'ann:\n{ann}')
+            label = ann["description"]
+            duration = ann["duration"]
+            onset = ann["onset"]
+            # print(f'annotation:{count1, onset, duration, label}')
+            t1 = onset
+            t2 = onset + duration
+            if label == 'a_closed_eyes':
+                a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
 
-        elif label == 'a_opened_eyes':
-            a_opened_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+            elif label == 'a_opened_eyes':
+                a_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
 
-        elif label == 'b_closed_eyes':
-            b_closed_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+            elif label == 'b_closed_eyes':
+                b_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
 
-        elif label == 'b_opened_eyes':
-            b_opened_eyes_list.append(raw_data.copy().crop(tmin=t1, tmax=t2,))
+            elif label == 'b_opened_eyes':
+                b_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
 
-        else:
-            pass
+            else:
+                pass
 
-    print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
-    print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
-    print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
-    print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
+        print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
+        print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
+        print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
+        print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
 
-    ## eeg data to a dictionary
-    eeg_data_dict={}
-    eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
-    eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
-    eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
-    eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
+        ## eeg data to a dictionary
+        eeg_data_dict={}
+        eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
+        eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
+        eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
+        eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
 
-    #########################
-    ## interpolation of bad channels and contatenation of segments with same label
-    # eeg_data_dict = interpolation_and_concatenation(eeg_data_dict, subject, session)
-    eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
-    
-    #########################
-    ## ICA for blink removal
-    eeg_data_dict = ica_func(eeg_data_dict, subject, session)
+        #########################
+        ## interpolation of bad channels and contatenation of segments with same label
+        # eeg_data_dict = interpolation_and_concatenation(eeg_data_dict, subject, session)
+        eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
+        
+        #########################
+        ## ICA for blink removal
+        eeg_data_dict = ica_func(eeg_data_dict, subject, session)
 
-    ##########################
-    ## segments concatenation
-    eeg_data_dict = concat_fun(eeg_data_dict)
+        ##########################
+        ## segments concatenation
+        eeg_data_dict = concat_fun(eeg_data_dict)
 
-    ##########################
-    ## current source density
-    ## Surface Laplacian 
-    eeg_data_dict = csd_fun(eeg_data_dict)
+        ##########################
+        ## current source density
+        ## Surface Laplacian 
+        eeg_data_dict = csd_fun(eeg_data_dict)
+
+        ##########################
+        ## save results
+        # writing dictionary to a binary file
+        with open('../data/results_ICA/pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'wb') as file:
+            pickle.dump(eeg_data_dict, file)
+    else:
+        # Reading dictionary from the binary file
+        with open('../data/results_ICA/pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'rb') as file:
+            eeg_data_dict = pickle.load(file)
 
     # #########################
     # # Visualization before and after concatenation
@@ -502,34 +529,82 @@ def main(args):
 
     ##########################
     # power spectrum density visualization
-    fig_psd = plt.figure(fig_title, figsize=(12, 5))
-    ax_psd = [[]]*4
+    fig_title = "power spectrum density"
+    # fig_psd = plt.figure(fig_title, figsize=(12, 5))
+    # ax_psd = [[]]*4
 
     labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
     label_title = ['resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
 
+    # for ax_number, section in enumerate(labels_list):
+    #     ## signals visualization
+    #     if eeg_data_dict[section] != None:
+    #         ## channels' voltage vs time
+    #         mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
+    #         ## channels' spectrum of frequencies
+    #         ax_psd[ax_number] = fig_psd.add_subplot(2,2,ax_number+1)
+    #         mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=[], ax=ax_psd[ax_number], fmax=100)
+    #         ax_psd[ax_number].set_title(label_title[ax_number])
+    #         ax_psd[ax_number].set_ylim([-20, 50])    
+    #     else:
+    #         pass
+    # fig_psd.tight_layout()
+
+    ########################
+   
+    ## remove data segments in the selected data using bad annotations
     for ax_number, section in enumerate(labels_list):
+        print(f'{section, ax_number} annotations:')
         ## signals visualization
         if eeg_data_dict[section] != None:
             ## channels' voltage vs time
-            mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
-            ## channels' spectrum of frequencies
-            ax_psd[ax_number] = fig_psd.add_subplot(2,2,ax_number+1)
-            mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=[], ax=ax_psd[ax_number], fmax=100)
-            ax_psd[ax_number].set_title(label_title[ax_number])
-            ax_psd[ax_number].set_ylim([-20, 50])    
+            ## signals visualization to identify bad segments and to annotate them as bad (interactive annotation)
+            mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+
+            # t1, t2 = 40, 100
+            # croped_raw = crop_fun(eeg_data_dict[section], t1, t2)
+            
+            # mne.viz.plot_raw(croped_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+
+            ## get annotations 
+            interactive_annot = eeg_data_dict[section].annotations
+            ## annotation time is referenced to the time of first_samp that is different for each segment
+            time_offset = eeg_data_dict[section].first_samp / sampling_rate  ## in seconds
+
+            t1_list = []
+            t2_list = []
+            for ann in interactive_annot:
+                print(f'{ann}')
+                ## iterate annotations labeled : 'bad' to cut them using time sections
+                t1_list.append(ann["onset"] - time_offset)
+                t2_list.append(ann["onset"] + ann["duration"] - time_offset)
+
+            ## crop bad segments
+            crop_bad_segments(eeg_data_dict[section], t1_list, t2_list)
+            
         else:
             pass
-    fig_psd.tight_layout()
-
-    
-
-
 
 
 
     plt.show(block=True)
     return 0
+
+def crop_bad_segments(raw_data, t1_list, t2_list):
+    raw_segs = []
+    t0 = 0
+    t_end = (raw_data.last_samp - raw_data.first_samp) / sampling_rate
+
+    for t1, t2 in zip(t1_list, t2_list):
+        raw_segs.append(crop_fun(raw_data, t0, t1)) ## multiply sigmoid
+        t0 = t2
+    raw_segs.append(crop_fun(raw_data, t0, t_end))
+        
+
+        
+    print(len(raw_segs))
+    return mne.concatenate_raws(raw_segs)
+
 
 
 
