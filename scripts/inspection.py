@@ -98,6 +98,81 @@ def set_bad_channels(data_dict, subject, section, sequence):
     data_dict[section][sequence] = raw_cropped
     return data_dict
 
+#######################
+def remove_eeg_bad(eeg_data_dict, annotations_dict, section):
+    t1_list = []
+    t2_list = []
+    for ann in annotations_dict[section]:
+        print(f'{ann}')
+        ## iterate annotations labeled : 'bad' to cut them using time sections
+        t1_list.append(ann["onset"])
+        t2_list.append(ann["onset"] + ann["duration"])
+
+    ## crop bad segments
+    if len(t1_list) > 0:
+        cropped_data = crop_bad_segments(eeg_data_dict[section], t1_list, t2_list)
+    else:
+        cropped_data = eeg_data_dict[section].copy()
+    
+    return cropped_data
+
+#######################
+def ann_remove_offset(interactive_annot, time_offset):
+    arr_onset=np.array([])
+    arr_durat=np.array([])
+    arr_label=[]
+
+    for ann in interactive_annot:
+        arr_onset = np.append( arr_onset, ann['onset']-time_offset )
+        arr_durat = np.append(arr_durat, ann['duration'])
+        arr_label.append(ann['description'])
+
+    my_annot = mne.Annotations(
+    onset=arr_onset,  # in seconds
+    duration=arr_durat,  # in seconds, too
+    description=arr_label,
+    )
+    return my_annot
+
+#######################
+def crop_bad_segments(raw_data, t1_list, t2_list):
+    global sigmoid_signal
+    
+    t0 = 0  ## initial time
+    t_end = (raw_data.last_samp - raw_data.first_samp) / sampling_rate
+
+    raw_list = []
+    for t1, t2 in zip(t1_list, t2_list):
+        ## cut valid segment
+        raw_crop = crop_fun(raw_data, t0, t1)
+        ## sigmoid signal to smooth segment's borders
+        sigmoid_signal = set_sigmoid_fun(raw_crop)
+        ## apply sigmoid signal to the valid segment (signals multiplication)
+        raw_crop.apply_function(mult_functions, picks=['all'])
+        ## concatenate resultant segment
+        raw_list.append(raw_crop)
+        ## redefine t0 to select the next valid segment
+        t0 = t2
+    ## concatenate last valid segment
+    raw_crop = crop_fun(raw_data, t0, t_end)
+    sigmoid_signal = set_sigmoid_fun(raw_crop)
+    raw_crop.apply_function(mult_functions, picks=['all'])
+    raw_list.append(raw_crop)
+    ## concatenate raws
+    print(len(raw_list))
+    if len(raw_list) > 0:
+        ## concatenate several segments same label  to have continuous data
+        new_raw_data = mne.concatenate_raws(raw_list, )
+        ## delete all annotations, including bad annotations generated in the concatenation operation
+        ann = new_raw_data.annotations
+        ## actual operation that deletes all annotations (by indexes)
+        new_raw_data.annotations.delete(np.arange(len(ann)))
+    else:
+        new_raw_data=None
+
+    return new_raw_data
+
+#######################
 def crop_fun(raw_data, t1, t2):
     raw = raw_data.copy().crop(tmin=t1, tmax=t2,)
     # raw.set_meas_date(None)
@@ -119,7 +194,7 @@ def mult_functions(input):
 
 def set_sigmoid_fun(raw):
     
-    data = raw.get_data(picks=['eeg'])
+    data = raw.get_data(picks=['all'])
     # print(f'data size: {data.shape}')
 
     n_signals = data.shape[0]
@@ -424,7 +499,7 @@ def main(args):
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
     ## signals visualization (channels' voltage vs time)
-    mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
+    # mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
     ###########################################
     ## topographical view channels' voltage
     # adjust the main plot to make room for the sliders
@@ -506,107 +581,121 @@ def main(args):
         with open('../data/results_ICA/pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'rb') as file:
             eeg_data_dict = pickle.load(file)
 
-    # #########################
-    # # Visualization before and after concatenation
-    # labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    # for id, label in enumerate(labels_list):
-    #     # for raw, new_raw in zip(eeg_data_dict[label],new_eeg_data_dict[label]):
-    #     # for raw in eeg_after_concat_dict[label]:
-    #     mne.viz.plot_raw(eeg_after_concat_dict[label], start=0, duration=240, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=label+' '+str(id)+' after concatenation', block=False)
-
-    #########################
-    # # Visualization before and after ICA
-    # labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    # for label in labels_list:
-    #     id=0
-    #     # for raw, new_raw in zip(eeg_data_dict[label],new_eeg_data_dict[label]):
-    #     for new_raw in new_eeg_data_dict[label]:
-    #         mne.viz.plot_raw(new_raw, start=0, duration=240, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=label+' '+str(id)+' after ica', block=True)
-    #         id+=1
-
-    # plt.show(block=True)
-    # return 0
 
     ##########################
-    # power spectrum density visualization
-    fig_title = "power spectrum density"
-    # fig_psd = plt.figure(fig_title, figsize=(12, 5))
-    # ax_psd = [[]]*4
 
     labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
     label_title = ['resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
 
-    # for ax_number, section in enumerate(labels_list):
-    #     ## signals visualization
-    #     if eeg_data_dict[section] != None:
-    #         ## channels' voltage vs time
-    #         mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
-    #         ## channels' spectrum of frequencies
-    #         ax_psd[ax_number] = fig_psd.add_subplot(2,2,ax_number+1)
-    #         mne.viz.plot_raw_psd(eeg_data_dict[section], exclude=[], ax=ax_psd[ax_number], fmax=100)
-    #         ax_psd[ax_number].set_title(label_title[ax_number])
-    #         ax_psd[ax_number].set_ylim([-20, 50])    
-    #     else:
-    #         pass
-    # fig_psd.tight_layout()
-
     ########################
-   
-    ## remove data segments in the selected data using bad annotations
+    new_eeg_data_dict = {}
+    annotations_dict={}
+
+    update_annotations = input('Generate annotations ? (1-True, 0-False): ')
+    if int(update_annotations)==1:
+        
+        ## remove data segments in the selected data using bad annotations
+        for ax_number, section in enumerate(labels_list):
+            print(f'{section, ax_number} generating interactive annotations')
+            ## signals visualization
+            if eeg_data_dict[section] != None:
+                ## channels' voltage vs time
+                ## signals visualization to annotate bad segments (interactive annotation)
+                mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+
+                ## annotation time is referenced to the time of first_samp, and that is different for each section
+                time_offset = eeg_data_dict[section].first_samp / sampling_rate  ## in seconds
+                ## get and rewrite annotations minus time-offset
+                interactive_annot = eeg_data_dict[section].annotations
+                annotations_dict[section] = ann_remove_offset(interactive_annot, time_offset)
+
+                ## crop segments labeled bad
+                new_eeg_data_dict[section] = remove_eeg_bad(eeg_data_dict, annotations_dict, section)
+
+                mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
+
+                mne.viz.plot_raw(new_eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+
+            else:
+                pass
+
+        save_ann = input('save annotations? (1-True, 0-False): ')
+        if int(save_ann)==1:
+        # writing dictionary to a binary file
+            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'wb') as file:
+                pickle.dump(annotations_dict, file)
+        else:
+            pass
+    
+    else:
+        try:
+            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'rb') as file:
+                annotations_dict = pickle.load(file)
+            print(f'annotations:\n{annotations_dict}')
+        except FileNotFoundError:
+            annotations_dict = {}
+        
+            ## annotations visualization
+        for ax_number, section in enumerate(labels_list):
+            ## set previous annotations
+            print(f'section and number: {section}')
+            # print(f'first sample: {eeg_data_dict[section].first_samp}')
+
+            if len(annotations_dict[section])>0:
+                # for ann in annotations_dict[section]:
+                    # print(f'annotations before: {ann}')
+                eeg_data_dict[section].set_annotations(annotations_dict[section])
+                # for ann in eeg_data_dict[section].annotations:
+                    # print(f'annotations after: {ann}')
+            else:
+                # print(f'annotations not found')
+                pass
+
+            ## crop segments labeled bad
+            new_eeg_data_dict[section] = remove_eeg_bad(eeg_data_dict, annotations_dict, section)   
+
+            # print(f'{section, ax_number} annotations:')
+            ## signals visualization
+            # if eeg_data_dict[section] != None:
+                # mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
+
+                # mne.viz.plot_raw(new_eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+
+    # power spectrum density visualization
+    fig_title = "power spectrum density"
+    fig_psd = plt.figure(fig_title, figsize=(12, 5))
+    ax_psd = [[]]*4
+
     for ax_number, section in enumerate(labels_list):
-        print(f'{section, ax_number} annotations:')
         ## signals visualization
         if eeg_data_dict[section] != None:
             ## channels' voltage vs time
-            ## signals visualization to identify bad segments and to annotate them as bad (interactive annotation)
-            mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+            # mne.viz.plot_raw(new_eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
+            ## channels' spectrum of frequencies
+            ax_psd[ax_number] = fig_psd.add_subplot(2,2,ax_number+1)
+            mne.viz.plot_raw_psd(new_eeg_data_dict[section], exclude=[], ax=ax_psd[ax_number], fmax=100)
+            ax_psd[ax_number].set_title(label_title[ax_number])
+            ax_psd[ax_number].set_ylim([-20, 50])
 
-            # t1, t2 = 40, 100
-            # croped_raw = crop_fun(eeg_data_dict[section], t1, t2)
+            print(f'compute psd...')
+            spectrum = new_eeg_data_dict[section].compute_psd().plot_topomap(contours=0,)
+            print(f'done. Type: {type(spectrum)}')
+            # new_eeg_data_dict[section].plot_psd_topo()
+            # compute_psd().plot_topo()
+            # fmin=8, fmax=12, contours=0,
+            # new_eeg_data_dict[section].plot_psd_topo(fmin=8, fmax=12, contours=0,)
             
-            # mne.viz.plot_raw(croped_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
 
-            ## get annotations 
-            interactive_annot = eeg_data_dict[section].annotations
-            ## annotation time is referenced to the time of first_samp that is different for each segment
-            time_offset = eeg_data_dict[section].first_samp / sampling_rate  ## in seconds
-
-            t1_list = []
-            t2_list = []
-            for ann in interactive_annot:
-                print(f'{ann}')
-                ## iterate annotations labeled : 'bad' to cut them using time sections
-                t1_list.append(ann["onset"] - time_offset)
-                t2_list.append(ann["onset"] + ann["duration"] - time_offset)
-
-            ## crop bad segments
-            crop_bad_segments(eeg_data_dict[section], t1_list, t2_list)
-            
         else:
             pass
+    
+        
 
+    # fig_psd.tight_layout()
 
 
     plt.show(block=True)
     return 0
-
-def crop_bad_segments(raw_data, t1_list, t2_list):
-    raw_segs = []
-    t0 = 0
-    t_end = (raw_data.last_samp - raw_data.first_samp) / sampling_rate
-
-    for t1, t2 in zip(t1_list, t2_list):
-        raw_segs.append(crop_fun(raw_data, t0, t1)) ## multiply sigmoid
-        t0 = t2
-    raw_segs.append(crop_fun(raw_data, t0, t_end))
-        
-
-        
-    print(len(raw_segs))
-    return mne.concatenate_raws(raw_segs)
-
-
-
 
 
 
