@@ -504,6 +504,78 @@ def plot_topomap_bands(raw_data, arr_psd, arr_freqs):
 
     return 0
 
+###########################################
+def annotations_bad_segments(eeg_data_dict, subject, session,scale_dict):
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    label_title = ['resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
+
+    ########################
+    annotations_dict={}
+
+    update_annotations = input('Generate annotations ? (1-True, 0-False): ')
+    if int(update_annotations)==1:
+        
+        ## interactive bad annotations
+        for ax_number, section in enumerate(labels_list):
+            # print(f'{section, ax_number} generating interactive annotations')
+            ## signals visualization
+            ann_list=[]
+            # if eeg_data_dict[section] != None:
+            for idx, eeg_segment in enumerate(eeg_data_dict[section]):
+                ## channels' voltage vs time
+                print(f'annotations: {section, idx}')
+    
+                ## signals visualization to annotate bad segments (interactive annotation)
+                mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=(label_title[ax_number]+' cycle '+str(idx)), block=True)
+    
+                ## annotation time is referenced to the time of first_samp, and that is different for each section
+                time_offset = eeg_segment.first_samp / sampling_rate  ## in seconds
+                ## get and rewrite annotations minus time-offset
+                interactive_annot = eeg_segment.annotations
+                if len(interactive_annot) >0:
+                    print(f'remove offset...')
+                    ann_list.append(ann_remove_offset(interactive_annot, time_offset))
+                    print(f'remove offset done.')
+                else:
+                    print(f'no annotations')
+                    ann_list.append(interactive_annot)
+
+            annotations_dict[section] = ann_list
+
+        save_ann = input('save annotations? (1-True, 0-False): ')
+        if int(save_ann)==1:
+        # writing dictionary to a binary file
+            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'wb') as file:
+                pickle.dump(annotations_dict, file)
+        else:
+            pass
+    ## open annotations file from disk
+    else:
+        try:
+            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'rb') as file:
+                annotations_dict = pickle.load(file)
+            print(f'annotations:\n{annotations_dict}')
+        except FileNotFoundError:
+            annotations_dict = {}
+        
+        ## annotations visualization
+        for ax_number, section in enumerate(labels_list):
+            ## set previous annotations
+            print(f'section and number: {section}')
+            # print(f'first sample: {eeg_data_dict[section].first_samp}')
+            eeg_list=[]
+            for idx, eeg_segment in enumerate(eeg_data_dict[section]):
+
+                eeg_segment.set_annotations(annotations_dict[section][idx])
+                eeg_list.append(eeg_segment)
+
+                # mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=(label_title[ax_number]+' cycle '+str(idx)), block=True)
+
+            eeg_data_dict[section] = eeg_list
+
+    plt.show(block=True)
+    return eeg_data_dict
 
 #############################
 ## EEG filtering and signals pre-processing
@@ -660,9 +732,8 @@ def main(args):
     ## At this point, blink artifacts have been removed and the Surface Lapacian has been applied to the eeg data. Now, artifacts from muscular activity (movements) are more evident; therefore, segments of the eeg signals with those artefacts are annotated interactively and removed
 
     print(f'artifacts removal...')
-    eeg_data_dict = artifacts_removal_fuc(eeg_data_dict,subject,session,scale_dict)
+    eeg_data_dict = annotations_bad_segments(eeg_data_dict,subject,session,scale_dict)
 
-    return 0
     # print(f'eeg_data_dict:\n{eeg_data_dict}')
     ## visualization
     ## first resting closed eyes as a reference for baseline normalization
@@ -671,11 +742,12 @@ def main(args):
 
 
     # title = 'first resting closed eyes'
-    # mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=title, block=True)
+    # mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='a_closed_eyes', block=False)
+    # mne.viz.plot_raw(raw_oe, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='a_opened_eyes', block=False)
 
     ## power spectral density (psd) from first resting closed eyes
-    psd_raw    = raw.compute_psd(fmin=0,fmax=45,)
-    psd_raw_oe = raw_oe.compute_psd(fmin=0,fmax=45,)
+    psd_raw    = raw.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+    psd_raw_oe = raw_oe.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
 
     data, freqs      = psd_raw.get_data(return_freqs=True)
     data_oe, freq_oe = psd_raw_oe.get_data(return_freqs=True)
@@ -695,125 +767,11 @@ def main(args):
 
     plot_topomap_bands(raw_data, arr_psd, freqs)
 
-    ## psd visualization
-    # mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=title, block=True)
 
     plt.show(block=True)
     return 0
 
     ##########################
-
-def artifacts_removal_fuc(eeg_data_dict, subject, session,scale_dict):
-
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    label_title = ['resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
-
-    ########################
-    new_eeg_data_dict = {}
-    annotations_dict={}
-
-    update_annotations = input('Generate annotations ? (1-True, 0-False): ')
-    if int(update_annotations)==1:
-        
-        ## remove data segments in the selected data using bad annotations
-        for ax_number, section in enumerate(labels_list):
-            print(f'{section, ax_number} generating interactive annotations')
-            ## signals visualization
-            ann_list=[]
-            # if eeg_data_dict[section] != None:
-            for idx, eeg_segment in enumerate(eeg_data_dict[section]):
-                ## channels' voltage vs time
-                print(f'section id: {section, idx}')
-    
-                ## signals visualization to annotate bad segments (interactive annotation)
-                mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
-    '''
-                ## annotation time is referenced to the time of first_samp, and that is different for each section
-                time_offset = eeg_segment.first_samp / sampling_rate  ## in seconds
-                ## get and rewrite annotations minus time-offset
-                interactive_annot = eeg_segment.annotations
-                ann_list.append(ann_remove_offset(interactive_annot, time_offset))
-
-                ## crop segments labeled bad
-                new_eeg_segment = remove_eeg_bad(eeg_segment, ann_list[idx])
-
-                mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
-
-                mne.viz.plot_raw(new_eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
-            
-            annotations_dict[section] = ann_list
-
-        save_ann = input('save annotations? (1-True, 0-False): ')
-        if int(save_ann)==1:
-        # writing dictionary to a binary file
-            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'wb') as file:
-                pickle.dump(annotations_dict, file)
-        else:
-            pass
-    
-    else:
-        try:
-            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'rb') as file:
-                annotations_dict = pickle.load(file)
-            print(f'annotations:\n{annotations_dict}')
-        except FileNotFoundError:
-            annotations_dict = {}
-        
-        ## annotations visualization
-        for ax_number, section in enumerate(labels_list):
-            ## set previous annotations
-            print(f'section and number: {section}')
-            # print(f'first sample: {eeg_data_dict[section].first_samp}')
-            eeg_list=[]
-            # if len(annotations_dict[section])>0:
-            for idx, eeg_segment in enumerate(eeg_data_dict[section]):
-                # for ann in annotations_dict[section]:
-                    # print(f'annotations before: {ann}')
-                eeg_segment.set_annotations(annotations_dict[section])
-                eeg_list.append(eeg_segment)
-
-                # for ann in eeg_data_dict[section].annotations:
-                    # print(f'annotations after: {ann}')
-
-            ## crop segments labeled bad
-            # new_eeg_data_dict[section] = remove_eeg_bad(eeg_data_dict, annotations_dict, section)
-            ## crop segments labeled bad
-                new_eeg_list.append(remove_eeg_bad(eeg_segment, ann_list[idx]))
-
-            # print(f'{section, ax_number} annotations:')
-            ## signals visualization
-            # if eeg_data_dict[section] != None:
-                # mne.viz.plot_raw(eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
-
-                # mne.viz.plot_raw(new_eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
-
-    # # power spectrum density visualization
-    # fig_title = "power spectrum density"
-    # fig_psd = plt.figure(fig_title, figsize=(12, 5))
-    # ax_psd = [[]]*4
-
-    # for ax_number, section in enumerate(labels_list):
-    #     ## signals visualization
-    #     if eeg_data_dict[section] != None:
-    #         ## channels' voltage vs time
-    #         # mne.viz.plot_raw(new_eeg_data_dict[section], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
-    #         ## channels' spectrum of frequencies
-    #         ax_psd[ax_number] = fig_psd.add_subplot(2,2,ax_number+1)
-    #         mne.viz.plot_raw_psd(new_eeg_data_dict[section], exclude=[], ax=ax_psd[ax_number], fmax=100)
-    #         ax_psd[ax_number].set_title(label_title[ax_number])
-    #         ax_psd[ax_number].set_ylim([-20, 50])
-
-    #         # print(f'compute psd topomap for each frequency band...')
-    #         # spectrum = new_eeg_data_dict[section].compute_psd().plot_topomap(contours=0,)
-    #         # print(f'done. Type: {type(spectrum)}')
-
-        # else:
-        #     pass
-    # fig_psd.tight_layout()
-
-    '''
-    plt.show(block=True)
-    return 0
 
 
 if __name__ == '__main__':
