@@ -1,4 +1,12 @@
 blinks_components_dict = {
+    101:{
+        'session_0':{
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[2],[2],[2],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
+        },
+    },
     1:{
         'session_0':{
             'a_closed_eyes':[[],[],[],],

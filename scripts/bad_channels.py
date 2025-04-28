@@ -18,7 +18,7 @@ bad_channels_dict = {
             'general':[],
             ## POz, AF4, PO3
             'a_closed_eyes':[[],[],[]],
-            'a_opened_eyes':[[],[],[]],
+            'a_opened_eyes':[[],[],['T7']],
             'b_closed_eyes':[[],[],[]],
             'b_opened_eyes':[[],[],[]],
         },

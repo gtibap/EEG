@@ -31,11 +31,11 @@ def participants_list(path, subject, session, abt):
         path = path + 'oct06_Taha/'
         if abt == 0: # resting
             fn_in = 'eeg_taha_test_rest.bdf'
-            fn_csv = 'annotations_rest.csv'
+            fn_csv = ['annotations_rest.csv', 'new_annotations_rest']
             title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             fn_in = 'eeg_taha_test_velo.bdf'
-            fn_csv = 'annotations_velo.csv'
+            fn_csv = ['annotations_velo.csv','new_annotations_velo']
             title = 'P_'+str(subject)+'_ABT_biosemi64'
         rows_plot = 1
         ## read raw data
