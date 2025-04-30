@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, Slider
+from pathlib import Path
 
 import json
 import pickle
@@ -309,7 +310,7 @@ def interpolation_and_concatenation(eeg_data_dict, subject, session):
 
 def channels_interpolation(eeg_data_dict, subject, session):
 
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
 
     for id_label, label in enumerate(labels_list):
         print(f'label: {label}')
@@ -326,7 +327,7 @@ def channels_interpolation(eeg_data_dict, subject, session):
 ##
 def csd_fun(eeg_data_dict):
     print(f'current source density calculation...')
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
 
     new_eeg_data_dict = {}
     for id_label, label in enumerate(labels_list):
@@ -352,14 +353,15 @@ def visualization_raw(eeg_data_dict):
 def ica_appl_func(path, eeg_data_dict, subject, session, scale_dict):
     print(f'Inside ica function.\nSubject, session: {subject, session}')
 
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
 
     for id_label, label in enumerate(labels_list):
         new_raw_list = []
         for id, raw in enumerate(eeg_data_dict[label]):
             print(f'label: {label, id}')
             ## read precalculated ICA per each section
-            filename_ica = path+'ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            # filename_ica = path+'ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            filename_ica = path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz'
             ## print(f'filename: {filename_ica}')
             ica = mne.preprocessing.read_ica(filename_ica, verbose=None)
             ## exclude component associated to blinks            
@@ -470,15 +472,15 @@ def plot_topomap_psd(raw_data, arr_psd, arr_freqs):
 # gamma: 30 - 45 Hz
 
 
-def plot_topomap_bands(raw_data, arr_psd, arr_freqs):
+def plot_topomap_bands(raw_data, arr_psd, arr_freqs, label, filename):
 
+    fig_bands, axs_bands = plt.subplots(1, 4, figsize=(12.5, 4.0))
     print(f'arr_psd and arr_freqs shape: {arr_psd.shape , arr_freqs.shape}')
-    fig_bands, axs_bands = plt.subplots(2, 2)
 
     ## theta band
     fmin_list=[4,8,12,30]
     fmax_list=[8,12,30,45]
-    title_list=['theta [4-8] Hz', 'alpha [8-12] Hz', 'beta [12-30] Hz', 'gamma [30-45] Hz',]
+    title_list=['theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
     for fmin, fmax, ax, title in zip(fmin_list, fmax_list, axs_bands.flat, title_list):
     
         idx_range_freq = np.argwhere((arr_freqs >= fmin)&(arr_freqs <= fmax))
@@ -494,12 +496,17 @@ def plot_topomap_bands(raw_data, arr_psd, arr_freqs):
         # freq = arr_freqs[init_frame]
         # print(f'inside plot topomap, freq: {freq}')
         # # y_limits = [-10,10]
-        im, cn = mne.viz.plot_topomap(arr_mean, raw_data.info, vlim=y_limits, contours=0, axes=ax, cmap='magma')
+        im, cn = mne.viz.plot_topomap(arr_mean, raw_data.info, vlim=y_limits, contours=0, axes=ax, ) # cmap='magma'
         ax.title.set_text(title)
-
+    
     # Make colorbar
-    cbar_ax = fig_bands.add_axes([0.05, 0.25, 0.03, 0.65])
+    cbar_ax = fig_bands.add_axes([0.02, 0.25, 0.03, 0.60])
     fig_bands.colorbar(im, cax=cbar_ax, label='dB change from baseline')
+
+    fig_bands.suptitle(label, size='large', weight='bold')
+
+    fig_bands.savefig(filename, transparent=True)
+    
 
     # clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
     # fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
@@ -592,6 +599,7 @@ def annotations_bad_segments(eeg_data_dict, subject, session,scale_dict):
 def get_eeg_segments(raw_data,):    
     ## prefix:
     ## a:resting; b:biking
+    baseline_list = []
     a_closed_eyes_list = []
     a_opened_eyes_list = []
     b_closed_eyes_list = []
@@ -605,7 +613,10 @@ def get_eeg_segments(raw_data,):
         # print(f'annotation:{count1, onset, duration, label}')
         t1 = onset
         t2 = onset + duration
-        if label == 'a_closed_eyes':
+        if label == 'baseline':
+            baseline_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'a_closed_eyes':
             a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
 
         elif label == 'a_opened_eyes':
@@ -620,6 +631,7 @@ def get_eeg_segments(raw_data,):
         else:
             pass
 
+    print(f'size list baseline: {len(baseline_list)}')
     print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
     print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
     print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
@@ -627,6 +639,7 @@ def get_eeg_segments(raw_data,):
 
     ## eeg data to a dictionary
     eeg_data_dict={}
+    eeg_data_dict['baseline'] = baseline_list
     eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
     eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
     eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
@@ -637,7 +650,7 @@ def get_eeg_segments(raw_data,):
 #############################
 def set_bad_segments(eeg_data_dict, ann_filename,):
     ## set annotations
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
     try:
         with open(ann_filename, 'rb') as file:
             annotations_dict = pickle.load(file)
@@ -761,60 +774,87 @@ def main(args):
 
     ####################
     ## comparison between closed and opened eyes
-    ## resting
-    list_c = []
-    list_o = []
-    for raw_c, raw_o in zip(eeg_data_dict['a_closed_eyes'], eeg_data_dict['a_opened_eyes']): 
+    ## baseline
+    list_bl = []
+    for raw_baseline in eeg_data_dict['baseline']: 
         ## median values of psd closed and opened eyes
 
         ## power spectral density (psd) from first resting closed eyes
-        psd_raw_c = raw_c.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
-        psd_raw_o = raw_o.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+        psd_bl = raw_baseline.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+        data_bl, freq_bl = psd_bl.get_data(return_freqs=True)
+        print(f'arr_bl : {data_bl.shape}')
 
-        data_c, freq_c = psd_raw_c.get_data(return_freqs=True)
-        data_o, freq_o = psd_raw_o.get_data(return_freqs=True)
+        list_bl.append(data_bl)
 
-        print(f'arr_c : {data_c.shape}')
-        print(f'arr_o : {data_o.shape}')
+    arr_bl=np.array(list_bl)
+    median_bl = np.median(arr_bl, axis=0)
+    print(f'median_bl : {median_bl.shape}')
 
-        list_c.append(data_c)
-        list_o.append(data_o)
-
-    arr_c=np.array(list_c)
-    arr_o=np.array(list_o)
-
-    median_c = np.median(arr_c, axis=0)
-    median_o = np.median(arr_o, axis=0)
-
-    print(f'median_c : {median_c.shape}')
-    print(f'median_o : {median_o.shape}')
-
-    ## normalization for each channel
-    arr_psd = median_o / median_c
-
-    psd_ref = psd_raw_c.copy()
-    ## multiplied by 1e-6 as a scale factor
-    psd_ref._data = arr_psd*1e-6
-    psd_ref.plot()
-
-
-    arr_psd = 10*np.log10(arr_psd)
-    # power spectrum density visualization
-    fig_title = "power spectrum density"
-    fig_psd = plt.figure(fig_title, figsize=(12, 5))
-    ax_psd = fig_psd.add_subplot(1,1,1)
-    for v in arr_psd:
-        # ax_psd.plot(freqs,10*np.log(v))
-        ax_psd.plot(freq_c,v)
-
-    psd_ref = psd_raw_c.copy()
+    ## resting
+    # list_c = []
+    # list_o = []
+    ## create folder if it does not exit already
+    Path(f"{path}session_{session}/figures/topomaps").mkdir(parents=True, exist_ok=True)
     
-    # channel_id=0
-    # psd_ref.apply_function(set_psd_fun,)
-    # psd_ref._data = arr_psd
-    # psd_ref.plot()
 
-    plot_topomap_bands(raw_data, arr_psd, freq_c)
+    labels_list=['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes']
+    titles_list=['rest closed eyes','rest opened eyes','bike closed eyes','bike opened eyes']
+    # for raw_c, raw_o in zip(eeg_data_dict['a_closed_eyes'], eeg_data_dict['a_opened_eyes']): 
+    for label, title in zip(labels_list, titles_list):
+        print(f'label: {label}\ntitle: {title}')
+        list_psd = []
+        for raw in eeg_data_dict[label]: 
+            ## median values of psd closed and opened eyes
+
+            ## power spectral density (psd) from first resting closed eyes
+            psd_raw = raw.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+            # psd_raw_o = raw_o.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+
+            data_psd, freq_psd = psd_raw.get_data(return_freqs=True)
+            # data_o, freq_o = psd_raw_o.get_data(return_freqs=True)
+
+            print(f'data_psd : {data_psd.shape}')
+            # print(f'arr_o : {data_o.shape}')
+
+            list_psd.append(data_psd)
+            # list_o.append(data_o)
+
+        arr_psd=np.array(list_psd)
+        print(f'arr_psd shape: {arr_psd.shape}')
+        # arr_o=np.array(list_o)
+
+        median_psd = np.median(arr_psd, axis=0)
+        # median_o = np.median(arr_o, axis=0)
+
+        print(f'median_psd : {median_psd.shape}')
+        # print(f'median_o : {median_o.shape}')
+
+        ##########
+        ## normalization for each channel using baseline
+        norm_psd = median_psd / median_bl
+        # norm_o = median_o / median_bl
+
+        # arr_psd = norm_psd
+
+        ## copy spectrum as template
+        # psd_ref = psd_raw.copy()
+        ## multiplied by 1e-6 as a scale factor for visualization because the visualizaiton function multiply data by 1e6
+        # psd_ref._data = norm_psd*1e-6
+        # psd_ref.plot()
+
+
+        norm_psd = 10*np.log10(norm_psd)
+
+        # # power spectrum density visualization
+        # fig_title = "power spectrum density"
+        # fig_psd = plt.figure(fig_title, figsize=(12, 5))
+        # ax_psd = fig_psd.add_subplot(1,1,1)
+        # for v in norm_psd:
+        #     # ax_psd.plot(freqs,10*np.log(v))
+        #     ax_psd.plot(freq_psd,v)
+
+        filename_fig = f"{path}session_{session}/figures/topomaps/{label}_topo.png"
+        plot_topomap_bands(raw_data, norm_psd, freq_psd, title, filename_fig)
 
 
     plt.show(block=True)

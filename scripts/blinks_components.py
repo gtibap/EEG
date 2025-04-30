@@ -1,6 +1,7 @@
 blinks_components_dict = {
     101:{
         'session_0':{
+            'baseline':[[],[],[],],
             'a_closed_eyes':[[],[],[],],
             'a_opened_eyes':[[2],[2],[2],],
             'b_closed_eyes':[[],[],[],],
@@ -9,10 +10,11 @@ blinks_components_dict = {
     },
     1:{
         'session_0':{
+            'baseline':[[3],[],[],],
             'a_closed_eyes':[[],[],[],],
-            'a_opened_eyes':[[3],[5],[4],],
+            'a_opened_eyes':[[3],[4],[3],],
             'b_closed_eyes':[[],[],[],],
-            'b_opened_eyes':[[3],[2],[5],],
+            'b_opened_eyes':[[3],[2],[7],],
         },
         'session_1':{
             'a_closed_eyes':[[],[],[],],

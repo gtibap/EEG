@@ -1,16 +1,12 @@
 bad_channels_dict = {
     100:{
         'session_0':{
-            'general':['T8'],
-            # 'a_closed_eyes':[['F4','FT8','T8'],['FT8','T8'],['FT8','T8'],['FT8','T8'],],
-            # 'a_opened_eyes':[['F4','FT8','T8'],['FT8','T8'],['FT8','T8'],['FT8','T8'],],
-            'a_closed_eyes':[[],[],[],[]],
-            'a_opened_eyes':[[],[],[],[]],
-        
-            # 'b_closed_eyes':[['FT8',],['FT8',],['FT8',],],
-            # 'b_opened_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
-            'b_closed_eyes':[[],[],[]],
-            'b_opened_eyes':[[],[],[]],
+            # 'general':['T8'],
+            'baseline':[['FT8','T8']],
+            'a_closed_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
+            'a_opened_eyes':[['FT8','T8'],['F4','FT8','T8'],['FT8','T8'],],
+            'b_closed_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
+            'b_opened_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
         },
     },
     101:{
@@ -91,13 +87,16 @@ bad_channels_dict = {
         'session_0':{
             # 'general':['E48','E119'],
             'general':[],
-            'a_closed_eyes':[['E48'],['E119',],[],],
+            'baseline':[[],[],[],],
+            'a_closed_eyes':[[],['E119',],[],],
             'a_opened_eyes':[[],['E119',],['E119',],],
-            'b_closed_eyes':[['E45','E56','E119','E127',],['E45','E56','E119',],['E45','E56','E113','E119',],],
-            'b_opened_eyes':[['E45','E56','E119','E127',],['E45','E56','E119',],['E56','E106','E119',],],
+
+            'b_closed_eyes':[['E45','E119','E127'],['E45','E119','E127'],['E119',],],
+            'b_opened_eyes':[['E45','E119',],['E45','E119',],[],],
         },
         'session_1':{
             'general':[],
+            'baseline':[[],[],[],],
             'a_closed_eyes':[[]]*3,
             'a_opened_eyes':[[]]*3,
             'b_closed_eyes':[[]]*3,

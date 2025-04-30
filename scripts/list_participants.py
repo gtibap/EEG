@@ -8,7 +8,7 @@ def participants_list(path, subject, session, abt):
         # print(f'subject in:{subject}')
         path = path + 'aug04_MsChen/'
         fn_in = 'eeg_test-p3-chen_s01.bdf'
-        fn_csv = 'saved-annotations.csv'
+        fn_csv = ['annotations.csv','new_annotations.csv']
         title = 'P_'+str(subject)+'_rest_and_ABT_biosemi64'
         rows_plot = 2
 
@@ -185,7 +185,7 @@ def participants_list(path, subject, session, abt):
         path = path + 'neuroplasticity/n_001/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro001_session1_20250113_111350.mff'
-            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv', 'session_'+str(session)+'/'+'new_annotations']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
         elif session==1:

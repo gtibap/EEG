@@ -149,7 +149,7 @@ def main(args):
     raw_data.set_annotations(my_annot)
     ############################
     ## scale selection for visualization raw data with annotations
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
     ## signals visualization (channels' voltage vs time)
     # mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
     ###########################################
@@ -157,6 +157,7 @@ def main(args):
     ## cropping data according to annotations
     ## prefix:
     ## a:resting; b:biking
+    baseline_list = []
     a_closed_eyes_list = []
     a_opened_eyes_list = []
     b_closed_eyes_list = []
@@ -170,7 +171,10 @@ def main(args):
         # print(f'annotation:{count1, onset, duration, label}')
         t1 = onset
         t2 = onset + duration
-        if label == 'a_closed_eyes':
+        if label == 'baseline':
+            baseline_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'a_closed_eyes':
             a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
 
         elif label == 'a_opened_eyes':
@@ -185,6 +189,7 @@ def main(args):
         else:
             pass
 
+    print(f'size list baseline: {len(baseline_list)}')
     print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
     print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
     print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
@@ -192,6 +197,7 @@ def main(args):
 
     ## eeg data to a dictionary
     eeg_data_dict={}
+    eeg_data_dict['baseline'] = baseline_list
     eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
     eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
     eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
@@ -203,13 +209,14 @@ def main(args):
 
     #########################
     ## set annotations
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
     try:
         with open(path + fn_csv[1] + '.pkl', 'rb') as file:
             annotations_dict = pickle.load(file)
         print(f'annotations:\n{annotations_dict}')
     except FileNotFoundError:
-        annotations_dict = {}
+        print(f"annotations file {path + fn_csv[1] + '.pkl'} not found")
+        return 0
     
     ## annotate bad segments to exclude them of posterior calculations
     for ax_number, section in enumerate(labels_list):
@@ -225,7 +232,7 @@ def main(args):
     #########################
     ## ICA to identify blink components
     ## create folder ica if it does not exit already
-    Path(path+"ica").mkdir(parents=True, exist_ok=True)
+    Path(path+'session_'+str(session)+"/ica").mkdir(parents=True, exist_ok=True)
 
     ica = ICA(n_components= 0.99, method='fastica', max_iter="auto", random_state=97)
 
@@ -243,8 +250,9 @@ def main(args):
             # ica components visualization
             ica.plot_components(inst=raw, contours=0,)
             ica.plot_sources(raw, show_scrollbars=False, block=True)
-
-            ica.save(path+'ica/'+label+'_'+str(id)+'-ica.fif.gz', overwrite=True)
+            ## saving ica fitted model
+            print(f"saving ica model in {path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz'}")
+            ica.save(path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz', overwrite=True)
 
     plt.show()
     return 0

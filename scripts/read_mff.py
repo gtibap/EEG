@@ -130,67 +130,65 @@ def main(args):
     ## signals visualization and
     ## interactive annotations editing avoiding overlaping 
     ## visualization scale
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=250e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=250e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    fig = raw_data.plot(start=0, duration=240, n_channels=65, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
+    fig = raw_data.plot(start=0, duration=240, n_channels=15, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
     ############################
     ############################
     ## regions that do not have labels will be labeled as BAD_
     ## BAD_ labeled segments are excluded of posterior analyses
 
-    arr_ini = np.array([])
-    arr_end = np.array([])
-    arr_des = np.array([])
-    label_bad = 'BAD_'
+    # arr_ini = np.array([])
+    # arr_end = np.array([])
+    # arr_des = np.array([])
+    # label_bad = 'BAD_'
 
-    ## first_sample in seconds
-    arr_ini= np.append(arr_ini, first_sample)
+    # ## first_sample in seconds
+    # arr_ini= np.append(arr_ini, first_sample)
 
-    for ann in raw_data.annotations:
+    # for ann in raw_data.annotations:
         
-        descr = ann["description"]
-        start = ann["onset"]
-        end = ann["onset"] + ann["duration"]
+    #     descr = ann["description"]
+    #     start = ann["onset"]
+    #     end = ann["onset"] + ann["duration"]
 
-        # print(f"annotations: {start, end, descr}")
+    #     # print(f"annotations: {start, end, descr}")
 
-        if descr != 'BAD_':
-            ## region labeled as BAD_
-            arr_end = np.append(arr_end, start)
-            arr_des = np.append(arr_des, label_bad)
-            ## region labeled as != BAD_
-            arr_ini = np.append(arr_ini, start)
-            arr_end = np.append(arr_end, end)
-            arr_des = np.append(arr_des, descr)
-            ## initial value of a BAD_ labeled region
-            arr_ini = np.append(arr_ini, end)
-        else:
-            pass
-    ## last region is labeled as BAD_
-    arr_end = np.append(arr_end, last_sample)
-    arr_des = np.append(arr_des, label_bad)
+    #     if descr != 'BAD_':
+    #         ## region labeled as BAD_
+    #         arr_end = np.append(arr_end, start)
+    #         arr_des = np.append(arr_des, label_bad)
+    #         ## region labeled as != BAD_
+    #         arr_ini = np.append(arr_ini, start)
+    #         arr_end = np.append(arr_end, end)
+    #         arr_des = np.append(arr_des, descr)
+    #         ## initial value of a BAD_ labeled region
+    #         arr_ini = np.append(arr_ini, end)
+    #     else:
+    #         pass
+    # ## last region is labeled as BAD_
+    # arr_end = np.append(arr_end, last_sample)
+    # arr_des = np.append(arr_des, label_bad)
 
-    ## annotations including BAD_ labels
-    my_annot = mne.Annotations(
-    onset=arr_ini,  # in seconds
-    duration=arr_end - arr_ini,  # in seconds, too
-    description=arr_des,    # labels
-    )
-    print(my_annot)
+    # ## annotations including BAD_ labels
+    # my_annot = mne.Annotations(
+    # onset=arr_ini,  # in seconds
+    # duration=arr_end - arr_ini,  # in seconds, too
+    # description=arr_des,    # labels
+    # )
+    # print(my_annot)
     
-    ## updating labels of original data
-    raw_data.set_annotations(my_annot)
-    print(raw_data.annotations)
+    # ## updating labels of original data
+    # raw_data.set_annotations(my_annot)
+    # print(raw_data.annotations)
 
-    ## data visualization
-    fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
+    # ## data visualization
+    # fig = raw_data.plot(start=0, duration=120, scalings=scale_dict, highpass=1.0, lowpass=30.0, block=True)
 
     # save annotations
     flag = input("Save annotations ? (1-yes, 0-non) ")
     if int(flag) == 1 or flag.startswith('y') or flag.startswith('Y'):
         raw_data.annotations.save(path+"annotations.csv", overwrite=True)
-        # raw_data.annotations.save(path+"annotations.fif", overwrite=True)
-        # raw_data.annotations.save(path+"annotations.txt", overwrite=True)
     else:
         pass
 

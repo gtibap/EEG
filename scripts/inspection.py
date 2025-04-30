@@ -74,7 +74,7 @@ def crop_fun(raw_data, t1, t2):
     # mne.io.anonymize_info(raw.info)
     # print(f'first sample after crop: {raw.first_samp}')
     ann = raw.annotations
-    print(f'crop annotations:{len(ann)}\n{ann}')
+    # print(f'crop annotations:{len(ann)}\n{ann}')
     raw.annotations.delete(np.arange(len(ann)))
     return raw
 
@@ -136,12 +136,12 @@ def main(args):
     ############################
     ## read annotations (.csv file)
     my_annot = mne.read_annotations(path + fn_csv[0])
-    print(f'annotations:\n{my_annot}')
+    print(f'inital annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
     ############################
     ## scale selection for visualization raw data with annotations
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
     ## signals visualization (channels' voltage vs time)
     mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
     ###########################################
@@ -149,6 +149,7 @@ def main(args):
     ## cropping data according to annotations
     ## prefix:
     ## a:resting; b:biking
+    baseline_list = []
     a_closed_eyes_list = []
     a_opened_eyes_list = []
     b_closed_eyes_list = []
@@ -162,7 +163,10 @@ def main(args):
         # print(f'annotation:{count1, onset, duration, label}')
         t1 = onset
         t2 = onset + duration
-        if label == 'a_closed_eyes':
+        if label == 'baseline':
+            baseline_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'a_closed_eyes':
             a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
 
         elif label == 'a_opened_eyes':
@@ -177,6 +181,7 @@ def main(args):
         else:
             pass
 
+    print(f'size list baseline: {len(baseline_list)}')
     print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
     print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
     print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
@@ -184,21 +189,22 @@ def main(args):
 
     ## eeg data to a dictionary
     eeg_data_dict={}
+    eeg_data_dict['baseline'] = baseline_list
     eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
     eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
     eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
     eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
 
 
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    label_title = ['resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    label_title = ['baseline','resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
 
     ########################
     ## redefine annotations per segment
     new_eeg_data_dict = {}
     annotations_dict={}
 
-    update_annotations = input('Generate annotations ? (1-True, 0-False): ')
+    update_annotations = input('Update annotations (include new bad segments) ? (1-True, 0-False): ')
     if int(update_annotations)==1:
         
         ## annotate bad segments to exclude them of posterior calculations
@@ -235,11 +241,14 @@ def main(args):
     
     else:
         try:
-            with open(path + fn_csv[1] + '.pkl', 'rb') as file:
+            filename = path + fn_csv[1] + '.pkl'
+            print(f'filename annotations: {filename}')
+            with open(filename, 'rb') as file:
                 annotations_dict = pickle.load(file)
             print(f'annotations:\n{annotations_dict}')
         except FileNotFoundError:
-            annotations_dict = {}
+            print(f'problem open new annotations file')
+            return 0
         
         ## annotate bad segments to exclude them of posterior calculations
         for ax_number, section in enumerate(labels_list):
@@ -256,19 +265,22 @@ def main(args):
     fig_title = "power spectrum density"
 
     for ax_number, section in enumerate(labels_list):
+        print(f'section: {section}')
         ## signals visualization
         fig_psd = plt.figure(fig_title, figsize=(8, 5))
-        ax_psd = [[]]*4
+        number_ax = len(eeg_data_dict[section])
+        print(f'number ax: {number_ax}')
+        ax_psd = [[]]*number_ax
         idx=0
         for eeg_segment in eeg_data_dict[section]:
             print(f'eeg_segment')
             ## channels' spectrum of frequencies
-            ax_psd[ax_number] = fig_psd.add_subplot(3,1,idx+1)
-            mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[ax_number], fmax=100, reject_by_annotation=True,)
-            ax_psd[ax_number].set_title(label_title[ax_number])
-            ax_psd[ax_number].set_ylim([-20, 50])
+            ax_psd[idx] = fig_psd.add_subplot(number_ax,1,idx+1)
+            mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[idx], fmax=100, reject_by_annotation=True,)
+            ax_psd[idx].set_title(label_title[ax_number] +'_'+str(idx))
+            ax_psd[idx].set_ylim([-20, 50])
             ## channels' voltage vs time
-            mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=False)
+            mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number]+'_'+str(idx), block=False)
 
             idx+=1
 
