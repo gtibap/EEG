@@ -51,11 +51,14 @@ sampling_rate = 1.0
 raw_data=[]
 sigmoid_signal = []
 arr_psd = []
+channel_id=0
 
 # y_limits = (None, None)
 # y_limits = (-0.4e-3, 0.4e-3)
 y_limits = [-8,8]
-    
+
+## scale selection for visualization raw data with annotations
+scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
 
 # fig, ax = plt.subplots(1, 1, figsize=(5,5))
@@ -335,41 +338,47 @@ def csd_fun(eeg_data_dict):
 
     return new_eeg_data_dict
 
+def visualization_raw(eeg_data_dict):
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        for id, raw in enumerate(eeg_data_dict[label]):
+            mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label+'_'+str(id), block=True)
+
+    return 0
+
 
 ##########################
-def ica_func(eeg_data_dict, subject, session, scale_dict):
+def ica_appl_func(path, eeg_data_dict, subject, session, scale_dict):
     print(f'Inside ica function.\nSubject, session: {subject, session}')
-    ## ICA components
-    ica = ICA(n_components= 0.99, method='fastica', max_iter="auto", random_state=97)
 
     labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    new_eeg_data_dict = {}
 
     for id_label, label in enumerate(labels_list):
         new_raw_list = []
         for id, raw in enumerate(eeg_data_dict[label]):
             print(f'label: {label, id}')
-            # print(f'raw data:\n{len(raw)}')
-            filt_raw = raw.copy().filter(l_freq=1.0, h_freq=None)
-            ## ICA fitting model to the filtered raw data
-            ica.fit(filt_raw)
-            #################
-            ## ica components visualization
-            # ica.plot_sources(raw, show_scrollbars=False, block=False)
-            # ica.plot_components(inst=raw, contours=0,)
-            # plt.show(block=True)
-            #################
-            ica.exclude = blinks_components_dict[subject]['session_'+str(session)][label][id]  # indices chosen based on various plots above
-            print(f'ICA blink component: {ica.exclude}')
+            ## read precalculated ICA per each section
+            filename_ica = path+'ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            ## print(f'filename: {filename_ica}')
+            ica = mne.preprocessing.read_ica(filename_ica, verbose=None)
+            ## exclude component associated to blinks            
+            ica.exclude = blinks_components_dict[subject]['session_'+str(session)][label][id]  # indices that were chosen based on previous ICA calculations (ica_blinks.py)
+            # print(f'ICA blink component: {ica.exclude}')
             reconst_raw = raw.copy()
+
             ica.apply(reconst_raw)
-
-            mne.viz.plot_raw(reconst_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='After ICA', block=True)
-
             new_raw_list.append(reconst_raw)
-        new_eeg_data_dict[label] = new_raw_list
+            ################
+            ## visualization for comparison
+            ## before ICA
+            # mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Before ICA', block=False)
+            ## after ICA
+            # mne.viz.plot_raw(reconst_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='After ICA', block=True)
+            ################
+        eeg_data_dict[label] = new_raw_list
 
-    return new_eeg_data_dict
+    return eeg_data_dict
 
    
 
@@ -580,6 +589,84 @@ def annotations_bad_segments(eeg_data_dict, subject, session,scale_dict):
     return eeg_data_dict
 
 #############################
+def get_eeg_segments(raw_data,):    
+    ## prefix:
+    ## a:resting; b:biking
+    a_closed_eyes_list = []
+    a_opened_eyes_list = []
+    b_closed_eyes_list = []
+    b_opened_eyes_list = []
+
+    for ann in raw_data.annotations:
+        # print(f'ann:\n{ann}')
+        label = ann["description"]
+        duration = ann["duration"]
+        onset = ann["onset"]
+        # print(f'annotation:{count1, onset, duration, label}')
+        t1 = onset
+        t2 = onset + duration
+        if label == 'a_closed_eyes':
+            a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'a_opened_eyes':
+            a_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'b_closed_eyes':
+            b_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'b_opened_eyes':
+            b_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        else:
+            pass
+
+    print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
+    print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
+    print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
+    print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
+
+    ## eeg data to a dictionary
+    eeg_data_dict={}
+    eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
+    eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
+    eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
+    eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
+
+    return eeg_data_dict
+
+#############################
+def set_bad_segments(eeg_data_dict, ann_filename,):
+    ## set annotations
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    try:
+        with open(ann_filename, 'rb') as file:
+            annotations_dict = pickle.load(file)
+        print(f'annotations:\n{annotations_dict}')
+    except FileNotFoundError:
+        annotations_dict = {}
+    
+    ## annotate bad segments to exclude them of posterior calculations
+    for ax_number, section in enumerate(labels_list):
+        eeg_list= []
+        for eeg_segment, ann in zip(eeg_data_dict[section], annotations_dict[section]):
+            ## channels' voltage vs time
+            eeg_segment.set_annotations(ann)
+            eeg_list.append(eeg_segment)
+
+        eeg_data_dict[section] = eeg_list
+
+    return eeg_data_dict
+
+##########################
+def set_psd_fun(input):
+    global channel_id
+
+    input = arr_psd[channel_id,:]
+    channel_id+=1
+
+    return (input)
+
+#############################
 ## EEG filtering and signals pre-processing
 
 def main(args):
@@ -606,8 +693,6 @@ def main(args):
     #########################
     ## selected data
     print(f'path:{path}\nsubject:{subject}\nsession:{session}\nabt:{abt}\n')
-
-    update_ICA = input("Update ICA calculations ? (1-True, 0-False) ")
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
@@ -641,100 +726,38 @@ def main(args):
 
     ############################
     ## read annotations (.csv file)
-    my_annot = mne.read_annotations(path + fn_csv)
+    my_annot = mne.read_annotations(path + fn_csv[0])
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
-    ############################
-    ## scale selection for visualization raw data with annotations
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
-    ## signals visualization (channels' voltage vs time)
-    # mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
+    
     ###########################################
-    ## topographical view channels' voltage
-    # adjust the main plot to make room for the sliders
-    # fig_topoplot, ax_topoplot = plt.subplots(1, 1, sharex=True, sharey=True)
-    # fig_topoplot.subplots_adjust(bottom=0.25)
-    # fig_topoplot.suptitle(fig_title)
-    # ## topographical map; we apply band pass filter (0.3 - 45 Hz) only for visualization 
-    # plot_topographic_view(raw_data)
-    ############################################
-    if int(update_ICA)==1:
-        ## cropping data according to annotations
-        ## prefix:
-        ## a:resting; b:biking
-        a_closed_eyes_list = []
-        a_opened_eyes_list = []
-        b_closed_eyes_list = []
-        b_opened_eyes_list = []
+    ## cropping data according to every section (annotations)
+    eeg_data_dict = get_eeg_segments(raw_data,)
 
-        for ann in raw_data.annotations:
-            # print(f'ann:\n{ann}')
-            label = ann["description"]
-            duration = ann["duration"]
-            onset = ann["onset"]
-            # print(f'annotation:{count1, onset, duration, label}')
-            t1 = onset
-            t2 = onset + duration
-            if label == 'a_closed_eyes':
-                a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+    ###########################
+    ## interpolation of bad channels per section
+    eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
+    
+    ###########################
+    ## set annotations of bad segments per section (interactive annotations previously made [inspection.py])
+    ann_filename = path + fn_csv[1] + '.pkl'
+    eeg_data_dict = set_bad_segments(eeg_data_dict, ann_filename,)
 
-            elif label == 'a_opened_eyes':
-                a_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+    #########################
+    ## ICA for blink removal using precalculate ICA (ica_blinks.py)
+    eeg_data_dict = ica_appl_func(path, eeg_data_dict, subject, session, scale_dict)
 
-            elif label == 'b_closed_eyes':
-                b_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+    ##########################
+    ## current source density
+    ## Surface Laplacian 
+    eeg_data_dict = csd_fun(eeg_data_dict)
 
-            elif label == 'b_opened_eyes':
-                b_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+    ##########################
+    ## visualization raw after processing
+    # visualization_raw(eeg_data_dict)
 
-            else:
-                pass
-
-        print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
-        print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
-        print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
-        print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
-
-        ## eeg data to a dictionary
-        eeg_data_dict={}
-        eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
-        eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
-        eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
-        eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
-
-        #########################
-        ## interpolation of bad channels and contatenation of segments with same label
-        # eeg_data_dict = interpolation_and_concatenation(eeg_data_dict, subject, session)
-        eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
-        
-        #########################
-        ## ICA for blink removal
-        eeg_data_dict = ica_func(eeg_data_dict, subject, session, scale_dict)
-
-        ##########################
-        ## segments concatenation
-        # eeg_data_dict = concat_fun(eeg_data_dict)
-
-        ##########################
-        ## current source density
-        ## Surface Laplacian 
-        eeg_data_dict = csd_fun(eeg_data_dict)
-
-        ##########################
-        ## save results
-        # writing dictionary to a binary file
-        with open('../data/results_ICA/pat_'+str(subject)+'_session_'+str(session)+'_raw.pkl', 'wb') as file:
-            pickle.dump(eeg_data_dict, file)
-    else:
-        # Reading dictionary from the binary file
-        with open('../data/results_ICA/pat_'+str(subject)+'_session_'+str(session)+'_raw.pkl', 'rb') as file:
-            eeg_data_dict = pickle.load(file)
-
-    ## At this point, blink artifacts have been removed and the Surface Lapacian has been applied to the eeg data. Now, artifacts from muscular activity (movements) are more evident; therefore, segments of the eeg signals with those artefacts are annotated interactively and removed
-
-    print(f'segments marked as bad are excluded from the psd calculation')
-    eeg_data_dict = annotations_bad_segments(eeg_data_dict,subject,session,scale_dict)
+    ## At this point, blink artifacts have been removed and the Surface Lapacian has been applied to the eeg data. Additionally, evident artifacts were annotated interactively and labeled as "bad" to exclude them from posterior calculations
 
     ####################
     ## comparison between closed and opened eyes
@@ -769,6 +792,12 @@ def main(args):
     ## normalization for each channel
     arr_psd = median_o / median_c
 
+    psd_ref = psd_raw_c.copy()
+    ## multiplied by 1e-6 as a scale factor
+    psd_ref._data = arr_psd*1e-6
+    psd_ref.plot()
+
+
     arr_psd = 10*np.log10(arr_psd)
     # power spectrum density visualization
     fig_title = "power spectrum density"
@@ -778,6 +807,12 @@ def main(args):
         # ax_psd.plot(freqs,10*np.log(v))
         ax_psd.plot(freq_c,v)
 
+    psd_ref = psd_raw_c.copy()
+    
+    # channel_id=0
+    # psd_ref.apply_function(set_psd_fun,)
+    # psd_ref._data = arr_psd
+    # psd_ref.plot()
 
     plot_topomap_bands(raw_data, arr_psd, freq_c)
 

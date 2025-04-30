@@ -11,6 +11,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, Slider
+from pathlib import Path
 
 import json
 import pickle
@@ -21,6 +22,7 @@ from autoreject import AutoReject
 from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
 
 from mne_icalabel import label_components
+
 
 from bad_channels import bad_channels_dict
 from list_participants import participants_list
@@ -88,7 +90,7 @@ def channels_interpolation(eeg_data_dict, subject, session):
 ## EEG filtering and signals pre-processing
 
 def main(args):
-    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data, arr_psd
+    # global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data, arr_psd
 
     print(f'arg {args[1]}') ## folder location
     print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
@@ -222,6 +224,8 @@ def main(args):
     
     #########################
     ## ICA to identify blink components
+    ## create folder ica if it does not exit already
+    Path(path+"ica").mkdir(parents=True, exist_ok=True)
 
     ica = ICA(n_components= 0.99, method='fastica', max_iter="auto", random_state=97)
 
@@ -234,13 +238,15 @@ def main(args):
             ## ICA fitting model to the filtered raw data
             ica.fit(filt_raw, reject_by_annotation=True)
             #################
-            ## raw data visualization before and after ICA
-            mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f'{label, id} raw data', block=False)
+            ## raw data visualization
+            mne.viz.plot_raw(filt_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f'{label, id} raw data', block=False)
             # ica components visualization
             ica.plot_components(inst=raw, contours=0,)
             ica.plot_sources(raw, show_scrollbars=False, block=True)
 
-    plt.show(block=True)
+            ica.save(path+'ica/'+label+'_'+str(id)+'-ica.fif.gz', overwrite=True)
+
+    plt.show()
     return 0
 
     ##########################
