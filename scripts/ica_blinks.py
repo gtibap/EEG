@@ -234,7 +234,7 @@ def main(args):
     ## create folder ica if it does not exit already
     Path(path+'session_'+str(session)+"/ica").mkdir(parents=True, exist_ok=True)
 
-    ica = ICA(n_components= 0.99, method='fastica', max_iter="auto", random_state=97)
+    ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
 
     for id_label, label in enumerate(labels_list):
         # new_raw_list = []

@@ -766,7 +766,22 @@ def main(args):
     ## Surface Laplacian 
     eeg_data_dict = csd_fun(eeg_data_dict)
 
-    ##########################
+    ###########################################################
+    # ## when rest and bike are in two different files, we save baseline for rest, and we open baseline for bike
+    # ## save baseline
+    # flag_bl = input('save baseline ? (1 (True), 0 (False))')
+    # if int(flag_bl)==1:
+    #     eeg_data_dict['baseline']
+    #     with open(path + 'baseline.pkl', 'wb') as file:
+    #                 pickle.dump(eeg_data_dict['baseline'], file)
+    
+    # ## load baseline
+    # flag_bl = input('load baseline ? (1 (True), 0 (False))')
+    # if int(flag_bl)==1:
+    #     with open(path + 'baseline.pkl', 'rb') as file:
+    #         eeg_data_dict['baseline'] = pickle.load(file)
+    ############################################################
+
     ## visualization raw after processing
     # visualization_raw(eeg_data_dict)
 
@@ -803,58 +818,64 @@ def main(args):
     for label, title in zip(labels_list, titles_list):
         print(f'label: {label}\ntitle: {title}')
         list_psd = []
-        for raw in eeg_data_dict[label]: 
-            ## median values of psd closed and opened eyes
 
-            ## power spectral density (psd) from first resting closed eyes
-            psd_raw = raw.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
-            # psd_raw_o = raw_o.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+        if len(eeg_data_dict[label]) > 0:
 
-            data_psd, freq_psd = psd_raw.get_data(return_freqs=True)
-            # data_o, freq_o = psd_raw_o.get_data(return_freqs=True)
+            for raw in eeg_data_dict[label]: 
+                ## median values of psd closed and opened eyes
 
-            print(f'data_psd : {data_psd.shape}')
-            # print(f'arr_o : {data_o.shape}')
+                ## power spectral density (psd) from first resting closed eyes
+                psd_raw = raw.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
+                # psd_raw_o = raw_o.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
 
-            list_psd.append(data_psd)
-            # list_o.append(data_o)
+                data_psd, freq_psd = psd_raw.get_data(return_freqs=True)
+                # data_o, freq_o = psd_raw_o.get_data(return_freqs=True)
 
-        arr_psd=np.array(list_psd)
-        print(f'arr_psd shape: {arr_psd.shape}')
-        # arr_o=np.array(list_o)
+                print(f'data_psd : {data_psd.shape}')
+                # print(f'arr_o : {data_o.shape}')
 
-        median_psd = np.median(arr_psd, axis=0)
-        # median_o = np.median(arr_o, axis=0)
+                list_psd.append(data_psd)
+                # list_o.append(data_o)
 
-        print(f'median_psd : {median_psd.shape}')
-        # print(f'median_o : {median_o.shape}')
+            arr_psd=np.array(list_psd)
+            print(f'arr_psd shape: {arr_psd.shape}')
+            # arr_o=np.array(list_o)
 
-        ##########
-        ## normalization for each channel using baseline
-        norm_psd = median_psd / median_bl
-        # norm_o = median_o / median_bl
+            median_psd = np.median(arr_psd, axis=0)
+            # median_o = np.median(arr_o, axis=0)
 
-        # arr_psd = norm_psd
+            print(f'median_psd : {median_psd.shape}')
+            # print(f'median_o : {median_o.shape}')
 
-        ## copy spectrum as template
-        # psd_ref = psd_raw.copy()
-        ## multiplied by 1e-6 as a scale factor for visualization because the visualizaiton function multiply data by 1e6
-        # psd_ref._data = norm_psd*1e-6
-        # psd_ref.plot()
+            ##########
+            ## normalization for each channel using baseline
+            norm_psd = median_psd / median_bl
+            # norm_o = median_o / median_bl
+
+            # arr_psd = norm_psd
+
+            ## copy spectrum as template
+            # psd_ref = psd_raw.copy()
+            ## multiplied by 1e-6 as a scale factor for visualization because the visualizaiton function multiply data by 1e6
+            # psd_ref._data = norm_psd*1e-6
+            # psd_ref.plot()
 
 
-        norm_psd = 10*np.log10(norm_psd)
+            norm_psd = 10*np.log10(norm_psd)
 
-        # # power spectrum density visualization
-        # fig_title = "power spectrum density"
-        # fig_psd = plt.figure(fig_title, figsize=(12, 5))
-        # ax_psd = fig_psd.add_subplot(1,1,1)
-        # for v in norm_psd:
-        #     # ax_psd.plot(freqs,10*np.log(v))
-        #     ax_psd.plot(freq_psd,v)
+            # # power spectrum density visualization
+            # fig_title = "power spectrum density"
+            # fig_psd = plt.figure(fig_title, figsize=(12, 5))
+            # ax_psd = fig_psd.add_subplot(1,1,1)
+            # for v in norm_psd:
+            #     # ax_psd.plot(freqs,10*np.log(v))
+            #     ax_psd.plot(freq_psd,v)
 
-        filename_fig = f"{path}session_{session}/figures/topomaps/{label}_topo.png"
-        plot_topomap_bands(raw_data, norm_psd, freq_psd, title, filename_fig)
+            filename_fig = f"{path}session_{session}/figures/topomaps/{label}_topo.png"
+            plot_topomap_bands(raw_data, norm_psd, freq_psd, title, filename_fig)
+
+        else:
+            pass
 
 
     plt.show(block=True)

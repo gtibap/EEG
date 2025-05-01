@@ -11,12 +11,13 @@ bad_channels_dict = {
     },
     101:{
         'session_0':{
-            'general':[],
+            # 'general':[],
             ## POz, AF4, PO3
-            'a_closed_eyes':[[],[],[]],
-            'a_opened_eyes':[[],[],['T7']],
-            'b_closed_eyes':[[],[],[]],
-            'b_opened_eyes':[[],[],[]],
+            'baseline':[['AF4']],
+            'a_closed_eyes':[['AF4'],['AF4'],['AF4']],
+            'a_opened_eyes':[['AF4'],['AF4'],['AF4','T7']],
+            'b_closed_eyes':[['AF4'],['AF4'],['AF4','T7','T8']],
+            'b_opened_eyes':[['AF4'],['AF4'],['AF4']],
         },
     },
     102:{
