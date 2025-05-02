@@ -1,9 +1,4 @@
 mne
-h5io
-pymatreader
 pandas
-torch
-mne-icalabel
 scikit-learn
-numpy
-python-picard
+mne-qt-browser
