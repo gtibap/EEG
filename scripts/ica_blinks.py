@@ -5,6 +5,7 @@
 import mne
 mne.set_log_level('error')
 
+import os
 import math
 import numpy as np
 import pandas as pd
@@ -209,14 +210,33 @@ def main(args):
 
     #########################
     ## set annotations
+    annotations_dict={}
+    
     labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    try:
-        with open(path + fn_csv[1] + '.pkl', 'rb') as file:
-            annotations_dict = pickle.load(file)
-        print(f'annotations:\n{annotations_dict}')
-    except FileNotFoundError:
-        print(f"annotations file {path + fn_csv[1] + '.pkl'} not found")
-        return 0
+
+    path_ann = path+'session_'+str(session)+"/new_annotations/"
+
+    all_filenames = os.listdir(path_ann)
+    print(f'annotations filenames: {all_filenames}')
+
+    for ax_number, section in enumerate(labels_list):
+        
+        start_name = section+fn_csv[1]
+        files_list = [i for i in all_filenames if i.startswith(start_name)]
+        
+        ann_list = []
+        for filename in sorted(files_list):
+            print(f'reading: {filename}')
+            ann_list.append( mne.read_annotations(path_ann+filename,))
+        
+        annotations_dict[section] = ann_list
+    # try:
+    #     with open(path + fn_csv[1] + '.pkl', 'rb') as file:
+    #         annotations_dict = pickle.load(file)
+    #     print(f'annotations:\n{annotations_dict}')
+    # except FileNotFoundError:
+    #     print(f"annotations file {path + fn_csv[1] + '.pkl'} not found")
+    #     return 0
     
     ## annotate bad segments to exclude them of posterior calculations
     for ax_number, section in enumerate(labels_list):

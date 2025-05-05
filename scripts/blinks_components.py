@@ -17,6 +17,17 @@ blinks_components_dict = {
             'b_opened_eyes':[[2,6],[2],[1,8],],
         },
     },
+    103:{
+        'session_0':{
+            'baseline':[[1, 4]],
+            ## ICA components are showing that occipital (head's back) right region show very intense activity, maybe related to artifacts
+            ## very few components (3-5)... which could indicate high influence of artefacts
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[1],[1, 4],[1],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[2],[2],[2],],
+        },
+    },
     1:{
         'session_0':{
             'baseline':[[3],[],[],],
@@ -31,5 +42,21 @@ blinks_components_dict = {
             'b_closed_eyes':[[],[],[],],
             'b_opened_eyes':[[1],[3],[3],],
         },
-    }
+    },
+    
+    7:{
+        'session_0':{
+            'baseline':[[],[],[],],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
+        },
+        'session_1':{
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
+        },
+    },    
 }

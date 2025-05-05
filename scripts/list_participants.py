@@ -48,12 +48,12 @@ def participants_list(path, subject, session, abt):
         # fig = raw_data.plot_sensors(show_names=True, sphere='eeglab')
 
     ############################
-    # Mr Peltier
+    # Mr Peltier (only resting) EEG data very noisy
     elif subject == 102:
         path = path + 'oct24_Peltier/'
         
         fn_in = 'eeg_pat_oct24.bdf'
-        fn_csv = 'annotations.csv'
+        fn_csv = ['annotations.csv', 'new_annotations.csv']
         title = 'P_'+str(subject)+'_rest_biosemi64'
         rows_plot = 1
 
@@ -74,12 +74,12 @@ def participants_list(path, subject, session, abt):
         if abt == 0: 
             # resting
             fn_in = 'eeg_001_session1_rest.bdf'
-            fn_csv = 'annotations_rest.csv'
+            fn_csv = ['annotations_rest.csv', '_rest']
             title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             # active-based therapy (ABT)
             fn_in = 'eeg_001_session1_velo.bdf'
-            fn_csv = 'annotations_velo.csv'
+            fn_csv = ['annotations_velo.csv', '_velo']
             title = 'P_'+str(subject)+'_ABT_biosemi64'
         rows_plot = 1
         ## read raw data

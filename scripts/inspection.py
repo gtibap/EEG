@@ -5,12 +5,14 @@
 import mne
 mne.set_log_level('error')
 
+import os
 import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Button, Slider
+from pathlib import Path
 
 import json
 import pickle
@@ -204,6 +206,10 @@ def main(args):
     new_eeg_data_dict = {}
     annotations_dict={}
 
+    ## create folder new annotations if it does not exit already
+    Path(path+'session_'+str(session)+"/new_annotations").mkdir(parents=True, exist_ok=True)
+    path_ann = path+'session_'+str(session)+"/new_annotations/"
+
     update_annotations = input('Update annotations (include new bad segments) ? (1-True, 0-False): ')
     if int(update_annotations)==1:
         
@@ -232,23 +238,47 @@ def main(args):
             eeg_data_dict[section] = eeg_list
 
         save_ann = input('save annotations? (1-True, 0-False): ')
+        
+        ## saving annotations
         if int(save_ann)==1:
+            for ax_number, section in enumerate(labels_list):
+                ann_list = annotations_dict[section]
+                for id, ann in enumerate(ann_list):
+                    filename = section+fn_csv[1]+str(id).zfill(2)+'.fif'
+                    ann.save(path_ann+filename,overwrite=True)
+
         # writing dictionary to a binary file
-            with open(path + fn_csv[1] + '.pkl', 'wb') as file:
-                pickle.dump(annotations_dict, file)
+            # with open(path + fn_csv[1] + '.pkl', 'wb') as file:
+                # pickle.dump(annotations_dict, file)
         else:
             pass
     
     else:
-        try:
-            filename = path + fn_csv[1] + '.pkl'
-            print(f'filename annotations: {filename}')
-            with open(filename, 'rb') as file:
-                annotations_dict = pickle.load(file)
-            print(f'annotations:\n{annotations_dict}')
-        except FileNotFoundError:
-            print(f'problem open new annotations file')
-            return 0
+        ## read annotations
+        all_filenames = os.listdir(path_ann)
+        print(f'annotations filenames: {all_filenames}')
+
+        for ax_number, section in enumerate(labels_list):
+            
+            start_name = section+fn_csv[1]
+            files_list = [i for i in all_filenames if i.startswith(start_name)]
+            
+            ann_list = []
+            for filename in sorted(files_list):
+                print(f'reading: {filename}')
+                ann_list.append( mne.read_annotations(path_ann+filename,))
+            
+            annotations_dict[section] = ann_list
+
+        # try:
+        #     filename = path + fn_csv[1] + '.pkl'
+        #     print(f'filename annotations: {filename}')
+        #     with open(filename, 'rb') as file:
+        #         annotations_dict = pickle.load(file)
+        #     print(f'annotations:\n{annotations_dict}')
+        # except FileNotFoundError:
+        #     print(f'problem open new annotations file')
+        #     return 0
         
         ## annotate bad segments to exclude them of posterior calculations
         for ax_number, section in enumerate(labels_list):

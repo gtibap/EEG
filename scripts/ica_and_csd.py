@@ -5,6 +5,7 @@
 import mne
 mne.set_log_level('error')
 
+import os
 import math
 import numpy as np
 import pandas as pd
@@ -648,15 +649,31 @@ def get_eeg_segments(raw_data,):
     return eeg_data_dict
 
 #############################
-def set_bad_segments(eeg_data_dict, ann_filename,):
+def set_bad_segments(eeg_data_dict, path_ann, fn):
     ## set annotations
+    annotations_dict = {}
     labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    try:
-        with open(ann_filename, 'rb') as file:
-            annotations_dict = pickle.load(file)
-        print(f'annotations:\n{annotations_dict}')
-    except FileNotFoundError:
-        annotations_dict = {}
+
+    all_filenames = os.listdir(path_ann)
+    print(f'annotations filenames: {all_filenames}')
+
+    for ax_number, section in enumerate(labels_list):
+        
+        start_name = section+fn
+        files_list = [i for i in all_filenames if i.startswith(start_name)]
+        
+        ann_list = []
+        for filename in sorted(files_list):
+            print(f'reading: {filename}')
+            ann_list.append( mne.read_annotations(path_ann+filename,))
+        
+        annotations_dict[section] = ann_list
+    # try:
+    #     with open(ann_filename, 'rb') as file:
+    #         annotations_dict = pickle.load(file)
+    #     print(f'annotations:\n{annotations_dict}')
+    # except FileNotFoundError:
+    #     annotations_dict = {}
     
     ## annotate bad segments to exclude them of posterior calculations
     for ax_number, section in enumerate(labels_list):
@@ -754,8 +771,9 @@ def main(args):
     
     ###########################
     ## set annotations of bad segments per section (interactive annotations previously made [inspection.py])
-    ann_filename = path + fn_csv[1] + '.pkl'
-    eeg_data_dict = set_bad_segments(eeg_data_dict, ann_filename,)
+    # ann_filename = path + fn_csv[1] + '.pkl'
+    path_ann = path+'session_'+str(session)+"/new_annotations/"
+    eeg_data_dict = set_bad_segments(eeg_data_dict, path_ann, fn_csv[1])
 
     #########################
     ## ICA for blink removal using precalculate ICA (ica_blinks.py)
@@ -766,21 +784,24 @@ def main(args):
     ## Surface Laplacian 
     eeg_data_dict = csd_fun(eeg_data_dict)
 
-    ###########################################################
-    # ## when rest and bike are in two different files, we save baseline for rest, and we open baseline for bike
-    # ## save baseline
-    # flag_bl = input('save baseline ? (1 (True), 0 (False))')
-    # if int(flag_bl)==1:
-    #     eeg_data_dict['baseline']
-    #     with open(path + 'baseline.pkl', 'wb') as file:
-    #                 pickle.dump(eeg_data_dict['baseline'], file)
+    ##########################################################
+    ## when rest and bike are in two different files, we save baseline for rest, and we open baseline for bike
+    ## save baseline
+    flag_bl = input('save baseline ? (1 (True), 0 (False))')
+    if int(flag_bl)==1:
+        eeg_data_dict['baseline'][0].save(path + 'baseline.fif.gz')
+        # with open(path + 'baseline.pkl', 'wb') as file:
+                    # pickle.dump(eeg_data_dict['baseline'], file)
     
-    # ## load baseline
-    # flag_bl = input('load baseline ? (1 (True), 0 (False))')
-    # if int(flag_bl)==1:
-    #     with open(path + 'baseline.pkl', 'rb') as file:
-    #         eeg_data_dict['baseline'] = pickle.load(file)
-    ############################################################
+    ## load baseline
+    flag_bl = input('load baseline ? (1 (True), 0 (False))')
+    if int(flag_bl)==1:
+        eeg_data_dict['baseline'] = [mne.io.read_raw_fif(path + 'baseline.fif.gz',)]
+        # with open(path + 'baseline.pkl', 'rb') as file:
+        #     eeg_data_dict['baseline'] = pickle.load(file)
+    ###########################################################
+
+    print(f'baseline:\n{eeg_data_dict["baseline"]}')
 
     ## visualization raw after processing
     # visualization_raw(eeg_data_dict)
