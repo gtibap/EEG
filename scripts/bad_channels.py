@@ -52,10 +52,11 @@ bad_channels_dict = {
     105:{
         'session_0':{
             'general':[],
-            'a_closed_eyes':[[],[],[]],
-            'a_opened_eyes':[[],[],[]],
-            'b_closed_eyes':[[],[],[]],
-            'b_opened_eyes':[[],[],[]],
+            'baseline':[['TP7','P7','Fp2']],
+            'a_closed_eyes':[['C4','TP7','P7','Fp2'],['TP7','P7','Fp2'],['TP7','P7','Fp2']],
+            'a_opened_eyes':[['C4','TP7','P7','Fp2'],['TP7','P7','Fp2'],['TP7','P7','Fp2']],
+            'b_closed_eyes':[['TP7','P7','Fp2'],['TP7','P7','Fp2'],['TP7','P7','Fp2']],
+            'b_opened_eyes':[['TP7','P7','Fp2'],['TP7','P7','Fp2'],['TP7','P7','Fp2']],
         },
     },
     200:{
@@ -169,13 +170,15 @@ bad_channels_dict = {
     7:{
         'session_0':{
             'general':[],
-            'a_closed_eyes':[['E48']]*3,
-            'a_opened_eyes':[['E48']]*3,
-            'b_closed_eyes':[['E48']]*3,
-            'b_opened_eyes':[['E48']]*3,
+            'baseline':[['E32']],
+            'a_closed_eyes':[['E48'],['E38'],['E38']],
+            'a_opened_eyes':[['E32'],['E32','E48'],['E25','E32']],
+            'b_closed_eyes':[['E25'],['E25','E38'],['E25']],
+            'b_opened_eyes':[['E25','E32'],['E25','E32'],['E25','E32']],
         },
         'session_1':{
             'general':[],
+            'baseline':[[]],
             'a_closed_eyes':[[]]*3,
             'a_opened_eyes':[[]]*3,
             'b_closed_eyes':[[]]*3,

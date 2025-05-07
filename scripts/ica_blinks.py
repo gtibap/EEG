@@ -209,7 +209,7 @@ def main(args):
     eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
 
     #########################
-    ## set annotations
+    ## set annotations previously made with inspection.py
     annotations_dict={}
     
     labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
@@ -269,7 +269,7 @@ def main(args):
             mne.viz.plot_raw(filt_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f'{label, id} raw data', block=False)
             # ica components visualization
             ica.plot_components(inst=raw, contours=0,)
-            ica.plot_sources(raw, show_scrollbars=False, block=True)
+            ica.plot_sources(raw, start=0, stop=240, show_scrollbars=False, block=True)
             ## saving ica fitted model
             print(f"saving ica model in {path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz'}")
             ica.save(path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz', overwrite=True)

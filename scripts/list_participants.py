@@ -127,11 +127,11 @@ def participants_list(path, subject, session, abt):
         path = path + 'aug11_Cristina/'
         if abt == 0: # resting
             fn_in = 'eeg_test_p4_s1_rest.bdf'
-            fn_csv = 'annotations_rest.csv'
+            fn_csv = ['annotations_rest.csv','_rest']
             title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             fn_in = 'eeg_test_p4_s1_bike.bdf'
-            fn_csv = 'annotations_velo.csv'
+            fn_csv = ['annotations_velo.csv','_velo']
             title = 'P_'+str(subject)+'_ABT_biosemi64'
         rows_plot = 1
         ## read raw data
@@ -278,12 +278,12 @@ def participants_list(path, subject, session, abt):
         path = path + 'neuroplasticity/n_007/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'neuro007_S1_20221231_100552.mff'
-            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'neuro_007_3m_20230108_081936.mff'
-            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
         # fn_out = 'neuro_007_ann'
