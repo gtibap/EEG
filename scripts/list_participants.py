@@ -8,7 +8,7 @@ def participants_list(path, subject, session, abt):
         # print(f'subject in:{subject}')
         path = path + 'aug04_MsChen/'
         fn_in = 'eeg_test-p3-chen_s01.bdf'
-        fn_csv = ['annotations.csv','new_annotations.csv']
+        fn_csv = ['annotations.csv','']
         title = 'P_'+str(subject)+'_rest_and_ABT_biosemi64'
         rows_plot = 2
 
@@ -31,11 +31,11 @@ def participants_list(path, subject, session, abt):
         path = path + 'oct06_Taha/'
         if abt == 0: # resting
             fn_in = 'eeg_taha_test_rest.bdf'
-            fn_csv = ['annotations_rest.csv', 'new_annotations_rest']
+            fn_csv = ['annotations_rest.csv', '_rest']
             title = 'P_'+str(subject)+'_rest_biosemi64'
         else:
             fn_in = 'eeg_taha_test_velo.bdf'
-            fn_csv = ['annotations_velo.csv','new_annotations_velo']
+            fn_csv = ['annotations_velo.csv','_velo']
             title = 'P_'+str(subject)+'_ABT_biosemi64'
         rows_plot = 1
         ## read raw data
@@ -185,12 +185,12 @@ def participants_list(path, subject, session, abt):
         path = path + 'neuroplasticity/n_001/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro001_session1_20250113_111350.mff'
-            fn_csv = ['session_'+str(session)+'/'+'annotations.csv', 'session_'+str(session)+'/'+'new_annotations']
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'Neuro_001_3M_20230101_082244.mff'
-            fn_csv = 'session_'+str(session)+'/'+'annotations.csv'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
         else:
@@ -290,6 +290,43 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         
+    ############################
+    ############################
+    # neuro_008
+    elif subject == 8:
+        path = path + 'neuroplasticity/n_008/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro_008_session_0_20250507_115913.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==1:
+            fn_in = ''
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        # fn_out = 'neuro_007_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+    
+    ############################
+    ############################
+    # neuro_009
+    elif subject == 9:
+        path = path + 'neuroplasticity/n_009/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'Neuro_009_20250509_142653.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==1:
+            fn_in = ''
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        # fn_out = 'neuro_007_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
     ############################
     else:
         fn_in = ''

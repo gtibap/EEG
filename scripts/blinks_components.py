@@ -1,11 +1,11 @@
 blinks_components_dict = {
     100:{
         'session_0':{
-            'baseline':[[0]],
+            'baseline':[[0, 13]],
             'a_closed_eyes':[[],[],[],],
-            'a_opened_eyes':[[0],[0],[0],],
-            'b_closed_eyes':[[],[],[],],
-            'b_opened_eyes':[[0],[0],[0],],
+            'a_opened_eyes':[[0],[0,1],[0],],
+            'b_closed_eyes':[[],[],[18],],
+            'b_opened_eyes':[[0,6],[0],[0,7],],
         },
     },
     101:{
@@ -49,10 +49,11 @@ blinks_components_dict = {
             'b_opened_eyes':[[3],[2],[7],],
         },
         'session_1':{
+            'baseline':[[],[],[],],
             'a_closed_eyes':[[],[],[],],
             'a_opened_eyes':[[2],[1],[2],],
-            'b_closed_eyes':[[],[],[],],
-            'b_opened_eyes':[[1],[3],[3],],
+            'b_closed_eyes':[[13,24,27],[22],[],],
+            'b_opened_eyes':[[1],[1,47],[1],],
         },
     },
     
@@ -66,10 +67,20 @@ blinks_components_dict = {
         },
         'session_1':{
             'baseline':[[0],[],[],],
-            'a_closed_eyes':[[86],[],[],],
-            'a_opened_eyes':[[],[],[],],
+            'a_closed_eyes':[[],[],[19,35],],
+            'a_opened_eyes':[[0],[0],[0],],
             'b_closed_eyes':[[],[],[],],
-            'b_opened_eyes':[[],[],[],],
+            'b_opened_eyes':[[0],[0],[0,13],],
+        },
+    },
+
+    8:{
+        'session_0':{
+            'baseline':[[0],],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[1],[0],[1,12,18],],
+            'b_closed_eyes':[[2,3],[2],[15],],
+            'b_opened_eyes':[[1,15],[1],[2],],
         },
     },    
 }

@@ -6,7 +6,7 @@ bad_channels_dict = {
             'a_closed_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
             'a_opened_eyes':[['FT8','T8'],['F4','FT8','T8'],['FT8','T8'],],
             'b_closed_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
-            'b_opened_eyes':[['FT8','T8'],['FT8','T8'],['FT8','T8'],],
+            'b_opened_eyes':[['FT8','T8','C6'],['FT8','T8','C6'],['FT8','T8','C6'],],
         },
     },
     101:{
@@ -183,6 +183,16 @@ bad_channels_dict = {
             'a_opened_eyes':[[]]*3,
             'b_closed_eyes':[[]]*3,
             'b_opened_eyes':[[]]*3,
+        },
+    },
+    8:{
+        'session_0':{
+            'general':[],
+            'baseline':[['E48']],
+            'a_closed_eyes':[['E48'],['E48',],['E48','E69']],
+            'a_opened_eyes':[['E48'],['E48'],['E48','E69']],
+            'b_closed_eyes':[['E48','E56'],['E48'],['E48']],
+            'b_opened_eyes':[['E48'],['E48'],['E48']],
         },
     },
     'ref':{

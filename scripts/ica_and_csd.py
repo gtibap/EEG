@@ -787,18 +787,18 @@ def main(args):
     ##########################################################
     ## when rest and bike are in two different files, we save baseline for rest, and we open baseline for bike
     ## save baseline
-    flag_bl = input('save baseline ? (1 (True), 0 (False))')
+    flag_bl = input('save baseline ? (1 (True), 0 (False)): ')
     if int(flag_bl)==1:
         eeg_data_dict['baseline'][0].save(path + 'baseline.fif.gz')
-        # with open(path + 'baseline.pkl', 'wb') as file:
-                    # pickle.dump(eeg_data_dict['baseline'], file)
+    else:
+        pass
     
     ## load baseline
-    flag_bl = input('load baseline ? (1 (True), 0 (False))')
+    flag_bl = input('load baseline ? (1 (True), 0 (False)): ')
     if int(flag_bl)==1:
         eeg_data_dict['baseline'] = [mne.io.read_raw_fif(path + 'baseline.fif.gz',)]
-        # with open(path + 'baseline.pkl', 'rb') as file:
-        #     eeg_data_dict['baseline'] = pickle.load(file)
+    else:
+        pass
     ###########################################################
 
     print(f'baseline:\n{eeg_data_dict["baseline"]}')
