@@ -13,11 +13,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+from channels_tfr import selected_channels
 ## include modules from another directory
 sys.path.insert(0, '../../scripts')
 from bad_channels import bad_channels_dict
 from list_participants import participants_list
 from blinks_components import blinks_components_dict
+
 
 sampling_rate = 1.0
 y_limits = [-8,8]
@@ -391,6 +393,9 @@ def main(args):
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
+
+    mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='raw data', block=False)
+
     
     ###########################################
     ## cropping data according to every section (annotations)
@@ -458,7 +463,17 @@ def main(args):
     ## time-frequency representation
     ## wavelets
     print(f'time-frequency representation')
-    freqs = np.arange(4.0, 45.0, 1)
+    start=  4.0 # Hz
+    stop = 45.0 # Hz
+    num  = 50 # samples
+    # freqs = np.arange(4.0, 45.0, 1)
+    # freqs = np.linspace(start, stop, num=num,)
+
+    start=  0.60 # 10^start,  
+    stop =  1.65 # 10^stop
+    num  = 50 # samples
+    freqs = np.logspace(start, stop, num=num,)
+    print(f'log freqs: {freqs}')
 
     baseline_list = csd_eeg_data_dict['baseline']
 
@@ -487,13 +502,15 @@ def main(args):
 
 
     #####################
+    label = 'b_closed_eyes'
+    idx=0
     ## time frequency transformation for a segment of a_closed_eyes
-    a_closed_list = csd_eeg_data_dict['a_closed_eyes']
+    a_closed_list = csd_eeg_data_dict[label]
 
-    mne.viz.plot_raw(a_closed_list[0], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='a closed eyes csd data', block=False)
+    mne.viz.plot_raw(a_closed_list[idx], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f"{label} {idx}", block=False)
 
 
-    tfr_ac = a_closed_list[0].compute_tfr('morlet',freqs, reject_by_annotation=False)
+    tfr_ac = a_closed_list[idx].compute_tfr('morlet',freqs, reject_by_annotation=False)
 
     print(f"ac type(tfr_power): {type(tfr_ac)}")
     print(tfr_ac)
@@ -505,7 +522,11 @@ def main(args):
     # print(f"times:\n{times}")
     # print(f"freqs ac:\n{freqs_ac}")
 
-    tfr_ac.plot(picks=['VREF'], title='auto', yscale='log',)
+    channels = selected_channels[subject]['session_'+str(session)][label][idx]
+    print(f'channels: {channels}')
+
+    # for ch in channels:
+    #     tfr_ac.plot(picks=[ch], title='auto', yscale='log',)
 
     dim_ch_ac, dim_fr_ac, dim_t_ac = data_ac.shape
     print(f"ac dim_ch, dim_fr, dim_t: {dim_ch_ac, dim_fr_ac, dim_t_ac}")
@@ -517,7 +538,7 @@ def main(args):
         ## each element of the array represents the mean value of time samples per each frequency
         arr_den = np.repeat(mean_ch, dim_t_ac ,axis=0).reshape((len(mean_ch),-1))
         arr_dB = 10*np.log10(arr_num / arr_den)
-        print(f"mean_ch ch arr_res:{mean_ch.shape} {id_ch}, {arr_dB.shape}")
+        # print(f"mean_ch ch arr_res:{mean_ch.shape} {id_ch}, {arr_dB.shape}")
         data_ac[id_ch] = arr_dB
         id_ch+=1
 
@@ -526,8 +547,21 @@ def main(args):
     # data_2 = data*20
     tfr_ac._data = data_ac
 
+    ## create folder if it does not exit already
+    Path(f"{path}session_{session}/figures/tfr").mkdir(parents=True, exist_ok=True)
+    
+    fig_tfr, axs_tfr = plt.subplots(3, 1, figsize=(12.0, 10.0))
+    axs_tfr = axs_tfr.flat
+
     vlim = (-10,10)
-    tfr_ac.plot(picks=['VREF'], title='auto', yscale='log', vlim=vlim)
+    for ch, ax in zip(channels, axs_tfr):
+        tfr_ac.plot(picks=[ch], title=None, yscale='log', vlim=vlim, axes=ax)
+        ax.set_title(f"")
+        ax.set_xlabel(f"")
+
+    axs_tfr[-1].set_xlabel(f"Time (s)")        
+    filename_fig = f"{path}session_{session}/figures/tfr/{label}.png"
+    fig_tfr.savefig(filename_fig, transparent=True)
     
     # ## wavelets
     # ## time-frequency representation

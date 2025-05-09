@@ -1,0 +1,11 @@
+selected_channels={
+    100:{
+        'session_0':{
+            'baseline':[[]],
+            'a_closed_eyes':[['Fz','Cz','Pz'],['Cz','POz'],['Cz','POz'],],
+            'a_opened_eyes':[['Fz','Cz','Pz'],['Cz','POz'],['Cz','POz'],],
+            'b_closed_eyes':[['Fz','Cz','Pz'],['Cz','POz'],['Cz','POz'],],
+            'b_opened_eyes':[['Fz','Cz','Pz'],['Cz','POz'],['Cz','POz'],],
+        },
+    },
+}
