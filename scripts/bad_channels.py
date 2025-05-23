@@ -13,9 +13,9 @@ bad_channels_dict = {
         'session_0':{
             # 'general':[],
             ## POz, AF4, PO3
-            'baseline':[['AF4']],
-            'a_closed_eyes':[['AF4'],['AF4'],['AF4']],
-            'a_opened_eyes':[['AF4'],['AF4'],['AF4','T7']],
+            'baseline':[['PO3','POz','AF4']],
+            'a_closed_eyes':[['PO3','POz','AF4'],['PO3','POz','AF4'],['PO3','POz','AF4']],
+            'a_opened_eyes':[['PO3','POz','AF4'],['PO3','POz','AF4'],['PO3','POz','AF4','T7']],
             'b_closed_eyes':[['AF4'],['AF4'],['AF4','T7','T8']],
             'b_opened_eyes':[['AF4'],['AF4'],['AF4']],
         },
@@ -195,6 +195,25 @@ bad_channels_dict = {
             'b_opened_eyes':[['E48'],['E48'],['E48']],
         },
     },
+    9:{
+        'session_0':{
+            'general':[],
+            'a_closed_eyes':[[]]*3,
+            'a_opened_eyes':[[]]*3,
+            'b_closed_eyes':[[]]*3,
+            'b_opened_eyes':[[]]*3,
+        },
+    },
+    10:{
+        'session_0':{
+            'general':[],
+            'a_closed_eyes':[[]]*3,
+            'a_opened_eyes':[[]]*3,
+            'b_closed_eyes':[[]]*3,
+            'b_opened_eyes':[[]]*3,
+        },
+    },
+
     'ref':{
         'session_0':{
             'general':[],

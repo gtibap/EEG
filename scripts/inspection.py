@@ -306,7 +306,7 @@ def main(args):
             print(f'eeg_segment')
             ## channels' spectrum of frequencies
             ax_psd[idx] = fig_psd.add_subplot(number_ax,1,idx+1)
-            mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[idx], fmax=100, reject_by_annotation=True,)
+            mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[idx], fmax=100, reject_by_annotation=True, xscale='log',)
             ax_psd[idx].set_title(label_title[ax_number] +'_'+str(idx))
             ax_psd[idx].set_ylim([-20, 50])
             ## channels' voltage vs time

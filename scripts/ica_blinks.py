@@ -257,6 +257,7 @@ def main(args):
     ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
 
     for id_label, label in enumerate(labels_list):
+        print(f'ica {label}')
         # new_raw_list = []
         for id, raw in enumerate(eeg_data_dict[label]):
             print(f'label: {label, id}')

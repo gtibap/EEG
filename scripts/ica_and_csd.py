@@ -484,7 +484,7 @@ def plot_topomap_bands(raw_data, arr_psd, arr_freqs, label, filename):
     title_list=['theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
     for fmin, fmax, ax, title in zip(fmin_list, fmax_list, axs_bands.flat, title_list):
     
-        idx_range_freq = np.argwhere((arr_freqs >= fmin)&(arr_freqs <= fmax))
+        idx_range_freq = np.argwhere((arr_freqs >= fmin)&(arr_freqs < fmax))
         id_min = np.min(idx_range_freq)
         id_max = np.max(idx_range_freq)
 
@@ -789,7 +789,7 @@ def main(args):
     ## save baseline
     flag_bl = input('save baseline ? (1 (True), 0 (False)): ')
     if int(flag_bl)==1:
-        eeg_data_dict['baseline'][0].save(path + 'baseline.fif.gz')
+        eeg_data_dict['baseline'][0].save(path+'session_'+str(session)+'/baseline.fif.gz', overwrite=True)
     else:
         pass
     
@@ -812,15 +812,16 @@ def main(args):
     ## comparison between closed and opened eyes
     ## baseline
     list_bl = []
-    for raw_baseline in eeg_data_dict['baseline']: 
-        ## median values of psd closed and opened eyes
-
-        ## power spectral density (psd) from first resting closed eyes
+    for raw_baseline in eeg_data_dict['baseline']:
+        ## power spectral density (psd) from each iteration of baseline (usually only one)
         psd_bl = raw_baseline.compute_psd(fmin=0,fmax=45,reject_by_annotation=True)
         data_bl, freq_bl = psd_bl.get_data(return_freqs=True)
         print(f'arr_bl : {data_bl.shape}')
 
         list_bl.append(data_bl)
+
+    ## psd median values from all iterations for each section (baseline, resting closed-eyes, ... biking closed-eyes,...)
+    ## and psd normalization using the resultant values from baseline
 
     arr_bl=np.array(list_bl)
     median_bl = np.median(arr_bl, axis=0)
@@ -842,7 +843,7 @@ def main(args):
 
         if len(eeg_data_dict[label]) > 0:
 
-            for raw in eeg_data_dict[label]: 
+            for raw in eeg_data_dict[label]:
                 ## median values of psd closed and opened eyes
 
                 ## power spectral density (psd) from first resting closed eyes

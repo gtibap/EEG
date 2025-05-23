@@ -12,7 +12,7 @@ blinks_components_dict = {
         'session_0':{
             'baseline':[[0]],
             'a_closed_eyes':[[],[],[],],
-            'a_opened_eyes':[[2],[2],[2],],
+            'a_opened_eyes':[[1],[1],[6],],
             'b_closed_eyes':[[7],[],[],],
             'b_opened_eyes':[[2,6],[2],[1,8],],
         },
