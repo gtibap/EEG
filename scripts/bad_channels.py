@@ -16,15 +16,16 @@ bad_channels_dict = {
             'baseline':[['PO3','POz','AF4']],
             'a_closed_eyes':[['PO3','POz','AF4'],['PO3','POz','AF4'],['PO3','POz','AF4']],
             'a_opened_eyes':[['PO3','POz','AF4'],['PO3','POz','AF4'],['PO3','POz','AF4','T7']],
-            'b_closed_eyes':[['AF4'],['AF4'],['AF4','T7','T8']],
-            'b_opened_eyes':[['AF4'],['AF4'],['AF4']],
+            'b_closed_eyes':[['PO3','POz','AF4'],['PO3','POz','AF4'],['PO3','POz','AF4']],
+            'b_opened_eyes':[['PO3','POz','AF4'],['PO3','POz','AF4'],['PO3','POz','AF4']],
         },
     },
     102:{
         'session_0':{
-            'general':[],
-            'a_closed_eyes':[[],[],[]],
-            'a_opened_eyes':[[],[],[]],
+            # 'general':[],
+            'baseline':[[]],
+            'a_closed_eyes':[['PO3'],['O2'],['Fpz','O2']],
+            'a_opened_eyes':[[],[],['F8']],
             'b_closed_eyes':[[],[],[]],
             'b_opened_eyes':[[],[],[]],
         },
@@ -86,6 +87,15 @@ bad_channels_dict = {
             'b_opened_eyes':[[]]*3,
         },
     },
+    203:{
+        'session_0':{
+            'baseline':[['E115']],
+            'a_closed_eyes':[['E115'],['E115'],['E115']],
+            'a_opened_eyes':[['E115'],['E115'],['E115']],
+            'b_closed_eyes':[['E115'],['E115'],['E115']],
+            'b_opened_eyes':[['E115'],['E115'],['E115']],
+        },
+    },
     1:{
         'session_0':{
             # 'general':['E48','E119'],
@@ -95,15 +105,15 @@ bad_channels_dict = {
             'a_opened_eyes':[[],['E119',],['E119',],],
 
             'b_closed_eyes':[['E45','E119','E127'],['E45','E119','E127'],['E119',],],
-            'b_opened_eyes':[['E45','E119',],['E45','E119',],[],],
+            'b_opened_eyes':[['E45','E119',],['E45','E119',],['E119',],],
         },
         'session_1':{
             'general':[],
-            'baseline':[[],[],[],],
-            'a_closed_eyes':[[]]*3,
-            'a_opened_eyes':[[]]*3,
-            'b_closed_eyes':[[]]*3,
-            'b_opened_eyes':[[]]*3,
+            'baseline':[['E106'],[],[],],
+            'a_closed_eyes':[['E106'],['E106'],['E106']],
+            'a_opened_eyes':[['E106'],['E106'],['E106']],
+            'b_closed_eyes':[['E106'],['E106'],['E106']],
+            'b_opened_eyes':[['E106'],['E106'],['E106']],
         }
     },
     2:{
@@ -206,17 +216,30 @@ bad_channels_dict = {
     },
     10:{
         'session_0':{
-            'general':[],
-            'a_closed_eyes':[[]]*3,
-            'a_opened_eyes':[[]]*3,
-            'b_closed_eyes':[[]]*3,
-            'b_opened_eyes':[[]]*3,
+            ## In the list 'general' we define channels that are usually affected by artefacts due their location, i.e. channels close to the ears and the eyes. Those selected channels will be excluded from the begining of signals preprocessing
+            'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128', ],
+            'baseline':[['E44','E62','E72','E107','E119','E120','E121','E125',]],
+            'a_closed_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
+            'a_opened_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
+            'b_closed_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
+            'b_opened_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
+        },
+    },
+    11:{
+        'session_0':{
+            'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128', ],
+            'baseline':[['E125','E128']],
+            'a_closed_eyes':[['E125','E128']]*3,
+            'a_opened_eyes':[['E125','E128']]*3,
+            'b_closed_eyes':[['E125','E128']]*3,
+            'b_opened_eyes':[['E125','E128']]*3,
         },
     },
 
     'ref':{
         'session_0':{
             'general':[],
+            'baseline':[[]],
             'a_closed_eyes':[[]]*3,
             'a_opened_eyes':[[]]*3,
             'b_closed_eyes':[[]]*3,
