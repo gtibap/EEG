@@ -79,6 +79,11 @@ def main(args):
     # print(f"first and last samples:\n{first_sample, last_sample} in seconds")
     ########################
     ## read raw annotations
+    ########################
+    arr_onset=np.array([])
+    arr_label=np.array([])
+    arr_durat=[]
+
     if fn_csv.startswith('raw'):
         ## open csv markers file (annotations that were saved with an online application that transforms xml to csv. The xml file is found inside the file (folder) with the extension .mff)
         print(f'CSV file: {fn_csv}')
@@ -95,67 +100,74 @@ def main(args):
         print(f'markers sec:\n{serie_sec}')
         ## adding a column to the dataframe
         df['onset']=serie_sec
-        print(f'annotations:\n{df}')
+
+        # ## we expect every segment last 60 seconds
+        # df['onset']
+        # arr_durat = len(arr_onset)*[60]
+        # print(f'annotations:\n{df}')
     
-        # ## extract selected data from dataframe
-        # labels = labels_ref
+        # # ## extract selected data from dataframe
+        # # labels = labels_ref
         
-        ########################
-        ## for closed- and opened-eyes segments 
-        arr_onset=np.array([])
-        arr_label=np.array([])
+        # ########################
+        # ## for closed- and opened-eyes segments 
+        # arr_onset=np.array([])
+        # arr_label=np.array([])
 
-        for d in labels_ref:
-            arr_onset = np.append(arr_onset, df[df['label'] == d]['onset'].to_numpy())
-            arr_label = np.append(arr_label, df[df['label'] == d]['label'].to_numpy())
-            print(f'onset+label: {arr_onset}, {arr_label}')
+        # for d in labels_ref:
+        #     arr_onset = np.append(arr_onset, df[df['label'] == d]['onset'].to_numpy())
+        #     arr_label = np.append(arr_label, df[df['label'] == d]['label'].to_numpy())
+        #     print(f'onset+label: {arr_onset}, {arr_label}')
 
-        ## we expect every segment last 60 seconds
-        arr_durat = len(arr_onset)*[60]
-        ## latter on we manually adjust segments to avoid overlapping
-        ## for closed- and opened-eyes segments 
-        ########################
+        # ## we expect every segment last 60 seconds
+        # arr_durat = len(arr_onset)*[60]
+        # ## latter on we manually adjust segments to avoid overlapping
+        # ## for closed- and opened-eyes segments 
+        # ########################
         
-        ########################
-        ## for baseline segments 
-        arr_onset_baseline = df[df['label'] == 'baseline']['onset'].to_numpy()
-        arr_label_baseline = df[df['label'] == 'baseline']['label'].to_numpy()
+        # ########################
+        # ## for baseline segments 
+        # arr_onset_baseline = df[df['label'] == 'baseline']['onset'].to_numpy()
+        # arr_label_baseline = df[df['label'] == 'baseline']['label'].to_numpy()
 
-        ## we define every baseline segment last 20 seconds
-        arr_durat_baseline = len(arr_onset_baseline)*[20]
+        # ## we define every baseline segment last 20 seconds
+        # arr_durat_baseline = len(arr_onset_baseline)*[20]
 
-        arr_onset = np.append(arr_onset, arr_onset_baseline)
-        arr_label = np.append(arr_label, arr_label_baseline)
-        arr_durat = np.append(arr_durat, arr_durat_baseline)
-        ## for baseline segments 
-        ########################
+        # arr_onset = np.append(arr_onset, arr_onset_baseline)
+        # arr_label = np.append(arr_label, arr_label_baseline)
+        # arr_durat = np.append(arr_durat, arr_durat_baseline)
+        # ## for baseline segments 
+        # ########################
         
         
-        ########################
-        ## for BAD_ segments 
-        arr_onset_bad = df[df['label'] == 'BAD_']['onset'].to_numpy()
-        arr_label_bad = df[df['label'] == 'BAD_']['label'].to_numpy()
+        # ########################
+        # ## for BAD_ segments 
+        # arr_onset_bad = df[df['label'] == 'BAD_']['onset'].to_numpy()
+        # arr_label_bad = df[df['label'] == 'BAD_']['label'].to_numpy()
 
-        ## we define every BAD segment last 2 seconds
-        arr_durat_bad = len(arr_onset_bad)*[2]
+        # ## we define every BAD segment last 2 seconds
+        # arr_durat_bad = len(arr_onset_bad)*[2]
 
-        arr_onset = np.append(arr_onset, arr_onset_bad)
-        arr_label = np.append(arr_label, arr_label_bad)
-        arr_durat = np.append(arr_durat, arr_durat_bad)
+        # arr_onset = np.append(arr_onset, arr_onset_bad)
+        # arr_label = np.append(arr_label, arr_label_bad)
+        # arr_durat = np.append(arr_durat, arr_durat_bad)
 
-        ## for BAD_ segments 
-        ########################
-        # print (f'arr_onset:\n{arr_onset}')
-        # print (f'arr_label:\n{arr_label}')
-        # print (f'arr_durat:\n{arr_durat}')
+        # ## for BAD_ segments 
+        # ########################
+        # # print (f'arr_onset:\n{arr_onset}')
+        # # print (f'arr_label:\n{arr_label}')
+        # # print (f'arr_durat:\n{arr_durat}')
 
-        # print(f"meas date: {raw_data.info['meas_date']}")
-        # print(f"meas date type: {type(raw_data.info['meas_date'])}")
+        # # print(f"meas date: {raw_data.info['meas_date']}")
+        # # print(f"meas date type: {type(raw_data.info['meas_date'])}")
 
         my_annot = mne.Annotations(
-        onset=arr_onset,  # in seconds
-        duration=arr_durat,  # in seconds, too
-        description=arr_label,
+        # onset=arr_onset,  # in seconds
+        # duration=arr_durat,  # in seconds, too
+        # description=arr_label,
+        onset=df['onset'].values,  # in seconds
+        description=df['label'].values,
+        duration=len(df['duration'].values)*[2],  # 2 seconds for each label
         )
     ###################    
     ## read edited annotations
@@ -170,8 +182,13 @@ def main(args):
     ############################
     ## adding original annotations to raw data
     raw_data.set_annotations(my_annot)
+    
     ## adding bad channels
+    # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    ## exclude channels of the net boundaries that usually bring noise or artifacts
     raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    raw_data.drop_channels(raw_data.info['bads'])
+
     # print(raw_data.annotations)
     ############################
     ############################
@@ -180,7 +197,7 @@ def main(args):
     ## visualization scale
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=150e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    fig = raw_data.plot(start=0, duration=240, n_channels=15, scalings=scale_dict, highpass=0.3, lowpass=45.0, block=True)
+    fig = raw_data.plot(start=0, duration=240, n_channels=15, scalings=scale_dict, highpass=1.0, lowpass=45.0, block=True)
     ############################
     ############################
     ## regions that do not have labels will be labeled as BAD_

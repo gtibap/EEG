@@ -1,4 +1,12 @@
 bad_channels_dict = {
+
+    ##################    
+    ## channels to exclude from the analysis... those channels are suceptible to artifacts
+    'biosemi':[],
+
+    'geodesic':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E68','E73','E81','E88','E94','E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128',],
+
+    ###################
     100:{
         'session_0':{
             # 'general':['T8'],
@@ -96,38 +104,44 @@ bad_channels_dict = {
             'b_opened_eyes':[['E115'],['E115'],['E115']],
         },
     },
+
+    ##############################################
+    ####### neuroplasticity ######################
+
     1:{
         'session_0':{
-            # 'general':['E48','E119'],
-            'general':[],
-            'baseline':[[],[],[],],
-            'a_closed_eyes':[[],['E119',],[],],
-            'a_opened_eyes':[[],['E119',],['E119',],],
+            'baseline':[[],[]],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[],[],[],],
 
-            'b_closed_eyes':[['E45','E119','E127'],['E45','E119','E127'],['E119',],],
-            'b_opened_eyes':[['E45','E119',],['E45','E119',],['E119',],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
         },
         'session_1':{
-            'general':[],
-            'baseline':[['E106'],[],[],],
-            'a_closed_eyes':[['E106'],['E106'],['E106']],
-            'a_opened_eyes':[['E106'],['E106'],['E106']],
-            'b_closed_eyes':[['E106'],['E106'],['E106']],
-            'b_opened_eyes':[['E106'],['E106'],['E106']],
+            # 'general':[],
+            'baseline':[[],[],[],],
+            'a_closed_eyes':[[],[],[]],
+            'a_opened_eyes':[[],[],[]],
+            'b_closed_eyes':[[],[],[]],
+            'b_opened_eyes':[[],[],[]],
         }
     },
+
+    #################################################
     2:{
         'session_0':{
-            'general':['E8','E55'],
+            # 'general':['E8','E55'],
             'a_closed_eyes':[['E8','E55']]*3,
             'a_opened_eyes':[['E8','E55']]*3,
             'b_closed_eyes':[['E8','E55']]*3,
             'b_opened_eyes':[['E8','E55']]*3,
         },
     },
+
+    #################################################
     3:{
         'session_0':{
-            'general':['E45','E49','E56','E57','E62','E72','E78','E79','E85','E86','E92','E95'],
+            # 'general':['E45','E49','E56','E57','E62','E72','E78','E79','E85','E86','E92','E95'],
             ## signals degradation increases with time
             'a_closed_eyes':[['E45','E49','E56','E57','E62','E72','E78','E79','E85','E86','E92','E95']]*3,
             'a_opened_eyes':[['E45','E49','E56','E57','E62','E72','E78','E79','E85','E86','E92','E95']]*3,
@@ -135,25 +149,29 @@ bad_channels_dict = {
             'b_opened_eyes':[['E45','E49','E56','E57','E62','E72','E78','E79','E85','E86','E92','E95']]*3,
         },
         'session_1':{
-            'general':[],
+            # 'general':[],
             'a_closed_eyes':[[]]*3,
             'a_opened_eyes':[[]]*3,
             'b_closed_eyes':[[]]*3,
             'b_opened_eyes':[[]]*3,
         },
     },
+
+    #################################################
     4:{
         'session_0':{
-            'general':[],
+            # 'general':[],
             'a_closed_eyes':[['E20','E44','E48','E114']]*3,
             'a_opened_eyes':[['E20','E44','E48','E114']]*3,
             'b_closed_eyes':[['E20','E44','E48','E114']]*3,
             'b_opened_eyes':[['E20','E44','E48','E114']]*3,
         },
     },
+
+    #################################################
     5:{
         'session_0':{
-            'general':[],
+            # 'general':[],
             'a_closed_eyes':[['E20','E43','E44','E113']]*3,
             'a_opened_eyes':[['E20','E43','E44','E113']]*3,
             'b_closed_eyes':[['E20','E43','E44','E113']]*3,
@@ -161,25 +179,29 @@ bad_channels_dict = {
         },
 
     },
+
+    #################################################
     6:{
         'session_0':{
-            'general':['E37','E43','E48'],
+            # 'general':['E37','E43','E48'],
             'a_closed_eyes':[['E37','E43','E48']]*3,
             'a_opened_eyes':[['E37','E43','E48']]*3,
             'b_closed_eyes':[['E37','E43','E48']]*3,
             'b_opened_eyes':[['E37','E43','E48']]*3,
         },
         'session_1':{
-            'general':[],
+            # 'general':[],
             'a_closed_eyes':[[]]*3,
             'a_opened_eyes':[[]]*4,
             'b_closed_eyes':[[]]*3,
             'b_opened_eyes':[[]]*3,
         },
     },
+
+    #################################################
     7:{
         'session_0':{
-            'general':[],
+            # 'general':[],
             'baseline':[['E32']],
             'a_closed_eyes':[['E48'],['E38'],['E38']],
             'a_opened_eyes':[['E32'],['E32','E48'],['E25','E32']],
@@ -187,7 +209,7 @@ bad_channels_dict = {
             'b_opened_eyes':[['E25','E32'],['E25','E32'],['E25','E32']],
         },
         'session_1':{
-            'general':[],
+            # 'general':[],
             'baseline':[[]],
             'a_closed_eyes':[[]]*3,
             'a_opened_eyes':[[]]*3,
@@ -195,9 +217,11 @@ bad_channels_dict = {
             'b_opened_eyes':[[]]*3,
         },
     },
+
+    #################################################
     8:{
         'session_0':{
-            'general':[],
+            # 'general':[],
             'baseline':[['E48']],
             'a_closed_eyes':[['E48'],['E48',],['E48','E69']],
             'a_opened_eyes':[['E48'],['E48'],['E48','E69']],
@@ -205,6 +229,8 @@ bad_channels_dict = {
             'b_opened_eyes':[['E48'],['E48'],['E48']],
         },
     },
+
+    #################################################
     9:{
         'session_0':{
             'general':[],
@@ -214,10 +240,12 @@ bad_channels_dict = {
             'b_opened_eyes':[[]]*3,
         },
     },
+
+    #################################################
     10:{
         'session_0':{
             ## In the list 'general' we define channels that are usually affected by artefacts due their location, i.e. channels close to the ears and the eyes. Those selected channels will be excluded from the begining of signals preprocessing
-            'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128', ],
+            # 'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128', ],
             'baseline':[['E44','E62','E72','E107','E119','E120','E121','E125',]],
             'a_closed_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
             'a_opened_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
@@ -225,9 +253,13 @@ bad_channels_dict = {
             'b_opened_eyes':[['E44','E62','E72','E107','E119','E120','E121','E125',]]*3,
         },
     },
+
+    #################################################
     11:{
+        # 'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E68','E73','E81','E88','E94','E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128',],
+
         'session_0':{
-            'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128', ],
+            # 'general':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E68','E73','E81','E88','E94','E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128',],
             'baseline':[['E125','E128']],
             'a_closed_eyes':[['E125','E128']]*3,
             'a_opened_eyes':[['E125','E128']]*3,
@@ -236,6 +268,7 @@ bad_channels_dict = {
         },
     },
 
+    #################################################
     'ref':{
         'session_0':{
             'general':[],

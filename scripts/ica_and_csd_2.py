@@ -319,7 +319,8 @@ def channels_interpolation(eeg_data_dict, subject, session):
         new_raw_list = []
         for id, raw in enumerate(eeg_data_dict[label]):
             # print(f'raw data:\n{len(raw)}')
-            raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            # raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+
             raw.interpolate_bads()
             new_raw_list.append(raw)
         eeg_data_dict[label] = new_raw_list
@@ -337,7 +338,13 @@ def channels_average_ref(eeg_data_dict, subject, session):
         new_raw_list = []
         for id, raw in enumerate(eeg_data_dict[label]):
             # print(f'raw data:\n{len(raw)}')
+            
+            ## exclude bad channels from the average calculation of re-referencing
             raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            # bad_ch_list = raw.info["bads"]
+            # bad_ch_list.extend(bad_channels_dict[subject]['session_'+str(session)][label][id])
+            # raw.info["bads"] =  bad_ch_list
+
             # set average among channels as reference excluding bad channels
             raw.set_eeg_reference(ref_channels="average")
             
@@ -359,6 +366,10 @@ def csd_fun(eeg_data_dict):
             ## to exclude bad channels from the computation
             # raw = raw.pick(picks=["eeg", "eog", "ecg", "stim"], exclude="bads")
             ## surface laplacian
+
+            ## 
+            # raw.drop_channels(raw.info['bads'])
+
             new_raw_list.append(mne.preprocessing.compute_current_source_density(raw))
         new_eeg_data_dict[label] = new_raw_list
 
@@ -909,13 +920,18 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
     else:
         pass
     
+    ## exclude channels of the net boundaries that usually bring noise or artifacts
+    raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    raw_data.drop_channels(raw_data.info['bads'])
+
+
     ##########################
     # printing basic information from data
     print(f'raw data filename: {fn_in}')
@@ -943,6 +959,7 @@ def main(args):
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
+    
     
     ###########################################
     ## cropping data according to every section (annotations)

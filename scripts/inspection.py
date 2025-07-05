@@ -10,8 +10,8 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib.widgets import Button, Slider
+# from matplotlib.animation import FuncAnimation
+# from matplotlib.widgets import Button, Slider
 from pathlib import Path
 
 import json
@@ -19,10 +19,9 @@ import pickle
 
 import pathlib
 import time
-from autoreject import AutoReject
-from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
-
-from mne_icalabel import label_components
+# from autoreject import AutoReject
+# from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
+# from mne_icalabel import label_components
 
 from bad_channels import bad_channels_dict
 from list_participants import participants_list
@@ -47,6 +46,7 @@ cbar_ax = []
 sampling_rate = 1.0
 raw_data=[]
 sigmoid_signal = []
+ch_names_list = []
 
 
 
@@ -65,6 +65,7 @@ def ann_remove_offset(interactive_annot, time_offset):
     onset=arr_onset,  # in seconds
     duration=arr_durat,  # in seconds, too
     description=arr_label,
+    # ch_names = ch_names_list
     )
     return my_annot
 
@@ -85,7 +86,7 @@ def crop_fun(raw_data, t1, t2):
 ## EEG filtering and signals pre-processing
 
 def main(args):
-    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data
+    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data, ch_names_list
 
     print(f'arg {args[1]}') ## folder location
     print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
@@ -108,13 +109,17 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
     else:
         pass
     
+    ## exclude channels of the net boundaries that usually bring noise or artifacts
+    raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    raw_data.drop_channels(raw_data.info['bads'])
+
     ##########################
     # printing basic information from data
     print(f'raw data filename: {fn_in}')
@@ -125,6 +130,10 @@ def main(args):
     ## sampling rate
     sampling_rate = raw_data.info['sfreq']
     ############################
+    ## sampling rate
+    ch_names_list = raw_data.info['ch_names']
+    ############################
+
     ## run matplotlib in interactive mode
     plt.ion()
     
@@ -141,6 +150,8 @@ def main(args):
     print(f'inital annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
+    ## adding bad channels generally excluded
+    raw_data.info["bads"] = bad_channels_dict[acquisition_system]
     ############################
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
@@ -293,11 +304,14 @@ def main(args):
 
     # power spectrum density visualization
     fig_title = "power spectrum density"
+    ## create folder psd if it does not exit already
+    path_psd = path+'session_'+str(session)+'/figures/psd/'
+    Path(path_psd).mkdir(parents=True, exist_ok=True)
 
     for ax_number, section in enumerate(labels_list):
         print(f'section: {section}')
         ## signals visualization
-        fig_psd = plt.figure(fig_title, figsize=(8, 5))
+        fig_psd = plt.figure(fig_title, figsize=(9, 7))
         number_ax = len(eeg_data_dict[section])
         print(f'number ax: {number_ax}')
         ax_psd = [[]]*number_ax
@@ -307,7 +321,8 @@ def main(args):
             ## channels' spectrum of frequencies
             ax_psd[idx] = fig_psd.add_subplot(number_ax,1,idx+1)
             mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[idx], fmax=100, reject_by_annotation=True, xscale='log',)
-            ax_psd[idx].set_title(label_title[ax_number] +'_'+str(idx))
+            # ax_psd[idx].set_title(label_title[ax_number] +'_'+str(idx))
+            ax_psd[idx].set_title('')
             ax_psd[idx].set_ylim([-20, 50])
             ## channels' voltage vs time
             mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number]+'_'+str(idx), block=False)
@@ -315,6 +330,8 @@ def main(args):
             idx+=1
 
         plt.show(block=True)
+        fig_psd.suptitle(label_title[ax_number])
+        fig_psd.savefig(path_psd+section, transparent=False,)
 
     plt.show(block=True)
     return 0

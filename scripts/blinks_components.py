@@ -13,8 +13,15 @@ blinks_components_dict = {
             'baseline':[[0]],
             'a_closed_eyes':[[],[],[],],
             'a_opened_eyes':[[1],[1],[6],],
-            'b_closed_eyes':[[7],[],[],],
-            'b_opened_eyes':[[2,6],[2],[1,8],],
+            'b_closed_eyes':[[8],[13],[10],],
+            'b_opened_eyes':[[2,4,11],[1],[1,6],],
+        },
+    },
+    102:{
+        'session_0':{
+            'baseline':[[]],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[8],[3,21],[6],],
         },
     },
     103:{
@@ -32,7 +39,7 @@ blinks_components_dict = {
         'session_0':{
             ## TP7 highly afffected by artifacts
             ## blinking and lateral eyes movements
-            'ica_var': 0.999,
+            # 'ica_var': 0.999,
             'baseline':[[2,3]],
             'a_closed_eyes':[[],[11],[10],],
             'a_opened_eyes':[[],[2,9],[2,15],],
@@ -40,13 +47,25 @@ blinks_components_dict = {
             'b_opened_eyes':[[1,22],[1,4,30],[1,28],],
         },
     },
+    203:{
+        'session_0':{
+            ## TP7 highly afffected by artifacts
+            ## blinking and lateral eyes movements
+            # 'ica_var': 0.999,
+            'baseline':[[0,6,]],
+            'a_closed_eyes':[[6,24],[5,],[5,],],
+            'a_opened_eyes':[[0,5,],[0,6,],[0,10,],],
+            'b_closed_eyes':[[6,],[4,11,],[4,7,18,],],
+            'b_opened_eyes':[[1,7,13],[1,6,14,],[1,7,14],],
+        },
+    },
     1:{
         'session_0':{
-            'baseline':[[3],[],[],],
+            'baseline':[[0],],
             'a_closed_eyes':[[],[],[],],
-            'a_opened_eyes':[[3],[4],[3],],
-            'b_closed_eyes':[[],[],[],],
-            'b_opened_eyes':[[3],[2],[7],],
+            'a_opened_eyes':[[0,3],[0],[0],],
+            'b_closed_eyes':[[2],[0],[0],],
+            'b_opened_eyes':[[0],[0],[0],],
         },
         'session_1':{
             'baseline':[[],[],[],],
@@ -82,5 +101,23 @@ blinks_components_dict = {
             'b_closed_eyes':[[2,3],[2],[15],],
             'b_opened_eyes':[[1,15],[1],[2],],
         },
-    },    
+    }, 
+    10:{
+        'session_0':{
+            'baseline':[[],[],[],],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
+        },
+    },   
+    11:{
+        'session_0':{
+            'baseline':[[0],],
+            'a_closed_eyes':[[2],[2],[2,18],],
+            'a_opened_eyes':[[0],[0,1],[0],],
+            'b_closed_eyes':[[27],[1,29],[1],],
+            'b_opened_eyes':[[0],[0],[0],],
+        },
+    },   
 }

@@ -6,23 +6,23 @@ import mne
 mne.set_log_level('error')
 
 import os
-import math
+# import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from matplotlib.widgets import Button, Slider
+# from matplotlib.animation import FuncAnimation
+# from matplotlib.widgets import Button, Slider
 from pathlib import Path
 
-import json
-import pickle
+# import json
+# import pickle
 
 import pathlib
 import time
-from autoreject import AutoReject
+# from autoreject import AutoReject
 from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
 
-from mne_icalabel import label_components
+# from mne_icalabel import label_components
 
 
 from bad_channels import bad_channels_dict
@@ -73,7 +73,7 @@ def crop_fun(raw_data, t1, t2):
 #############################
 def channels_interpolation(eeg_data_dict, subject, session):
 
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
 
     for id_label, label in enumerate(labels_list):
         print(f'label: {label}')
@@ -81,7 +81,34 @@ def channels_interpolation(eeg_data_dict, subject, session):
         for id, raw in enumerate(eeg_data_dict[label]):
             # print(f'raw data:\n{len(raw)}')
             raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            # bad_ch_list = raw.info["bads"]
+            # bad_ch_list.extend(bad_channels_dict[subject]['session_'+str(session)][label][id])
+            # raw.info["bads"] =  bad_ch_list
+            # set average among channels as reference
+            raw.set_eeg_reference(ref_channels="average")
             raw.interpolate_bads()
+            new_raw_list.append(raw)
+        eeg_data_dict[label] = new_raw_list
+
+    return eeg_data_dict
+
+####################################
+def channels_average_ref(eeg_data_dict, subject, session):
+
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        print(f'label: {label}')
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            # print(f'raw data:\n{len(raw)}')
+            raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            # bad_ch_list = raw.info["bads"]
+            # bad_ch_list.extend(bad_channels_dict[subject]['session_'+str(session)][label][id])
+            # raw.info["bads"] =  bad_ch_list
+            # set average among channels as reference
+            raw.set_eeg_reference(ref_channels="average")
+            
             new_raw_list.append(raw)
         eeg_data_dict[label] = new_raw_list
 
@@ -114,13 +141,17 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
     else:
         pass
     
+    ## exclude channels of the net boundaries that usually bring noise or artifacts
+    raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    raw_data.drop_channels(raw_data.info['bads'])
+
     ##########################
     # printing basic information from data
     print(f'raw data filename: {fn_in}')
@@ -139,7 +170,7 @@ def main(args):
     ## Stage 1: high pass filter (in place)
     #################################
     low_cut =    0.5
-    hi_cut  =   None
+    hi_cut  =   45.0
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
 
     ############################
@@ -148,6 +179,8 @@ def main(args):
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
+    ## adding bad channels generally excluded
+    # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
     ############################
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
@@ -205,8 +238,9 @@ def main(args):
     eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
 
     #########################
-    ## interpolation of bad channels and contatenation of segments with same label
-    eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
+    ## set average reference
+    eeg_data_dict = channels_average_ref(eeg_data_dict, subject, session)
+
 
     #########################
     ## set annotations previously made with inspection.py

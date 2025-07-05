@@ -53,7 +53,7 @@ def participants_list(path, subject, session, abt):
         path = path + 'oct24_Peltier/'
         
         fn_in = 'eeg_pat_oct24.bdf'
-        fn_csv = ['annotations.csv', 'new_annotations.csv']
+        fn_csv = ['annotations.csv', '']
         title = 'P_'+str(subject)+'_rest_biosemi64'
         rows_plot = 1
 
@@ -178,6 +178,18 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         # fig = raw_data.plot_sensors(show_names=True,)
+    ############################
+    # Mr Gerardo
+    elif subject == 203:
+        path = path + 'neuroplasticity/control_test/Gerardo/'
+        fn_in = 'Control_Gerardo_20250526_161206.mff'
+        fn_csv = ['annotations.csv','']
+        title = 'P_'+str(subject)+'_rest_abt_geodesic_net_128'
+        rows_plot = 2
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        # fig = raw_data.plot_sensors(show_names=True,)
+    
 
     ############################
     # neuro_001
@@ -185,14 +197,16 @@ def participants_list(path, subject, session, abt):
         path = path + 'neuroplasticity/n_001/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro001_session1_20250113_111350.mff'
-            fn_csv = ['session_'+str(session)+'/'+'annotations.csv', '']
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
+            acquisition_system = 'geodesic'
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'Neuro_001_3M_20230101_082244.mff'
-            fn_csv = ['session_'+str(session)+'/'+'annotations.csv', '']
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
+            acquisition_system = 'geodesic'
         else:
             pass
         # fn_out = 'neuro_001_ann'
@@ -327,6 +341,48 @@ def participants_list(path, subject, session, abt):
         # fn_out = 'neuro_007_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+
+    ############################
+    # neuro_010
+    elif subject == 10:
+        path = path + 'neuroplasticity/n_010/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'abc001_20250618_104348.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==1:
+            fn_in = ''
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
+        # fn_out = 'neuro_007_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+
+    ############################
+    # neuro_011
+    elif subject == 11:
+        path = path + 'neuroplasticity/n_011/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro_011_20250620_150332.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        elif session==1:
+            fn_in = ''
+            fn_csv = ['session_'+str(session)+'/'+'annotations.csv','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
+        # fn_out = 'neuro_007_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
     ############################
     else:
         fn_in = ''
@@ -334,4 +390,4 @@ def participants_list(path, subject, session, abt):
         raw_data = np.NaN
     
 
-    return path, fn_in, fn_csv, raw_data, title, rows_plot
+    return path, fn_in, fn_csv, raw_data, title, rows_plot, acquisition_system
