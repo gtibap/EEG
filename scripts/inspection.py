@@ -150,13 +150,14 @@ def main(args):
     print(f'inital annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
-    ## adding bad channels generally excluded
-    raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    
     ############################
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
     ## signals visualization (channels' voltage vs time)
-    mne.viz.plot_raw(raw_data, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=fig_title, block=False)
+    filt_raw_data = raw_data.copy().filter(l_freq=1.0, h_freq=45.0)
+    # highpass=1.0, lowpass=45.0,
+    mne.viz.plot_raw(filt_raw_data, start=0, duration=240, scalings=scale_dict, title=fig_title, block=False)
     ###########################################
     
     ## cropping data according to annotations
@@ -232,10 +233,14 @@ def main(args):
             ann_list = []
             eeg_list= []
             
-            for eeg_segment in eeg_data_dict[section]:
+            for id_section, eeg_segment in enumerate(eeg_data_dict[section]):
+                print(f"{section}: {id_section}")
                 ## channels' voltage vs time
                 ## signals visualization to annotate bad segments (interactive annotation)
-                mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number], block=True)
+                # filt_eeg_segment = eeg_segment.copy().filter(l_freq=1.0, h_freq=45.0)
+                
+                
+                mne.viz.plot_raw(eeg_segment, start=0, duration=240, highpass=1.0, lowpass=45.0, filtorder=4, scalings=scale_dict, title=label_title[ax_number], block=True)
 
                 ## annotation time is referenced to the time of first_samp, and that is different for each section
                 time_offset = eeg_segment.first_samp / sampling_rate  ## in seconds
@@ -325,7 +330,9 @@ def main(args):
             ax_psd[idx].set_title('')
             ax_psd[idx].set_ylim([-20, 50])
             ## channels' voltage vs time
-            mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label_title[ax_number]+'_'+str(idx), block=False)
+            filt_raw = eeg_segment.copy().filter(l_freq=1.0, h_freq=45.0)
+            # highpass=1.0, lowpass=45.0,
+            mne.viz.plot_raw(filt_raw, start=0, duration=240, scalings=scale_dict, title=label_title[ax_number]+'_'+str(idx), block=False)
 
             idx+=1
 

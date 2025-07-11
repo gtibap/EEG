@@ -197,7 +197,10 @@ def main(args):
     ## visualization scale
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=150e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    fig = raw_data.plot(start=0, duration=240, n_channels=15, scalings=scale_dict, highpass=1.0, lowpass=45.0, block=True)
+    ## signals visualization (channels' voltage vs time)
+    filt_raw_data = raw_data.copy().filter(l_freq=1.0, h_freq=45.0)
+    # highpass=1.0, lowpass=45.0,
+    fig = filt_raw_data.plot(start=0, duration=240, n_channels=15, scalings=scale_dict, block=True)
     ############################
     ############################
     ## regions that do not have labels will be labeled as BAD_
@@ -253,7 +256,7 @@ def main(args):
     # save annotations
     flag = input("Save annotations ? (1-yes, 0-non) ")
     if int(flag) == 1 or flag.startswith('y') or flag.startswith('Y'):
-        raw_data.annotations.save(path+"annotations.fif", overwrite=True)
+        filt_raw_data.annotations.save(path+"annotations.fif", overwrite=True)
     else:
         pass
 

@@ -103,6 +103,7 @@ def channels_average_ref(eeg_data_dict, subject, session):
         for id, raw in enumerate(eeg_data_dict[label]):
             # print(f'raw data:\n{len(raw)}')
             raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            print(f"Bad channels: {raw.info['bads']}")
             # bad_ch_list = raw.info["bads"]
             # bad_ch_list.extend(bad_channels_dict[subject]['session_'+str(session)][label][id])
             # raw.info["bads"] =  bad_ch_list
@@ -179,8 +180,7 @@ def main(args):
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
-    ## adding bad channels generally excluded
-    # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    
     ############################
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)

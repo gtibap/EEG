@@ -759,6 +759,108 @@ def set_psd_fun(input):
     return (input)
 
 #############################
+def get_band_power_baseline(eeg_data_dict, label):
+
+        # print(f'baseline:\n{eeg_data_dict["baseline"]}')
+
+        ## visualization raw after processing
+        # visualization_raw(eeg_data_dict)
+
+        ## At this point, blink artifacts have been removed and the Surface Lapacian has been applied to the eeg data. Additionally, evident artifacts were annotated interactively and labeled as "bad" to exclude them from posterior calculations
+
+        # print(f"eeg_data_dict[{label}]: {eeg_data_dict[label]}")
+        # print(f"len eeg_data_dict[{label}]: {len(eeg_data_dict[label])}")
+        ####################
+        ## comparison between closed and opened eyes
+        ## baseline
+        # psd_list = []
+        # count = 0
+
+        # nchannels_eeg = len(eeg_data_dict[label][0].get_data(picks='eeg'))
+        # print(f"nchannels eeg: {nchannels_eeg}")
+        delta_list=[]
+        theta_list=[]
+        alpha_list=[]
+        beta_list =[]
+        gamma_list=[]
+
+        for raw in eeg_data_dict[label]:
+            # print(f"times: {count}")
+            ## power spectral density (psd) from each iteration of baseline (usually only one)
+            # psd_bl = raw_baseline.compute_psd(fmin=0.5,fmax=45,reject_by_annotation=True)
+            psd = raw.compute_psd(reject_by_annotation=True)
+            psd_data, psd_freq = psd.get_data(return_freqs=True)
+
+            # print(f"psd_data shape: {psd_data.shape}")
+            # print(f"psd_freq len: {len(psd_freq)}")
+            ## compute average bandpower of every channel
+            # print(f"freq_bl:\n{psd_freq}\n")
+        
+            # Frequency resolution, i.e. value between two consecutive samples
+            freq_res = psd_freq[1] - psd_freq[0]
+
+            ## frequency bands
+            fmin_list=[0.5, 4.0,  8.0, 12.0, 30.0]
+            fmax_list=[4.0, 8.0, 12.0, 30.0, 45.0]
+            # title_list=['delta [0.5-4 Hz]', 'theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
+            band_title_list=['delta','theta','alpha','beta','gamma',]
+
+            band_dict = {}
+            for fmin, fmax, band_title in zip(fmin_list, fmax_list, band_title_list):
+
+                # print(f"fmin fmax band: {fmin, fmax, band_title}")
+
+                # Find closest indices of band in frequency vector
+                idx_band = np.logical_and(psd_freq >= fmin, psd_freq < fmax)
+
+                # Integral approximation of the spectrum using Simpson's rule.
+                band_dict[band_title] = integrate.simpson(psd_data[:,idx_band], dx=freq_res)
+                # print(f"band_dict[{band_title}] shape: {band_dict[band_title].shape}")
+                # print(f"bp baseline: {area}")
+
+                # data_bl, freq_bl = psd_bl.get_data(return_freqs=True)
+                # print(f'arr_bl : {psd_data.shape}')
+
+            delta_list.append(band_dict['delta'])
+            theta_list.append(band_dict['theta'])
+            alpha_list.append(band_dict['alpha'])
+            beta_list.append( band_dict['beta'] )
+            gamma_list.append(band_dict['gamma'])
+
+            # psd_list.append(band_dict)
+            # print(f"list psd: {len(psd_list)}")
+
+        ## median values for each frequency band
+        # delta_arr=np.empty((0, len(psd_data)))
+
+        # for band_dict in psd_list:
+            # delta_arr = np.append(delta_arr, band_dict['delta'],axis=0)
+
+        # print(f'delta_arr shape : {len(delta_arr)}')
+        # print(f'theta_arr shape : {len(theta_arr)}')
+        # print(f'alpha_arr shape : {len(alpha_arr)}')
+        # print(f' beta_arr shape : {len(beta_arr)}')
+        # print(f'gamma_arr shape : {len(gamma_arr)}')
+
+        # psd_arr=np.array(psd_list)
+        baseline_dict = {}
+        baseline_dict['delta'] = delta_list
+        baseline_dict['theta'] = theta_list
+        baseline_dict['alpha'] = alpha_list
+        baseline_dict['beta']  =  beta_list 
+        baseline_dict['gamma'] = gamma_list
+
+        # print(f'delta_median : {delta_median.shape}')
+        # print(f'theta_median : {theta_median.shape}')
+        # print(f'alpha_median : {alpha_median.shape}')
+        # print(f'beta_median : {beta_median.shape}')
+        # print(f'gamma_median : {gamma_median.shape}')
+
+        # return psd_median
+        return baseline_dict
+
+
+#############################
 def get_band_power(eeg_data_dict, label):
 
         # print(f'baseline:\n{eeg_data_dict["baseline"]}')
@@ -866,10 +968,23 @@ def get_normalized_band_power(dict_1, dict_ref):
         dict_norm = {}
 
         for label in band_title_list:
-            norm_psd = dict_1[label] / dict_ref[label]
+            norm_psd = dict_1[label] / dict_ref[label][0]
             dict_norm[label] = 10*np.log10(norm_psd)
 
         return dict_norm
+
+#############################
+def get_normalized_band_power_baseline(dict_ref):
+        
+        band_title_list=['delta','theta','alpha','beta','gamma',]
+        dict_norm = {}
+
+        for label in band_title_list:
+            norm_psd = dict_ref[label][1] / dict_ref[label][0]
+            dict_norm[label] = 10*np.log10(norm_psd)
+
+        return dict_norm
+
 #############################
 
 def plot_topomap_bp_ratio(data_arr, data_dict, title_fig, title_ax, filename):
@@ -978,7 +1093,7 @@ def main(args):
 
     #########################
     ## ICA for blink removal using precalculate ICA (ica_blinks.py)
-    eeg_data_dict = ica_appl_func(path, eeg_data_dict, subject, session, scale_dict)
+    # eeg_data_dict = ica_appl_func(path, eeg_data_dict, subject, session, scale_dict)
 
     ##########################
     ## interpolation of bad channels per section
@@ -1011,7 +1126,7 @@ def main(args):
     Path(f"{path}session_{session}/figures/topomaps").mkdir(parents=True, exist_ok=True)
 
     # print(f"get band power baseline")
-    bp_baseline_dict = get_band_power(eeg_data_dict, 'baseline')
+    bp_baseline_dict = get_band_power_baseline(eeg_data_dict, 'baseline')
     bp_a_closed_eyes_dict = get_band_power(eeg_data_dict, 'a_closed_eyes')
     bp_a_opened_eyes_dict = get_band_power(eeg_data_dict, 'a_opened_eyes')
     bp_b_closed_eyes_dict = get_band_power(eeg_data_dict, 'b_closed_eyes')
@@ -1028,8 +1143,8 @@ def main(args):
     bp_norm_b_closed_eyes_dict = get_normalized_band_power(bp_b_closed_eyes_dict, bp_baseline_dict)
     bp_norm_b_opened_eyes_dict = get_normalized_band_power(bp_b_opened_eyes_dict, bp_baseline_dict)
 
-    labels_list=['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes']
-    titles_list=['rest closed eyes','rest opened eyes','bike closed eyes','bike opened eyes']
+    labels_list=['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes', 'baseline2']
+    titles_list=['rest closed eyes','rest opened eyes','bike closed eyes','bike opened eyes', 'baseline end']
 
     filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[0]}.png"
     plot_topomap_powerbands(bp_norm_a_closed_eyes_dict, eeg_data_dict, titles_list[0], filename_fig)
@@ -1042,6 +1157,15 @@ def main(args):
 
     filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[3]}.png"
     plot_topomap_powerbands(bp_norm_b_opened_eyes_dict, eeg_data_dict, titles_list[3], filename_fig)
+
+    ## baseline at the end of the session
+    print(f"len(eeg_data_dict['baseline']): {len(eeg_data_dict['baseline'])}")
+    if len(eeg_data_dict['baseline']) > 1:
+        bp_norm_baseline_dict = get_normalized_band_power_baseline(bp_baseline_dict)
+    
+        filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[4]}.png"
+        plot_topomap_powerbands(bp_norm_baseline_dict, eeg_data_dict, titles_list[4], filename_fig)
+    
     
     
 
