@@ -1,0 +1,1401 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+import mne
+mne.set_log_level('error')
+
+import os
+import math
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from matplotlib.widgets import Button, Slider
+from pathlib import Path
+
+from scipy import integrate
+
+import json
+import pickle
+
+import pathlib
+import time
+# from autoreject import AutoReject
+# from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
+
+# from mne_icalabel import label_components
+
+from bad_channels import bad_channels_dict
+from list_participants import participants_list
+from selected_sequences import selected_sequences_dict
+from blinks_components import blinks_components_dict
+
+def onClick(event):
+    global pause
+    print(f'pause: {pause}')
+    pause = not(pause)
+
+
+ani = 0
+flag=False
+images=[]
+spectrum = []
+data_spectrum = []
+draw_image = []
+
+frame_slider = []
+data_eeg =[]
+raw_closed_eyes = []
+ax_topoplot = []
+axfreq = []
+fig_topoplot = []
+cbar_ax = []
+sampling_rate = 1.0
+raw_data=[]
+sigmoid_signal = []
+arr_psd = []
+channel_id=0
+
+# y_limits = (None, None)
+# y_limits = (-0.4e-3, 0.4e-3)
+y_limits = [-10,10]
+
+## scale selection for visualization raw data with annotations
+scale_dict = dict(mag=1e-12, grad=4e-11, eeg=200e-6, eog=150e-6, ecg=300e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+
+
+# fig, ax = plt.subplots(1, 1, figsize=(5,5))
+# fig.canvas.mpl_connect('button_press_event', onClick)
+
+def toggle_pause(event):
+        global flag
+        if flag==True:
+            ani.resume()
+        else:
+            ani.pause()
+        flag = not flag
+
+
+#############################
+# The function to be called anytime a slider's value changes
+def update(val):
+    global fig_topoplot
+
+    frame = math.floor(frame_slider.val*sampling_rate)
+    # print(f'!!! update frame: {frame_slider.val}, {sampling_rate}, {frame} !!!')
+    # print(f'!!! data_eeg: {data_eeg.shape} !!!')
+    # y_limit = 0.4e-3
+    im, cn = mne.viz.plot_topomap(data_eeg[:,frame], raw_data.info, vlim=y_limits, contours=0, axes=ax_topoplot, cmap='magma')
+    # colorbar
+    fig_topoplot.colorbar(im, cax=cbar_ax)
+    fig_topoplot.canvas.draw_idle()
+    return 0
+
+#############################
+## Bad channels identification
+def set_bad_channels(data_dict, subject, section, sequence):
+    ## EEG signals of selected section (a_opened_eyes, a_closed_eyes, b_opened_eyes, b_closed_eyes)
+    raw_cropped = data_dict[section][sequence]
+    ## include bad channels previously identified
+    raw_cropped.info["bads"] = bad_channels_dict[subject][section][sequence]
+    ## interpolate only selected bad channels; exclude bad channels that are in the extremes or those who do not have good number of surounding good channels
+    ch_excl_interp = bad_channels_dict[subject][section+'_excl'][sequence]
+    raw_cropped.interpolate_bads(exclude=ch_excl_interp)
+    ## re-referencing average (this technique is good for dense EEG)
+    # data_dict[section][sequence] = raw_cropped.set_eeg_reference("average",ch_type='eeg',)
+    data_dict[section][sequence] = raw_cropped
+    return data_dict
+
+#######################
+def remove_eeg_bad(eeg_segment, ann_list):
+    t1_list = []
+    t2_list = []
+    for ann in ann_list:
+        print(f'{ann}')
+        ## iterate annotations labeled : 'bad' to cut them using time sections
+        t1_list.append(ann["onset"])
+        t2_list.append(ann["onset"] + ann["duration"])
+
+    ## crop bad segments
+    if len(t1_list) > 0:
+        cropped_data = crop_bad_segments(eeg_segment, t1_list, t2_list)
+    else:
+        cropped_data = eeg_segment.copy()
+    
+    return cropped_data
+
+#######################
+def ann_remove_offset(interactive_annot, time_offset):
+    arr_onset=np.array([])
+    arr_durat=np.array([])
+    arr_label=[]
+
+    for ann in interactive_annot:
+        arr_onset = np.append( arr_onset, ann['onset']-time_offset )
+        arr_durat = np.append(arr_durat, ann['duration'])
+        arr_label.append(ann['description'])
+
+    my_annot = mne.Annotations(
+    onset=arr_onset,  # in seconds
+    duration=arr_durat,  # in seconds, too
+    description=arr_label,
+    )
+    return my_annot
+
+#######################
+def crop_bad_segments(raw_data, t1_list, t2_list):
+    global sigmoid_signal
+    
+    t0 = 0  ## initial time
+    t_end = (raw_data.last_samp - raw_data.first_samp) / sampling_rate
+
+    raw_list = []
+    for t1, t2 in zip(t1_list, t2_list):
+        ## cut valid segment
+        raw_crop = crop_fun(raw_data, t0, t1)
+        ## sigmoid signal to smooth segment's borders
+        sigmoid_signal = set_sigmoid_fun(raw_crop)
+        ## apply sigmoid signal to the valid segment (signals multiplication)
+        raw_crop.apply_function(mult_functions, picks=['all'])
+        ## concatenate resultant segment
+        raw_list.append(raw_crop)
+        ## redefine t0 to select the next valid segment
+        t0 = t2
+    ## concatenate last valid segment
+    raw_crop = crop_fun(raw_data, t0, t_end)
+    sigmoid_signal = set_sigmoid_fun(raw_crop)
+    raw_crop.apply_function(mult_functions, picks=['all'])
+    raw_list.append(raw_crop)
+    ## concatenate raws
+    print(len(raw_list))
+    if len(raw_list) > 0:
+        ## concatenate several segments same label  to have continuous data
+        new_raw_data = mne.concatenate_raws(raw_list, )
+        ## delete all annotations, including bad annotations generated in the concatenation operation
+        ann = new_raw_data.annotations
+        ## actual operation that deletes all annotations (by indexes)
+        new_raw_data.annotations.delete(np.arange(len(ann)))
+    else:
+        new_raw_data=None
+
+    return new_raw_data
+
+#######################
+def crop_fun(raw_data, t1, t2):
+    raw = raw_data.copy().crop(tmin=t1, tmax=t2,)
+    # raw.set_meas_date(None)
+    # mne.io.anonymize_info(raw.info)
+    # print(f'first sample after crop: {raw.first_samp}')
+    ann = raw.annotations
+    print(f'crop annotations:{len(ann)}\n{ann}')
+    raw.annotations.delete(np.arange(len(ann)))
+    return raw
+
+def mult_functions(input):
+
+    # print(f'before input: {input}\ntype: {type(input)} length: {len(input)}')
+    input = sigmoid_signal * input
+    # print(f'after  input: {input}\ntype: {type(input)} length: {len(input)}')
+
+    return (input)
+
+
+def set_sigmoid_fun(raw):
+    
+    data = raw.get_data(picks=['all'])
+    # print(f'data size: {data.shape}')
+
+    n_signals = data.shape[0]
+    n_samples = data.shape[1]
+
+    freq = sampling_rate # sampling rate (samples per second)
+
+    tmin= 0 # seconds
+    tmax= n_samples / freq # seconds
+
+    # print(f'freq nsignals nsamples tmin tmax: {freq, n_signals, n_samples, tmin, tmax}')
+
+    t = np.linspace(tmin, tmax,num=n_samples, endpoint=True )
+
+    t0=0.5  ## sigmoid signal translation (time in seconds)
+    s0=20   ## sigmoid scale factor... how fast the sigmoid signal make its transition from zero to one (at the begining) or from one to zero (at the end)
+    f_ini = 1 / (1 + np.exp(-s0*(t-(tmin+t0))))
+    f_end = 1 / (1 + np.exp( s0*(t-(tmax-t0))))
+
+    f_ref = f_ini*f_end
+    # print(f'f_ref: {f_ref}\n shape: {f_ref.shape}')
+
+    return f_ref
+
+def concat_fun(eeg_data_dict):
+    global sigmoid_signal
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    new_eeg_data_dict = {}
+
+    for id_label, label in enumerate(labels_list):
+        
+        print(f'label: {label}')
+
+        raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            ## To create a smooth transition among concatenated signals, we multiply the raw data with a function that makes the EEG signals' boundaries close to zero (we create a function based on sigmoide functions).
+            sigmoid_signal = set_sigmoid_fun(raw)
+            ## sigmoid signal and raw data multiplication
+            raw.apply_function(mult_functions, picks=['all'])
+            ## append results
+            raw_list.append(raw)
+
+        if len(raw_list) > 0:
+            ## concatenate several segments same label  to have continuous data
+            new_eeg_data_dict[label] = mne.concatenate_raws(raw_list, )
+            ## delete all annotations, including bad annotations generated in the concatenation operation
+            ann = new_eeg_data_dict[label].annotations
+            ## actual operation that deletes all annotations (by indexes)
+            new_eeg_data_dict[label].annotations.delete(np.arange(len(ann)))
+        else:
+            new_eeg_data_dict[label]=None
+    # 
+    return new_eeg_data_dict
+
+
+def interpolation_and_concatenation(eeg_data_dict, subject, session):
+    global sigmoid_signal
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_opened_eyes = ['a_opened_eyes','b_opened_eyes',]
+
+    # fig_sigmoid = [[]]*len(labels_list)
+
+    for id_label, label in enumerate(labels_list):
+        
+        print(f'label: {label}')
+        ## for visualization
+        # fig_sigmoid[id_label] = plt.figure(label, figsize=(12, 5))
+        # ax_topoplot = fig_sigmoid.subplots(1, 2, sharex=True, sharey=True)
+
+        raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            # print(f'raw data:\n{len(raw)}')
+            raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            raw.interpolate_bads()
+            # print(f'subject, session, label, id: {subject, session, label, id}')
+            # print(f'bad channels:{raw.info["bads"]}')
+
+            # if label in (labels_opened_eyes):
+            #     ica_simple_func(raw, subject, session)
+
+
+            ## To create a smooth transition among concatenated signals, we multiply the raw data with a function that makes the EEG signals' boundaries close to zero (we create a function based on sigmoide functions).
+            # print(f'calling sigmoid function {id}')
+            sigmoid_signal = set_sigmoid_fun(raw)
+
+            ## sigmoid signal and raw data multiplication
+            raw.apply_function(mult_functions, picks=['all'])
+
+            # print(f'raw annotations: {raw.annotations}')
+            raw_list.append(raw)
+
+        if len(raw_list) > 0:
+            ## concatenate several segments same label           
+            eeg_data_dict[label] = mne.concatenate_raws(raw_list, )
+            ## delete all annotations form each concatenated raw data
+            ann = eeg_data_dict[label].annotations
+            # print(f'annotations concatenated: {ann}\count: {len(ann)}')
+            eeg_data_dict[label].annotations.delete(np.arange(len(ann)))
+            # print(f'eeg_data_dict[{label}]: {eeg_data_dict[label]}')
+        else:
+            eeg_data_dict[label]=None
+    # 
+    return eeg_data_dict
+
+
+def channels_interpolation(eeg_data_dict, subject, session):
+
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        print(f'label: {label}')
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            # print(f'raw data:\n{len(raw)}')
+            # raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+
+            raw.interpolate_bads()
+            new_raw_list.append(raw)
+        eeg_data_dict[label] = new_raw_list
+
+    return eeg_data_dict
+
+
+####################################
+def channels_average_ref(eeg_data_dict, subject, session):
+
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        print(f'label: {label}')
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            # print(f'raw data:\n{len(raw)}')
+            
+            ## exclude bad channels from the average calculation of re-referencing
+            raw.info["bads"] = bad_channels_dict[subject]['session_'+str(session)][label][id]
+            print(f"bad channels {label, id}: {raw.info['bads']}")
+            # bad_ch_list = raw.info["bads"]
+            # bad_ch_list.extend(bad_channels_dict[subject]['session_'+str(session)][label][id])
+            # raw.info["bads"] =  bad_ch_list
+
+            # set average among channels as reference excluding bad channels
+            raw.set_eeg_reference(ref_channels="average")
+            
+            new_raw_list.append(raw)
+        eeg_data_dict[label] = new_raw_list
+
+    return eeg_data_dict
+
+##
+def csd_fun(eeg_data_dict):
+    print(f'current source density calculation...')
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    new_eeg_data_dict = {}
+    for id_label, label in enumerate(labels_list):
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            print(f'label: {label, id}')
+            ## to exclude bad channels from the computation
+            # raw = raw.pick(picks=["eeg", "eog", "ecg", "stim"], exclude="bads")
+            ## surface laplacian
+
+            ## 
+            # raw.drop_channels(raw.info['bads'])
+
+            new_raw_list.append(mne.preprocessing.compute_current_source_density(raw))
+        new_eeg_data_dict[label] = new_raw_list
+
+    return new_eeg_data_dict
+
+def visualization_raw(eeg_data_dict):
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        for id, raw in enumerate(eeg_data_dict[label]):
+            mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=label+'_'+str(id), block=True)
+
+    return 0
+
+
+##########################
+def ica_appl_func(path, eeg_data_dict, subject, session, scale_dict):
+    print(f'Inside ica function.\nSubject, session: {subject, session}')
+
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    for id_label, label in enumerate(labels_list):
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            print(f'label: {label, id}')
+            ## read precalculated ICA per each section
+            # filename_ica = path+'ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            filename_ica = path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            ## print(f'filename: {filename_ica}')
+            ica = mne.preprocessing.read_ica(filename_ica, verbose=None)
+            ## exclude component associated to blinks            
+            ica.exclude = blinks_components_dict[subject]['session_'+str(session)][label][id]  # indices that were chosen based on previous ICA calculations (ica_blinks.py)
+            # print(f'ICA blink component: {ica.exclude}')
+            reconst_raw = raw.copy()
+
+            ica.apply(reconst_raw)
+            new_raw_list.append(reconst_raw)
+            ################
+            ## visualization for comparison
+            ## before ICA
+            # mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Before ICA', block=False)
+            ## after ICA
+            # mne.viz.plot_raw(reconst_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='After ICA', block=True)
+            ################
+        eeg_data_dict[label] = new_raw_list
+
+    return eeg_data_dict
+
+##########################
+def ica_baseline_func(path, eeg_data_dict, subject, session, scale_dict):
+    print(f'Inside ica function.\nSubject, session: {subject, session}')
+
+    # labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    labels_list = ['baseline']
+
+    for id_label, label in enumerate(labels_list):
+        new_raw_list = []
+        for id, raw in enumerate(eeg_data_dict[label]):
+            print(f'label: {label, id}')
+            ## read precalculated ICA per each section
+            # filename_ica = path+'ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            filename_ica = path+'session_'+str(session)+'/ica/'+label+'_'+str(id)+'-ica.fif.gz'
+            ## print(f'filename: {filename_ica}')
+            ica = mne.preprocessing.read_ica(filename_ica, verbose=None)
+            ## exclude component associated to blinks            
+            ica.exclude = blinks_components_dict[subject]['session_'+str(session)][label][id]  # indices that were chosen based on previous ICA calculations (ica_blinks.py)
+            print(f'ICA exclude components: {ica.exclude}')
+            reconst_raw = raw.copy()
+
+            ica.apply(reconst_raw)
+            new_raw_list.append(reconst_raw)
+            ################
+            ## visualization for comparison
+            ## before ICA
+            # mne.viz.plot_raw(raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Before ICA', block=False)
+            ## after ICA
+            # mne.viz.plot_raw(reconst_raw, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='After ICA', block=True)
+            ################
+        eeg_data_dict[label] = new_raw_list
+
+    return eeg_data_dict
+
+   
+
+#############################
+## topographic views
+def plot_topographic_view(raw_data):
+    global frame_slider, data_eeg, axfreq, cbar_ax, fig_topoplot
+    ## spatial visualization (topographical maps)
+
+    # Passband filter in place
+    low_cut =    0.3
+    hi_cut  =   45.0
+    data = raw_data.copy().filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+
+    data_eeg = data.get_data(picks=['eeg'])
+    df_eeg = data.to_data_frame(picks=['eeg'], index='time')
+    # print(f'shape data:\n{data_eeg.shape}\n{data_eeg}')
+    # print(f'dataframe data:\n{df_eeg}')
+
+    init_frame = 0
+    im, cn = mne.viz.plot_topomap(data_eeg[:,init_frame], raw_data.info, vlim=y_limits, contours=0, axes=ax_topoplot, cmap='magma')
+
+    # Make a horizontal slider to control the frequency.
+    axfreq = fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+
+    # Make colorbar
+    cbar_ax = fig_topoplot.add_axes([0.05, 0.25, 0.03, 0.65])
+    fig_topoplot.colorbar(im, cax=cbar_ax)
+    # clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
+    # fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+    # valmin=0, valmax=len(df_eeg)/sampling_rate,
+    frame_slider = Slider( ax=axfreq, label='Time [s]', valmin=0, valmax=len(df_eeg)/sampling_rate, valinit=init_frame/sampling_rate, )
+
+    # register the update function with each slider
+    frame_slider.on_changed(update)
+    return 0
+
+
+#############################
+# The function to be called anytime a slider's value changes
+def update_psd(val):
+    global fig_topoplot
+
+    frame = math.floor(frame_slider.val)
+    print(f'!!! update frame: {frame_slider.val}, {sampling_rate}, {frame} !!!')
+    # print(f'!!! data_eeg: {data_eeg.shape} !!!')
+    # y_limit = 0.4e-3
+    # vlim=y_limits,
+    # y_limits = [-10,10]
+    print(f'arr_psd: {arr_psd.shape}\n{arr_psd[:,frame]}')
+    im, cn = mne.viz.plot_topomap(arr_psd[:,frame], raw_data.info, vlim=y_limits, contours=0, axes=ax_topoplot, cmap='magma')
+    # colorbar
+    fig_topoplot.colorbar(im, cax=cbar_ax, label='dB change from baseline')
+    fig_topoplot.canvas.draw_idle()
+    return 0
+
+#############################
+## topographic views
+def plot_topomap_psd(raw_data, arr_psd, arr_freqs):
+    global frame_slider, data_eeg, axfreq, cbar_ax, fig_topoplot
+    ## spatial visualization (topographical maps)
+
+    ## average every frequency band
+    init_frame = 10
+    freq = arr_freqs[init_frame]
+    print(f'inside plot topomap, freq: {freq}')
+    # y_limits = [-10,10]
+    im, cn = mne.viz.plot_topomap(arr_psd[:,init_frame], raw_data.info, vlim=y_limits, contours=0, axes=ax_topoplot, cmap='magma')
+
+    # Make a horizontal slider to control the frequency.
+    axfreq = fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+
+    # Make colorbar
+    cbar_ax = fig_topoplot.add_axes([0.05, 0.25, 0.03, 0.65])
+    fig_topoplot.colorbar(im, cax=cbar_ax, label='dB change from baseline')
+    frame_slider = Slider( ax=axfreq, label='Time [s]', valmin=0, valmax=len(arr_freqs), valinit=init_frame, )
+
+    # register the update function with each slider
+    frame_slider.on_changed(update_psd)
+    return 0
+
+#############################
+## average frequency components for every frequency band
+## topographic views 
+# delta: 0.5 - 4 Hz
+# theta: 4 - 8 Hz
+# alpha: 8 - 12 Hz
+# beta: 12 - 30 Hz
+# gamma: 30 - 45 Hz
+
+
+def plot_topomap_bands(raw_data, arr_psd, arr_freqs, label, filename):
+
+    fig_bands, axs_bands = plt.subplots(1, 4, figsize=(12.5, 4.0))
+    print(f'arr_psd and arr_freqs shape: {arr_psd.shape , arr_freqs.shape}')
+
+    ## theta band
+    fmin_list=[4,8,12,30]
+    fmax_list=[8,12,30,45]
+    title_list=['theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
+    for fmin, fmax, ax, title in zip(fmin_list, fmax_list, axs_bands.flat, title_list):
+    
+        idx_range_freq = np.argwhere((arr_freqs >= fmin)&(arr_freqs < fmax))
+        id_min = np.min(idx_range_freq)
+        id_max = np.max(idx_range_freq)
+
+        print(f'idx min and max and values: {id_min, id_max, arr_freqs[id_min], arr_freqs[id_max],}')
+
+        arr_mean = np.mean(arr_psd[:,id_min:id_max], axis=1)
+        # print(f'arr mean shape: {arr_mean.shape}')
+
+        # init_frame = 10
+        # freq = arr_freqs[init_frame]
+        # print(f'inside plot topomap, freq: {freq}')
+        # # y_limits = [-10,10]
+        im, cn = mne.viz.plot_topomap(arr_mean, raw_data.info, vlim=y_limits, contours=0, axes=ax, ) # cmap='magma'
+        ax.title.set_text(title)
+    
+    # Make colorbar
+    cbar_ax = fig_bands.add_axes([0.02, 0.25, 0.03, 0.60])
+    fig_bands.colorbar(im, cax=cbar_ax, label='dB change from baseline')
+
+    fig_bands.suptitle(label, size='large', weight='bold')
+
+    fig_bands.savefig(filename, transparent=True)
+    
+
+    # clb.ax.set_title("topographic view",fontsize=16) # title on top of colorbar
+    # fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+    # valmin=0, valmax=len(df_eeg)/sampling_rate,
+
+    # Make a horizontal slider to control the frequency.
+    # axfreq = fig_topoplot.add_axes([0.25, 0.1, 0.65, 0.03])
+
+    # frame_slider = Slider( ax=axfreq, label='Time [s]', valmin=0, valmax=len(arr_freqs), valinit=init_frame, )
+
+    # register the update function with each slider
+    # frame_slider.on_changed(update_psd)
+
+    return 0
+
+###########################################
+def plot_topomap_powerbands(data_dict, raw_data, title_fig, filename):
+
+    fig_bands, axs_bands = plt.subplots(1, 5, figsize=(14, 4.0))
+    # print(f'arr_psd and arr_freqs shape: {arr_psd.shape , arr_freqs.shape}')
+
+   
+    title_list=['delta [0.5-4 Hz]', 'theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
+    label_list=['delta', 'theta', 'alpha', 'beta', 'gamma',]
+    for label, title, ax in zip(label_list, title_list, axs_bands.flat,):
+
+        data_arr = data_dict[label]
+    
+        im, cn = mne.viz.plot_topomap(data_arr, raw_data['baseline'][0].info, vlim=y_limits, contours=0, axes=ax, cmap='RdBu_r' ) # cmap='magma'
+        ax.title.set_text(title)
+    
+    # Make colorbar
+    cbar_ax = fig_bands.add_axes([0.02, 0.25, 0.03, 0.60])
+    fig_bands.colorbar(im, cax=cbar_ax, label='dB change from baseline')
+
+    fig_bands.suptitle(title_fig, size='large', weight='bold')
+
+    fig_bands.savefig(filename, transparent=True)
+    
+    return 0
+###########################################
+
+def annotations_bad_segments(eeg_data_dict, subject, session,scale_dict):
+
+    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+    label_title = ['resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
+
+    ########################
+    annotations_dict={}
+
+    update_annotations = input('Generate annotations ? (1-True, 0-False): ')
+    if int(update_annotations)==1:
+        
+        ## interactive bad annotations
+        for ax_number, section in enumerate(labels_list):
+            # print(f'{section, ax_number} generating interactive annotations')
+            ## signals visualization
+            ann_list=[]
+            # if eeg_data_dict[section] != None:
+            for idx, eeg_segment in enumerate(eeg_data_dict[section]):
+                ## channels' voltage vs time
+                print(f'annotations: {section, idx}')
+    
+                ## signals visualization to annotate bad segments (interactive annotation)
+                mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=(label_title[ax_number]+' cycle '+str(idx)), block=True)
+    
+                ## annotation time is referenced to the time of first_samp, and that is different for each section
+                time_offset = eeg_segment.first_samp / sampling_rate  ## in seconds
+                ## get and rewrite annotations minus time-offset
+                interactive_annot = eeg_segment.annotations
+                if len(interactive_annot) >0:
+                    print(f'remove offset...')
+                    ann_list.append(ann_remove_offset(interactive_annot, time_offset))
+                    print(f'remove offset done.')
+                else:
+                    print(f'no annotations')
+                    ann_list.append(interactive_annot)
+
+            annotations_dict[section] = ann_list
+
+        save_ann = input('save annotations? (1-True, 0-False): ')
+        if int(save_ann)==1:
+        # writing dictionary to a binary file
+            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'wb') as file:
+                pickle.dump(annotations_dict, file)
+        else:
+            pass
+    ## open annotations file from disk
+    else:
+        try:
+            with open('../data/results_ICA/ann_pat_'+str(subject)+'_session_'+str(session)+'.pkl', 'rb') as file:
+                annotations_dict = pickle.load(file)
+            print(f'annotations:\n{annotations_dict}')
+        except FileNotFoundError:
+            annotations_dict = {}
+        
+        ## annotations visualization
+        for ax_number, section in enumerate(labels_list):
+            ## set previous annotations
+            print(f'section and number: {section}')
+            # print(f'first sample: {eeg_data_dict[section].first_samp}')
+            eeg_list=[]
+            for idx, eeg_segment in enumerate(eeg_data_dict[section]):
+
+                eeg_segment.set_annotations(annotations_dict[section][idx])
+                eeg_list.append(eeg_segment)
+
+                # mne.viz.plot_raw(eeg_segment, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=(label_title[ax_number]+' cycle '+str(idx)), block=True)
+
+            eeg_data_dict[section] = eeg_list
+
+    plt.show(block=True)
+    return eeg_data_dict
+
+#############################
+def get_eeg_segments(raw_data,):    
+    ## prefix:
+    ## a:resting; b:biking
+    baseline_list = []
+    a_closed_eyes_list = []
+    a_opened_eyes_list = []
+    b_closed_eyes_list = []
+    b_opened_eyes_list = []
+
+    for ann in raw_data.annotations:
+        # print(f'ann:\n{ann}')
+        label = ann["description"]
+        duration = ann["duration"]
+        onset = ann["onset"]
+        # print(f'annotation:{count1, onset, duration, label}')
+        t1 = onset
+        t2 = onset + duration
+        if label == 'baseline':
+            baseline_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'a_closed_eyes':
+            a_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'a_opened_eyes':
+            a_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'b_closed_eyes':
+            b_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'b_opened_eyes':
+            b_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        else:
+            pass
+
+    print(f'size list baseline: {len(baseline_list)}')
+    print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
+    print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
+    print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
+    print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
+
+    ## eeg data to a dictionary
+    eeg_data_dict={}
+    eeg_data_dict['baseline'] = baseline_list
+    eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
+    eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
+    eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
+    eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
+
+    return eeg_data_dict
+
+
+#############################
+def get_eeg_segments_two(raw_r, raw_v):  
+    ## prefix:
+    ## a:resting; b:biking
+    baseline_list = []
+    a_closed_eyes_list = []
+    a_opened_eyes_list = []
+    b_closed_eyes_list = []
+    b_opened_eyes_list = []
+
+    for ann in raw_r.annotations:
+        # print(f'ann:\n{ann}')
+        label = ann["description"]
+        duration = ann["duration"]
+        onset = ann["onset"]
+        # print(f'annotation:{count1, onset, duration, label}')
+        t1 = onset
+        t2 = onset + duration
+        if label == 'baseline':
+            baseline_list.append(crop_fun(raw_r, t1, t2))
+
+        elif label == 'a_closed_eyes':
+            a_closed_eyes_list.append(crop_fun(raw_r, t1, t2))
+
+        elif label == 'a_opened_eyes':
+            a_opened_eyes_list.append(crop_fun(raw_r, t1, t2))
+        else:
+            pass
+
+
+    for ann in raw_v.annotations:
+        # print(f'ann:\n{ann}')
+        label = ann["description"]
+        duration = ann["duration"]
+        onset = ann["onset"]
+        # print(f'annotation:{count1, onset, duration, label}')
+        t1 = onset
+        t2 = onset + duration
+
+        if label == 'b_closed_eyes':
+            b_closed_eyes_list.append(crop_fun(raw_v, t1, t2))
+
+        elif label == 'b_opened_eyes':
+            b_opened_eyes_list.append(crop_fun(raw_v, t1, t2))
+
+        else:
+            pass
+
+
+    print(f'size list baseline: {len(baseline_list)}')
+    print(f'size list a_closed_eyes: {len(a_closed_eyes_list)}')
+    print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
+    print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
+    print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
+
+    ## eeg data to a dictionary
+    eeg_data_dict={}
+    eeg_data_dict['baseline'] = baseline_list
+    eeg_data_dict['a_closed_eyes'] = a_closed_eyes_list
+    eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
+    eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
+    eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
+
+    return eeg_data_dict
+
+
+#############################
+def set_bad_segments(eeg_data_dict, path_ann):
+    ## set annotations
+    annotations_dict = {}
+    labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
+
+    all_filenames = os.listdir(path_ann)
+    print(f'annotations filenames: {all_filenames}')
+
+    for ax_number, section in enumerate(labels_list):
+        
+        start_name = section
+        files_list = [i for i in all_filenames if i.startswith(start_name)]
+        
+        ann_list = []
+        for filename in sorted(files_list):
+            print(f'reading: {filename}')
+            ann_list.append( mne.read_annotations(path_ann+filename,))
+        
+        annotations_dict[section] = ann_list
+    
+    ## annotate bad segments to exclude them of posterior calculations
+    for ax_number, section in enumerate(labels_list):
+        eeg_list= []
+        for eeg_segment, ann in zip(eeg_data_dict[section], annotations_dict[section]):
+            ## channels' voltage vs time
+            eeg_segment.set_annotations(ann)
+            eeg_list.append(eeg_segment)
+
+        eeg_data_dict[section] = eeg_list
+
+    return eeg_data_dict
+
+
+##########################
+def set_psd_fun(input):
+    global channel_id
+
+    input = arr_psd[channel_id,:]
+    channel_id+=1
+
+    return (input)
+
+#############################
+def get_band_power_baseline(eeg_data_dict, label):
+
+        # print(f'baseline:\n{eeg_data_dict["baseline"]}')
+
+        ## visualization raw after processing
+        # visualization_raw(eeg_data_dict)
+
+        ## At this point, blink artifacts have been removed and the Surface Lapacian has been applied to the eeg data. Additionally, evident artifacts were annotated interactively and labeled as "bad" to exclude them from posterior calculations
+
+        # print(f"eeg_data_dict[{label}]: {eeg_data_dict[label]}")
+        # print(f"len eeg_data_dict[{label}]: {len(eeg_data_dict[label])}")
+        ####################
+        ## comparison between closed and opened eyes
+        ## baseline
+        # psd_list = []
+        # count = 0
+
+        # nchannels_eeg = len(eeg_data_dict[label][0].get_data(picks='eeg'))
+        # print(f"nchannels eeg: {nchannels_eeg}")
+        delta_list=[]
+        theta_list=[]
+        alpha_list=[]
+        beta_list =[]
+        gamma_list=[]
+
+        for raw in eeg_data_dict[label]:
+            # print(f"times: {count}")
+            ## power spectral density (psd) from each iteration of baseline (usually only one)
+            # psd_bl = raw_baseline.compute_psd(fmin=0.5,fmax=45,reject_by_annotation=True)
+            psd = raw.compute_psd(reject_by_annotation=True)
+            psd_data, psd_freq = psd.get_data(return_freqs=True)
+
+            # print(f"psd_data shape: {psd_data.shape}")
+            # print(f"psd_freq len: {len(psd_freq)}")
+            ## compute average bandpower of every channel
+            # print(f"freq_bl:\n{psd_freq}\n")
+        
+            # Frequency resolution, i.e. value between two consecutive samples
+            freq_res = psd_freq[1] - psd_freq[0]
+            # print(f"psd_freq: {psd_freq}")
+            # print(f"freq_res: {freq_res}")
+            # print(f"freq_diff: {np.diff(psd_freq)}")
+
+            ## frequency bands
+            fmin_list=[0.5, 4.0,  8.0, 12.0, 30.0]
+            fmax_list=[4.0, 8.0, 12.0, 30.0, 45.0]
+            # title_list=['delta [0.5-4 Hz]', 'theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
+            band_title_list=['delta','theta','alpha','beta','gamma',]
+
+            band_dict = {}
+            for fmin, fmax, band_title in zip(fmin_list, fmax_list, band_title_list):
+
+                # print(f"fmin fmax band: {fmin, fmax, band_title}")
+
+                # Find closest indices of band in frequency vector
+                idx_band = np.logical_and(psd_freq >= fmin, psd_freq < fmax)
+
+                # Integral approximation of the spectrum using Simpson's rule.
+                band_dict[band_title] = integrate.simpson(psd_data[:,idx_band], dx=freq_res)
+                # print(f"band_dict[{band_title}] shape: {band_dict[band_title].shape}")
+                # print(f"bp baseline: {area}")
+
+                # data_bl, freq_bl = psd_bl.get_data(return_freqs=True)
+                # print(f'arr_bl : {psd_data.shape}')
+
+            delta_list.append(band_dict['delta'])
+            theta_list.append(band_dict['theta'])
+            alpha_list.append(band_dict['alpha'])
+            beta_list.append( band_dict['beta'] )
+            gamma_list.append(band_dict['gamma'])
+
+            # psd_list.append(band_dict)
+            # print(f"list psd: {len(psd_list)}")
+
+        ## median values for each frequency band
+        # delta_arr=np.empty((0, len(psd_data)))
+
+        # for band_dict in psd_list:
+            # delta_arr = np.append(delta_arr, band_dict['delta'],axis=0)
+
+        # print(f'delta_arr shape : {len(delta_arr)}')
+        # print(f'theta_arr shape : {len(theta_arr)}')
+        # print(f'alpha_arr shape : {len(alpha_arr)}')
+        # print(f' beta_arr shape : {len(beta_arr)}')
+        # print(f'gamma_arr shape : {len(gamma_arr)}')
+
+        # psd_arr=np.array(psd_list)
+        baseline_dict = {}
+        baseline_dict['delta'] = delta_list
+        baseline_dict['theta'] = theta_list
+        baseline_dict['alpha'] = alpha_list
+        baseline_dict['beta']  =  beta_list 
+        baseline_dict['gamma'] = gamma_list
+
+        # print(f'delta_median : {delta_median.shape}')
+        # print(f'theta_median : {theta_median.shape}')
+        # print(f'alpha_median : {alpha_median.shape}')
+        # print(f'beta_median : {beta_median.shape}')
+        # print(f'gamma_median : {gamma_median.shape}')
+
+        # return psd_median
+        return baseline_dict
+
+
+#############################
+def get_band_power(eeg_data_dict, label):
+
+        # print(f'baseline:\n{eeg_data_dict["baseline"]}')
+
+        ## visualization raw after processing
+        # visualization_raw(eeg_data_dict)
+
+        ## At this point, blink artifacts have been removed and the Surface Lapacian has been applied to the eeg data. Additionally, evident artifacts were annotated interactively and labeled as "bad" to exclude them from posterior calculations
+
+        # print(f"eeg_data_dict[{label}]: {eeg_data_dict[label]}")
+        # print(f"len eeg_data_dict[{label}]: {len(eeg_data_dict[label])}")
+        ####################
+        ## comparison between closed and opened eyes
+        ## baseline
+        # psd_list = []
+        # count = 0
+
+        # nchannels_eeg = len(eeg_data_dict[label][0].get_data(picks='eeg'))
+        # print(f"nchannels eeg: {nchannels_eeg}")
+        delta_arr=[]
+        theta_arr=[]
+        alpha_arr=[]
+        beta_arr =[]
+        gamma_arr=[]
+
+        for raw in eeg_data_dict[label]:
+            # print(f"times: {count}")
+            ## power spectral density (psd) from each iteration of baseline (usually only one)
+            # psd_bl = raw_baseline.compute_psd(fmin=0.5,fmax=45,reject_by_annotation=True)
+            psd = raw.compute_psd(reject_by_annotation=True)
+            psd_data, psd_freq = psd.get_data(return_freqs=True)
+
+            # print(f"psd_data shape: {psd_data.shape}")
+            # print(f"psd_freq len: {len(psd_freq)}")
+            ## compute average bandpower of every channel
+            # print(f"freq_bl:\n{psd_freq}\n")
+        
+            # Frequency resolution, i.e. value between two consecutive samples
+            freq_res = psd_freq[1] - psd_freq[0]
+
+            ## frequency bands
+            fmin_list=[0.5, 4.0,  8.0, 12.0, 30.0]
+            fmax_list=[4.0, 8.0, 12.0, 30.0, 45.0]
+            # title_list=['delta [0.5-4 Hz]', 'theta [4-8 Hz]', 'alpha [8-12 Hz]', 'beta [12-30 Hz]', 'gamma [30-45 Hz]',]
+            band_title_list=['delta','theta','alpha','beta','gamma',]
+
+            band_dict = {}
+            for fmin, fmax, band_title in zip(fmin_list, fmax_list, band_title_list):
+
+                # print(f"fmin fmax band: {fmin, fmax, band_title}")
+
+                # Find closest indices of band in frequency vector
+                idx_band = np.logical_and(psd_freq >= fmin, psd_freq < fmax)
+
+                # Integral approximation of the spectrum using Simpson's rule.
+                band_dict[band_title] = integrate.simpson(psd_data[:,idx_band], dx=freq_res)
+                # print(f"band_dict[{band_title}] shape: {band_dict[band_title].shape}")
+                # print(f"bp baseline: {area}")
+
+                # data_bl, freq_bl = psd_bl.get_data(return_freqs=True)
+                # print(f'arr_bl : {psd_data.shape}')
+
+            delta_arr.append(band_dict['delta'])
+            theta_arr.append(band_dict['theta'])
+            alpha_arr.append(band_dict['alpha'])
+            beta_arr.append( band_dict['beta'] )
+            gamma_arr.append(band_dict['gamma'])
+
+            # psd_list.append(band_dict)
+            # print(f"list psd: {len(psd_list)}")
+
+        ## median values for each frequency band
+        # delta_arr=np.empty((0, len(psd_data)))
+
+        # for band_dict in psd_list:
+            # delta_arr = np.append(delta_arr, band_dict['delta'],axis=0)
+
+        # print(f'delta_arr shape : {len(delta_arr)}')
+        # print(f'theta_arr shape : {len(theta_arr)}')
+        # print(f'alpha_arr shape : {len(alpha_arr)}')
+        # print(f' beta_arr shape : {len(beta_arr)}')
+        # print(f'gamma_arr shape : {len(gamma_arr)}')
+
+        # psd_arr=np.array(psd_list)
+        median_dict = {}
+        median_dict['delta'] = np.median(delta_arr, axis=0)
+        median_dict['theta'] = np.median(theta_arr, axis=0)
+        median_dict['alpha'] = np.median(alpha_arr, axis=0)
+        median_dict['beta'] = np.median(beta_arr, axis=0)
+        median_dict['gamma'] = np.median(gamma_arr, axis=0)
+
+        # print(f'delta_median : {delta_median.shape}')
+        # print(f'theta_median : {theta_median.shape}')
+        # print(f'alpha_median : {alpha_median.shape}')
+        # print(f'beta_median : {beta_median.shape}')
+        # print(f'gamma_median : {gamma_median.shape}')
+
+        # return psd_median
+        return median_dict
+
+#############################
+def get_normalized_band_power(dict_1, dict_ref):
+        
+        band_title_list=['delta','theta','alpha','beta','gamma',]
+        dict_norm = {}
+
+        for label in band_title_list:
+            norm_psd = dict_1[label] / dict_ref[label][0]
+            dict_norm[label] = 10*np.log10(norm_psd)
+
+        return dict_norm
+
+#############################
+def get_normalized_band_power_baseline(dict_ref):
+        
+        band_title_list=['delta','theta','alpha','beta','gamma',]
+        dict_norm = {}
+
+        for label in band_title_list:
+            norm_psd = dict_ref[label][1] / dict_ref[label][0]
+            dict_norm[label] = 10*np.log10(norm_psd)
+
+        return dict_norm
+
+#############################
+
+def plot_topomap_bp_ratio(ratios, data_dict, title_fig, filename):
+        fig, ax = plt.subplots(1, 4, figsize=(16, 4))
+        ax = ax.flat
+        
+        im, cn = mne.viz.plot_topomap(ratios['a_closed_eyes'], data_dict['baseline'][0].info, vlim=y_limits, contours=0, axes=ax[0], cmap='RdBu_r' )
+        im, cn = mne.viz.plot_topomap(ratios['a_opened_eyes'], data_dict['baseline'][0].info, vlim=y_limits, contours=0, axes=ax[1], cmap='RdBu_r' ) 
+        im, cn = mne.viz.plot_topomap(ratios['b_closed_eyes'], data_dict['baseline'][0].info, vlim=y_limits, contours=0, axes=ax[2], cmap='RdBu_r' ) 
+        im, cn = mne.viz.plot_topomap(ratios['b_opened_eyes'], data_dict['baseline'][0].info, vlim=y_limits, contours=0, axes=ax[3], cmap='RdBu_r' )
+
+        ax[0].set_title("rest closed-eyes")
+        ax[1].set_title("rest opened-eyes")
+        ax[2].set_title("bike closed-eyes")
+        ax[3].set_title("bike opened-eyes")
+
+        # Make colorbar
+        cbar_ax = fig.add_axes([0.02, 0.25, 0.03, 0.60])
+        fig.colorbar(im, cax=cbar_ax, label=f"dB change")
+        fig.suptitle(title_fig, size='large', weight='bold')
+        fig.savefig(filename, transparent=True)
+
+        return 0
+#############################    
+
+# def get_bp_ratio(data_dict,label_num, label_den):
+#     ratio = data_dict[label_num] / data_dict[label_den]
+#     ratio_log = 10*np.log10(ratio)
+#     return ratio_log
+
+def get_bp_ratio(arr_num, arr_den):
+    ratio = arr_num / arr_den
+    ratio_log = 10*np.log10(ratio)
+    return ratio_log
+
+#############################
+def get_bp_bike_rest_ratio(dict_bike, dict_rest):
+        
+        band_title_list=['delta','theta','alpha','beta','gamma',]
+        dict_norm = {}
+
+        for label in band_title_list:
+            norm_psd = dict_bike[label] / dict_rest[label]
+            dict_norm[label] = 10*np.log10(norm_psd)
+
+        return dict_norm
+
+
+#############################
+
+## EEG filtering and signals pre-processing
+
+def main(args):
+    global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data, arr_psd
+
+    ## interactive mouse pause the image visualization
+    # fig.canvas.mpl_connect('button_press_event', toggle_pause)
+
+    print(f'arg {args[1]}') ## folder location
+    print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
+    print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
+    print(f'arg {args[4]}') ## ABT = {0:recordings of resting and biking in only one file, 1: recordings of resting and biking are separated, each one in its file}
+    
+    path=args[1]
+    subject= int(args[2])
+    session=int(args[3])
+    abt= int(args[4])
+
+    fn_in=''
+
+    t0=0
+    t1=0
+
+    #########################
+    ## selected data
+    print(f'path:{path}\nsubject:{subject}\nsession:{session}\nabt:{abt}\n')
+
+    #########################
+    ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
+    if abt == 0:
+        path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system = participants_list(path, subject, session, 0)
+        ## exclude channels of the net boundaries that usually bring noise or artifacts
+        raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+        raw_data.drop_channels(raw_data.info['bads'])
+
+        ##########################
+        # printing basic information from data
+        print(f'raw data filename: {fn_in}')
+        print(f'annotations filename: {fn_csv}')
+        print(f'raw data info:\n{raw_data.info}')
+        # printing basic information from data
+        ############################
+        ## sampling rate
+        sampling_rate = raw_data.info['sfreq']
+        ############################
+        ## run matplotlib in interactive mode
+        plt.ion()
+        ############################
+        
+        ################################
+        ## Stage 1: high pass filter (in place)
+        #################################
+        low_cut =    0.5
+        hi_cut  =   45.0
+        raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+
+        ############################
+        ## read annotations (.csv file)
+        my_annot = mne.read_annotations(path + fn_csv[0])
+        print(f'annotations:\n{my_annot}')
+        ## adding annotations to raw data
+        raw_data.set_annotations(my_annot)
+        
+        ###########################################
+        ## cropping data according to every section (annotations)
+        eeg_data_dict = get_eeg_segments(raw_data,)
+
+    else:
+        path_r, fn_in_r, fn_csv_r, raw_data_r, fig_title_r, rows_plot_r, acquisition_system = participants_list(path, subject, session, 0)
+        path, fn_in_v, fn_csv_v, raw_data_v, fig_title_v, rows_plot_v, acquisition_system = participants_list(path, subject, session, 1)
+
+        ## exclude channels of the net boundaries that usually bring noise or artifacts
+        raw_data_r.info["bads"] = bad_channels_dict[acquisition_system]
+        raw_data_v.info["bads"] = bad_channels_dict[acquisition_system]
+
+        raw_data_r.drop_channels(raw_data_r.info['bads'])
+        raw_data_v.drop_channels(raw_data_v.info['bads'])
+
+        ##########################
+        # printing basic information from data
+        # print(f'raw data filename: {fn_in}')
+        # print(f'annotations filename: {fn_csv}')
+        # print(f'raw data info:\n{raw_data.info}')
+        # printing basic information from data
+        ############################
+        ## sampling rate
+        sampling_rate = raw_data_r.info['sfreq']
+        ############################
+        ## run matplotlib in interactive mode
+        plt.ion()
+        ############################
+        
+        ################################
+        ## Stage 1: high pass filter (in place)
+        #################################
+        low_cut =    0.5
+        hi_cut  =   45.0
+        raw_data_r.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+        raw_data_v.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+
+        ############################
+        ## read annotations (.csv file)
+        my_annot_r = mne.read_annotations(path + fn_csv_r[0])
+        my_annot_v = mne.read_annotations(path + fn_csv_v[0])
+        # print(f'annotations:\n{my_annot}')
+        ## adding annotations to raw data
+        raw_data_r.set_annotations(my_annot_r)
+        raw_data_v.set_annotations(my_annot_v)
+        
+        ###########################################
+        ## cropping data according to every section (annotations)
+        eeg_data_dict = get_eeg_segments_two(raw_data_r, raw_data_v)
+    
+    ###########################
+    ## re-referencing average (excluding bad channels)
+    eeg_data_dict = channels_average_ref(eeg_data_dict, subject, session)
+    
+    ###########################
+    ## set annotations of bad segments per section (interactive annotations previously made [inspection.py])
+    # ann_filename = path + fn_csv[1] + '.pkl'
+    path_ann = path+'session_'+str(session)+"/new_annotations/"
+    eeg_data_dict = set_bad_segments(eeg_data_dict, path_ann)
+
+    #########################
+    ## ICA for blink removal using precalculate ICA (ica_blinks.py)
+    eeg_data_dict = ica_baseline_func(path, eeg_data_dict, subject, session, scale_dict)
+    # eeg_data_dict = ica_appl_func(path, eeg_data_dict, subject, session, scale_dict)
+
+    ##########################
+    ## interpolation of bad channels per section
+    eeg_data_dict = channels_interpolation(eeg_data_dict, subject, session)
+
+    ##########################
+    ## current source density
+    ## Surface Laplacian 
+    eeg_data_dict = csd_fun(eeg_data_dict)
+
+
+    ##########################################################
+    ## when rest and bike are in two different files, we save baseline for rest, and we open baseline for bike
+    ## save baseline
+    flag_bl = input('save baseline ? (1 (True), 0 (False)): ')
+    if int(flag_bl)==1:
+        eeg_data_dict['baseline'][0].save(path+'session_'+str(session)+'/baseline.fif.gz', overwrite=True)
+    else:
+        pass
+    
+    ## load baseline
+    flag_bl = input('load baseline ? (1 (True), 0 (False)): ')
+    if int(flag_bl)==1:
+        eeg_data_dict['baseline'] = [mne.io.read_raw_fif(path + 'baseline.fif.gz',)]
+    else:
+        pass
+    ###########################################################
+
+    ## create folder if it does not exit already
+    Path(f"{path}session_{session}/figures/topomaps").mkdir(parents=True, exist_ok=True)
+
+    ## band power of : 'delta','theta','alpha','beta','gamma'
+    # print(f"get band power baseline")
+    bp_baseline_dict = get_band_power_baseline(eeg_data_dict, 'baseline')
+    ## median values band power for each electrode for each stade (a_closed_eyes, a_opened_eyes, ...)
+    bp_a_closed_eyes_dict = get_band_power(eeg_data_dict, 'a_closed_eyes')
+    bp_a_opened_eyes_dict = get_band_power(eeg_data_dict, 'a_opened_eyes')
+    bp_b_closed_eyes_dict = get_band_power(eeg_data_dict, 'b_closed_eyes')
+    bp_b_opened_eyes_dict = get_band_power(eeg_data_dict, 'b_opened_eyes')
+
+    # #######################
+    # ## delta / beta ratio
+    ratio_delta_beta = {}
+    ratio_delta_beta['a_closed_eyes'] = get_bp_ratio(bp_a_closed_eyes_dict['delta'], bp_a_closed_eyes_dict['beta'])
+    ratio_delta_beta['a_opened_eyes'] = get_bp_ratio(bp_a_opened_eyes_dict['delta'], bp_a_opened_eyes_dict['beta'])
+    ratio_delta_beta['b_closed_eyes'] = get_bp_ratio(bp_b_closed_eyes_dict['delta'], bp_b_closed_eyes_dict['beta'])
+    ratio_delta_beta['b_opened_eyes'] = get_bp_ratio(bp_b_opened_eyes_dict['delta'], bp_b_opened_eyes_dict['beta'])
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/delta_beta_ratios.png"
+    plot_topomap_bp_ratio(ratio_delta_beta, eeg_data_dict, 'delta / beta ratios', filename_fig)
+
+    # # ## delta / beta ratio
+    # #######################
+    
+    # #######################
+    # ## alpha / theta ratio
+    ratio_alpha_theta = {}
+    ratio_alpha_theta['a_closed_eyes'] = get_bp_ratio(bp_a_closed_eyes_dict['alpha'], bp_a_closed_eyes_dict['theta'])
+    ratio_alpha_theta['a_opened_eyes'] = get_bp_ratio(bp_a_opened_eyes_dict['alpha'], bp_a_opened_eyes_dict['theta'])
+    ratio_alpha_theta['b_closed_eyes'] = get_bp_ratio(bp_b_closed_eyes_dict['alpha'], bp_b_closed_eyes_dict['theta'])
+    ratio_alpha_theta['b_opened_eyes'] = get_bp_ratio(bp_b_opened_eyes_dict['alpha'], bp_b_opened_eyes_dict['theta'])
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/alpha_theta_ratios.png"
+    plot_topomap_bp_ratio(ratio_alpha_theta, eeg_data_dict, 'alpha / theta ratios', filename_fig)
+    # ## alpha / theta ratio
+    # #######################
+
+    #########################
+    ## bike /rest ratio closed eyes
+    band_title_list=['delta','theta','alpha','beta','gamma',]
+    ratio_bike_rest_closed_eyes_dict = get_bp_bike_rest_ratio(bp_b_closed_eyes_dict, bp_a_closed_eyes_dict)
+    ratio_bike_rest_opened_eyes_dict = get_bp_bike_rest_ratio(bp_b_opened_eyes_dict, bp_a_opened_eyes_dict)
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/ratio_bike_rest_closed_eyes.png"
+    plot_topomap_powerbands(ratio_bike_rest_closed_eyes_dict, eeg_data_dict, 'bike/rest (ratio) closed_eyes', filename_fig)
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/ratio_bike_rest_opened_eyes.png"
+    plot_topomap_powerbands(ratio_bike_rest_opened_eyes_dict, eeg_data_dict, 'bike/rest (ratio) opened_eyes', filename_fig)
+    ## bike /rest ratio closed eyes
+    #########################
+    
+    #########################
+    ## baseline normalization
+    bp_norm_a_closed_eyes_dict = get_normalized_band_power(bp_a_closed_eyes_dict, bp_baseline_dict)
+    bp_norm_a_opened_eyes_dict = get_normalized_band_power(bp_a_opened_eyes_dict, bp_baseline_dict)
+    bp_norm_b_closed_eyes_dict = get_normalized_band_power(bp_b_closed_eyes_dict, bp_baseline_dict)
+    bp_norm_b_opened_eyes_dict = get_normalized_band_power(bp_b_opened_eyes_dict, bp_baseline_dict)
+    ## baseline normalization
+    #########################
+    
+
+    labels_list=['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes', 'baseline2']
+    titles_list=['rest closed eyes','rest opened eyes','bike closed eyes','bike opened eyes', 'baseline end']
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[0]}.png"
+    plot_topomap_powerbands(bp_norm_a_closed_eyes_dict, eeg_data_dict, titles_list[0], filename_fig)
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[1]}.png"
+    plot_topomap_powerbands(bp_norm_a_opened_eyes_dict, eeg_data_dict, titles_list[1], filename_fig)
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[2]}.png"
+    plot_topomap_powerbands(bp_norm_b_closed_eyes_dict, eeg_data_dict, titles_list[2], filename_fig)
+
+    filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[3]}.png"
+    plot_topomap_powerbands(bp_norm_b_opened_eyes_dict, eeg_data_dict, titles_list[3], filename_fig)
+
+    ## baseline at the end of the session
+    print(f"len(eeg_data_dict['baseline']): {len(eeg_data_dict['baseline'])}")
+    if len(eeg_data_dict['baseline']) > 1:
+        bp_norm_baseline_dict = get_normalized_band_power_baseline(bp_baseline_dict)
+    
+        filename_fig = f"{path}session_{session}/figures/topomaps/{labels_list[4]}.png"
+        plot_topomap_powerbands(bp_norm_baseline_dict, eeg_data_dict, titles_list[4], filename_fig)
+    
+    
+    
+
+    plt.show(block=True)
+    return 0
+    ## psd median values from all iterations for each section (baseline, resting closed-eyes, ... biking closed-eyes,...)
+    ## and psd normalization using the resultant values from baseline
+
+    
+
+    ## resting
+    # list_c = []
+    # list_o = []
+    ## create folder if it does not exit already
+    Path(f"{path}session_{session}/figures/topomaps").mkdir(parents=True, exist_ok=True)
+    
+
+
+    ##########################
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(main(sys.argv))

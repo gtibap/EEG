@@ -1,20 +1,24 @@
 blinks_components_dict = {
     100:{
         'session_0':{
-            'baseline':[[0, 13]],
+            'baseline':[[0,1,2]],
             'a_closed_eyes':[[],[],[],],
-            'a_opened_eyes':[[0],[0,1],[0],],
-            'b_closed_eyes':[[],[],[18],],
-            'b_opened_eyes':[[0,6],[0],[0,7],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
+            # 'a_closed_eyes':[[],[],[],],
+            # 'a_opened_eyes':[[0],[0,1],[0],],
+            # 'b_closed_eyes':[[],[],[18],],
+            # 'b_opened_eyes':[[0,6],[0],[0,7],],
         },
     },
     101:{
         'session_0':{
-            'baseline':[[0]],
+            'baseline':[[0,1,2]],
             'a_closed_eyes':[[],[],[],],
-            'a_opened_eyes':[[1],[1],[6],],
-            'b_closed_eyes':[[8],[13],[10],],
-            'b_opened_eyes':[[2,4,11],[1],[1,6],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
         },
     },
     102:{
@@ -40,23 +44,32 @@ blinks_components_dict = {
             ## TP7 highly afffected by artifacts
             ## blinking and lateral eyes movements
             # 'ica_var': 0.999,
-            'baseline':[[2,3]],
-            'a_closed_eyes':[[],[11],[10],],
-            'a_opened_eyes':[[],[2,9],[2,15],],
-            'b_closed_eyes':[[6,27],[6,24],[16,25],],
-            'b_opened_eyes':[[1,22],[1,4,30],[1,28],],
+            'baseline':[[0,1,4,6]],
+            'a_closed_eyes':[[],[8,14],[1,10],],
+            'a_opened_eyes':[[0,1],[0,1],[0,1,7],],
+            'b_closed_eyes':[[0,1,2,13,22],[0,1,2,12,13,23],[0,24],],
+            'b_opened_eyes':[[0,1,2,3,18],[0,1,2,3,24],[0,1,3,7,24],],
         },
     },
     203:{
         'session_0':{
+            'baseline':[[0,1,3,5,7,14]],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
+        },
+    },
+    204:{
+        'session_0':{
             ## TP7 highly afffected by artifacts
             ## blinking and lateral eyes movements
             # 'ica_var': 0.999,
-            'baseline':[[0,6,]],
-            'a_closed_eyes':[[6,24],[5,],[5,],],
-            'a_opened_eyes':[[0,5,],[0,6,],[0,10,],],
-            'b_closed_eyes':[[6,],[4,11,],[4,7,18,],],
-            'b_opened_eyes':[[1,7,13],[1,6,14,],[1,7,14],],
+            'baseline':[[0],[0]],
+            'a_closed_eyes':[[]]*3,
+            'a_opened_eyes':[[]]*3,
+            'b_closed_eyes':[[]]*3,
+            'b_opened_eyes':[[]]*3,
         },
     },
     ################################
@@ -77,6 +90,13 @@ blinks_components_dict = {
             'a_opened_eyes':[[0],[0,4],[0,7,8],],
             'b_closed_eyes':[[5],[6,8],[],],
             'b_opened_eyes':[[0],[0],[0,3],],
+        },
+        'session_2':{
+            'baseline':[[0],[0,2]],
+            'a_closed_eyes':[[],[],[],],
+            'a_opened_eyes':[[],[],[],],
+            'b_closed_eyes':[[],[],[],],
+            'b_opened_eyes':[[],[],[],],
         },
     },
     ################
@@ -100,7 +120,7 @@ blinks_components_dict = {
     3:{
         ## session 0 data not good
         'session_0':{
-            'baseline':[[],],
+            'baseline':[[0],[]],
             'a_closed_eyes':[[],[],[],],
             'a_opened_eyes':[[],[],[],],
             'b_closed_eyes':[[],[],[],],
