@@ -72,6 +72,28 @@ blinks_components_dict = {
             'b_opened_eyes':[[]]*3,
         },
     },
+    205:{
+        'session_0':{
+            ## ica_blinks_two.py jul 23, 2025
+            'baseline':[[0],[0]],
+            'a_closed_eyes':[[],[],[]],
+            'a_opened_eyes':[[0],[0],[0]],
+            'b_closed_eyes':[[],[],[]],
+            'b_opened_eyes':[[0],[0],[0]],
+        },
+    },
+    206:{
+        'session_0':{
+            ##  ica_blinks_two.py jul 23, 2025
+            ## baseline one, ica component 0: blinks
+            ## baseline two, ica component 0: heart beats
+            'baseline':[[0],[0]],
+            'a_closed_eyes':[[0],[0],[0]],
+            'a_opened_eyes':[[0],[0,1],[0,2]],
+            'b_closed_eyes':[[0,1,2],[0,4],[0,2]],
+            'b_opened_eyes':[[0,1],[0,1],[0,1]],
+        },
+    },
     ################################
     ################################
     ## neuro_project_audace
@@ -238,6 +260,13 @@ blinks_components_dict = {
             'b_closed_eyes':[[],[],[],],
             'b_opened_eyes':[[0,1],[0,1],[0],],
         },
+        'session_1':{
+            'baseline':[[3],[0]],
+            'a_closed_eyes':[[],[],[0,2],],
+            'a_opened_eyes':[[0,18],[0],[0],],
+            'b_closed_eyes':[[],[0],[],],
+            'b_opened_eyes':[[0],[0],[0],],
+        },
     }, 
     ################
     10:{
@@ -278,6 +307,27 @@ blinks_components_dict = {
             'b_opened_eyes':[[0,15],[20,27],[25,26],],
         },
     },
+    ################
+    13:{
+        'session_0':{
+            'baseline':[[0],[0],[0,16]],
+            'a_closed_eyes':[[0],[0],[0],],
+            'a_opened_eyes':[[0],[0],[0],],
+            'b_closed_eyes':[[0],[0],[0],],
+            'b_opened_eyes':[[0],[0],[0],],
+        },
+    },
+    ################
+    15:{
+        'session_0':{
+            'baseline':[[],[]],
+            'a_closed_eyes':[[0,19],[4,13,21],[28,36],],
+            'a_opened_eyes':[[0,42],[0,36],[3,25],],
+            'b_closed_eyes':[[0,1],[0,3,4],[],],
+            'b_opened_eyes':[[0],[1],[0],],
+        },
+    },
+
     
     ## neuro_project_audace
     ################################

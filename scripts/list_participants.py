@@ -189,7 +189,6 @@ def participants_list(path, subject, session, abt):
         rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        # fig = raw_data.plot_sensors(show_names=True,)
     ############################
     # Mr Gerardo
     elif subject == 203:
@@ -200,23 +199,62 @@ def participants_list(path, subject, session, abt):
         rows_plot = 2
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
-        # fig = raw_data.plot_sensors(show_names=True,)
         acquisition_system = 'geodesic'
     ############################
-    # Mr Etudiant 01
+    # Mr Hamza
     elif subject == 204:
         path = path + 'neuroplasticity/control_01/'
-        fn_in = 'neuro_C01_20230107_192613.mff'
+        fn_in = 'neuro_C01_ha_20230107_192613.mff'
         fn_csv = ['annotations.fif','']
         title = 'P_'+str(subject)+'_rest_abt_geodesic_net_128'
         rows_plot = 2
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
-        # fig = raw_data.plot_sensors(show_names=True,)
-
-
-    
+    ############################
+    # Mr Phillipe
+    elif subject == 205:
+        path = path + 'neuroplasticity/control_02/'
+        fn_in = 'neuro_control_02_phi_20230115_213158.mff'
+        fn_csv = ['annotations.fif','']
+        title = 'P_'+str(subject)+'_rest_abt_geodesic_net_128'
+        rows_plot = 2
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+    ############################
+    # Mr Oussama
+    elif subject == 206:
+        path = path + 'neuroplasticity/control_03/'
+        fn_in = 'neuro_control_003_Ou_20230115_233355.mff'
+        fn_csv = ['annotations.fif','']
+        title = 'P_'+str(subject)+'_rest_abt_geodesic_net_128'
+        rows_plot = 2
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+    ############################
+    # Mr Karim
+    elif subject == 207:
+        path = path + 'neuroplasticity/control_04/'
+        fn_in = 'neuro_control_04_ka_20250724_171515.mff'
+        fn_csv = ['annotations.fif','']
+        title = 'P_'+str(subject)+'_rest_abt_geodesic_net_128'
+        rows_plot = 2
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+     ############################
+    # Mr Luis Alejandro
+    elif subject == 208:
+        path = path + 'neuroplasticity/control_05/'
+        fn_in = 'neuro_control_05_luis_20250730_152919.mff'
+        fn_csv = ['annotations.fif','']
+        title = 'P_'+str(subject)+'_rest_abt_geodesic_net_128'
+        rows_plot = 2
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
 
     ############################
     ############################
@@ -260,6 +298,15 @@ def participants_list(path, subject, session, abt):
             ## read raw data
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'neuro_002_suivi_3m_20250522_160123.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
+            title = 'P_'+str(subject)+'_rest_geodesic_net_128'
+            rows_plot = 1
+            # fn_out = 'neuro_002_ann'
+            ## read raw data
+        elif session==2:
+            ## data collected in the lab with Oussama during the morning
+            ## patient able to walk (with a cane)
+            fn_in = 'session_'+str(session)+'/'+'neuro_002_6m_suivi_20250811_104052.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'
             rows_plot = 1
@@ -396,7 +443,7 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
         elif session==1:
-            fn_in = ''
+            fn_in = 'session_'+str(session)+'/'+'neuro_009_suivi_3m_20250813_102909.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             rows_plot = 2
@@ -467,6 +514,54 @@ def participants_list(path, subject, session, abt):
             print(f"Data from session {session} did not find.")
             return 0
         # fn_out = 'neuro_007_ann'
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+    ############################
+    ############################
+    # neuro_013
+    elif subject == 13:
+        path = path + 'neuroplasticity/n_013/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro_013_20230114_193005.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+    ############################
+    ############################
+    # neuro_014
+    elif subject == 14:
+        path = path + 'neuroplasticity/n_014/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro_014_20250725_141440.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+    ############################
+    ############################
+    # neuro_015
+    elif subject == 15:
+        path = path + 'neuroplasticity/n_015/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro_15_go_20250804_114337.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'

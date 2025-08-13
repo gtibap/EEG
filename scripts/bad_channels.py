@@ -111,6 +111,33 @@ bad_channels_dict = {
             'b_opened_eyes':[[]]*3,
         },
     },
+    205:{
+        'session_0':{
+            'baseline':[['E7','E83','E90']]*3,
+            'a_closed_eyes':[['E7']]*3,
+            'a_opened_eyes':[['E7','E23'],['E7','E23'],['E7','E101']],
+            'b_closed_eyes':[['E7']]*3,
+            'b_opened_eyes':[['E7']]*3,
+        },
+    },
+    206:{
+        'session_0':{
+            'baseline':[['E34'],[]],
+            'a_closed_eyes':[[],['E34'],['E116']],
+            'a_opened_eyes':[['E34']]*3,
+            'b_closed_eyes':[[],['E72','E87'],['E50']],
+            'b_opened_eyes':[[],['E74'],['E50','E52','E97']],
+        },
+    },
+    207:{
+        'session_0':{
+            'baseline':[['E8']]*2,
+            'a_closed_eyes':[['E62']]*3,
+            'a_opened_eyes':[['E8']]*3,
+            'b_closed_eyes':[[]]*3,
+            'b_opened_eyes':[['E8']]*3,
+        },
+    },
 
     ##############################################
     ####### neuroplasticity ######################
@@ -289,6 +316,13 @@ bad_channels_dict = {
             'b_closed_eyes':[['E31','E69','E80']]*3,
             'b_opened_eyes':[['E31','E69','E80']]*3,
         },
+        'session_1':{
+            'baseline':[['E106']]*3,
+            'a_closed_eyes':[['E106']]*3,
+            'a_opened_eyes':[['E106']]*3,
+            'b_closed_eyes':[['E106']]*3,
+            'b_opened_eyes':[['E106']]*3,
+        },
     },
 
     #################################################
@@ -334,6 +368,28 @@ bad_channels_dict = {
             'a_opened_eyes':[['E7','E31','E80','E106'],['E7','E31','E54','E80','E98','E106'],['E7','E25','E31','E80','E98','E106']],
             'b_closed_eyes':[['E7','E31','E80','E98','E106']]*3,
             'b_opened_eyes':[['E7','E31','E80','E98','E106']]*3,
+        },
+    },
+
+    #################################################
+    13:{
+        'session_0':{
+            'baseline':[['E3','E55','E62','E80']]*3,
+            'a_closed_eyes':[['E55','E62','E80']]*3,
+            'a_opened_eyes':[['E55','E62','E80','E3']]*3,
+            'b_closed_eyes':[['E55','E62','E80']]*3,
+            'b_opened_eyes':[['E55','E62','E80','E3']]*3,
+        },
+    },
+
+    #################################################
+    15:{
+        'session_0':{
+            'baseline':[['E2'],['E26']],
+            'a_closed_eyes':[['E2','E18']]*3,
+            'a_opened_eyes':[['E2']]*3,
+            'b_closed_eyes':[[]]*3,
+            'b_opened_eyes':[['E23','E26']]*3,
         },
     },
 
