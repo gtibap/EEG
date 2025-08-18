@@ -566,6 +566,22 @@ def participants_list(path, subject, session, abt):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
     ############################
+    ############################
+    # neuro_016
+    elif subject == 16:
+        path = path + 'neuroplasticity/n_016/'
+        if session==0:
+            fn_in = 'session_'+str(session)+'/'+'neuro_016_Gi_20250818_114905.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            rows_plot = 2
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+    ############################
     
     else:
         fn_in = ''

@@ -327,6 +327,16 @@ blinks_components_dict = {
             'b_opened_eyes':[[0],[1],[0],],
         },
     },
+    ################
+    16:{
+        'session_0':{
+            'baseline':[[0,2],[0]],
+            'a_closed_eyes':[[],[1],[],],
+            'a_opened_eyes':[[0],[0,1],[0,1],],
+            'b_closed_eyes':[[0],[0,5],[0,1,6],],
+            'b_opened_eyes':[[0,1,3],[0,1,2,3],[0,2,3,27],],
+        },
+    },
 
     
     ## neuro_project_audace
