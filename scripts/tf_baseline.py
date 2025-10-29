@@ -27,6 +27,27 @@ y_limits = [-8,8]
 ## scale selection for visualization raw data with annotations
 scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
+
+#######################
+def ann_remove_offset(interactive_annot, time_offset):
+    arr_onset=np.array([])
+    arr_durat=np.array([])
+    arr_label=[]
+
+    for ann in interactive_annot:
+        arr_onset = np.append( arr_onset, ann['onset']-time_offset )
+        arr_durat = np.append(arr_durat, ann['duration'])
+        arr_label.append(ann['description'])
+
+    my_annot = mne.Annotations(
+    onset=arr_onset,  # in seconds
+    duration=arr_durat,  # in seconds, too
+    description=arr_label,
+    # ch_names = ch_names_list
+    )
+    return my_annot
+#############################
+
 #############################
 #############################
 def channels_interpolation(eeg_data_dict, subject, session):
@@ -328,6 +349,68 @@ def topomaps_normalization(raw_data, eeg_data_dict, median_bl, session, path,fla
     return 0
 #############################
 #############################
+def average_power_bands(tf_data, times, freqs):
+    ## 
+    df_all = pd.DataFrame()
+    df_all['time'] = times
+    ## per every tf from each channel
+    ch_id=0
+    for tf_ch in tf_data:
+        df_tf = pd.DataFrame(tf_ch)
+        df_tf['freq'] = freqs
+        # print(f"df_tf:\n{df_tf}")
+        ##
+        ## accumulative power per band per every time sample
+        ##
+        ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+        # selecting rows based on condition
+        df_theta = df_tf.loc[(df_tf['freq'] >= 4)  & (df_tf['freq'] < 8)]
+        df_alpha = df_tf.loc[(df_tf['freq'] >= 8)  & (df_tf['freq'] < 12)]
+        df_beta  = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 30)]
+
+        # print(f"df_theta:\n{df_theta}")
+        # print(f"df_theta shape:\n{df_theta.shape}")
+        ##
+        ## exclude column freq
+        df_theta = df_theta.loc[:,df_theta.columns != 'freq']
+        df_alpha = df_alpha.loc[:,df_alpha.columns != 'freq']
+        df_beta  =  df_beta.loc[:,df_beta.columns  != 'freq']
+
+        ## calculate median power in the theta band for each time sample
+        theta_median = df_theta.median(axis=0).to_numpy()
+        alpha_median = df_alpha.median(axis=0).to_numpy()
+        beta_median  = df_beta.median(axis=0).to_numpy()
+
+        label_theta=f"ch{str(ch_id)}_theta"
+        label_alpha=f"ch{str(ch_id)}_alpha"
+        label_beta =f"ch{str(ch_id)}_beta"
+
+        ## median values of freq. bands components per channel
+        data = {
+            label_theta: theta_median,
+            label_alpha: alpha_median,
+            label_beta:  beta_median,
+        }
+
+        df_ch = pd.DataFrame(data)
+        df_all = pd.concat([df_all, df_ch], axis=1)
+
+        ch_id+=1
+
+    return df_all
+#############################
+
+#############################
+def get_data_band(df, label):
+    label_columns = df.columns[df.columns.str.endswith(label)]
+    # print(f"label columns:\n{label_columns}")
+    df_label = df[label_columns]
+    # print(f"df:\n{df_label}")
+    arr_data = df_label.to_numpy()
+    # print(f"arr_data:\n{arr_data}")
+    return arr_data[0]
+#############################
+
 
 #############################
 ## EEG filtering and signals pre-processing
@@ -388,6 +471,9 @@ def main(args):
     ## create folder to save preprocesing parameters
     Path(path+'session_'+str(session)+"/prep").mkdir(parents=True, exist_ok=True)
     filename_bad_ch = path+'session_'+str(session)+'/prep/'+'bad_ch_baseline.csv'
+    filename_annot  = path+'session_'+str(session)+'/prep/'+'annot_baseline.fif'
+    filename_ica    = path+'session_'+str(session)+'/prep/'+'ica_baseline.fif.gz'
+    filename_tr_ref = path+'session_'+str(session)+'/prep/'+'tf_mean_baseline.npy'
     
     ################################
     ## Stage 1: high pass filter (in place)
@@ -427,61 +513,87 @@ def main(args):
     ##
     ## baseline selection
     
+    ##
+    ## to load pre-calculated (selected) values
+    flag_prep = input(f'Load pre-selected bad-channels and bad-segments (1-True, 0-False) ?: ')
+    flag_prep = 1 if (flag_prep == '') else int(flag_prep)
 
-    flag_prep = int(input(f'load preprocessed values (1-True, 0-False) ?: '))
-    if flag_prep:
+    if flag_prep==1:
         ## load bad channel list
         load_df = pd.read_csv(filename_bad_ch)
         bad_ch_list = load_df['bad_ch'].to_list()
         raw_seg.info['bads'] = bad_ch_list
+        ##
+        ## read annotation bad_seg
+        my_annot = mne.read_annotations(filename_annot)
+        # print(f'annotations:\n{my_annot}')
+        ## adding annotations to raw data
+        raw_seg.set_annotations(my_annot)
 
         mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline)\nPlease select bad segments and bad channels interactively', block=True)
 
     else:
-        #########################################################
-        ## iterative bad segments and bad channels identification
+        pass
+    #########################################################
+    ## iterative bad segments and bad channels identification
+    ##
+    flag_bad_ch = True
+    while flag_bad_ch:
         ##
-        flag_bad_ch = True
-        while flag_bad_ch:
-            ##
-            ## raw data visualization (baseline)
-            ## visual observation of time-series and psd from raw data helps to identify bad channels
-            ## using butterfly view (choosing 'b' in the time-series plot) helps to identify bad segments
-            ##
-            ## interactively, include annotations of bad segments (with the label 'bad_seg'), namely, sections of the data where the majority of channels are affected by noise or artefacts
-            ##
-            ## interactively, select bad channels: flat lines or noisy channels
-            ##
-            mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline)\nPlease select bad segments and bad channels interactively', block=True)
-            ##
-            ## power spectral density (psd)
-            ##
-            ## interactively, identify channels that are out of the tendency (ouliers) as bad channels
-            ## 
-            fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-            mne.viz.plot_raw_psd(raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0.9, fmax=101, xscale='log',)
-
-            ax_psd.set_title('EEG power spectral density (baseline)')
-
-            flag_bad_ch = int(input('Include more bad channels? (1 (True), 0 (False)): '))
-            print(f"flag bad_ch: {flag_bad_ch}")
+        ## raw data visualization (baseline)
+        ## visual observation of time-series and psd from raw data helps to identify bad channels
+        ## using butterfly view (choosing 'b' in the time-series plot) helps to identify bad segments
+        ##
+        ## interactively, include annotations of bad segments (with the label 'bad_seg'), namely, sections of the data where the majority of channels are affected by noise or artefacts
+        ##
+        ## interactively, select bad channels: flat lines or noisy channels
+        ##
+        mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline) -- Please select bad segments and bad channels interactively', block=True)
+        ##
+        ## power spectral density (psd)
+        ##
+        ## interactively, identify channels that are out of the tendency (ouliers) as bad channels
+        ## 
+        fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        mne.viz.plot_raw_psd(raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0.9, fmax=101, xscale='log',)
+        ##
+        ax_psd.set_title('EEG power spectral density (baseline)')
         ##
         bad_ch_list = raw_seg.info['bads']
-        print(f"excluded bad channels: {bad_ch_list}")
-
+        ##
+        flag_bad_ch = input('Include more bad channels? (1 (True), 0 (False)): ')
+        flag_bad_ch = 0 if (flag_bad_ch == '') else int(flag_bad_ch)
+        # print(f"flag bad_ch: {flag_bad_ch}")
+    ##
+    ##
+    # print(f"excluded bad channels: {bad_ch_list}")
+    ##
+    flag_rewrite = input(f"Re-write bad channels and bad-segments (1-True, 0-False)?: ")
+    flag_rewrite = 0 if flag_rewrite == '' else int(flag_rewrite)
+    ##
+    if flag_rewrite==1:
+        ## save bad channels list to csv
         data_dict = {}
         data_dict['bad_ch'] = bad_ch_list
         df = pd.DataFrame(data_dict)
-        print(f"dataframe:\n{df}")
-
+        # print(f"dataframe:\n{df}")
         df.to_csv(filename_bad_ch)
-
-    # load_df = pd.read_csv(filename_bad_ch)
-    # print(f"bad_ch_list_load: {load_df['bad_ch'].to_list()}")
-    print(f"bad_ch_list: {bad_ch_list}")
-
-    return 0
-
+        ##
+        ## save annotations to .fif
+        ## annotation time is referenced to the time of first_samp, and that is different for each section
+        time_offset = raw_seg.first_samp / sampling_rate  ## in seconds
+        ## get and rewrite annotations minus time-offset
+        interactive_annot = raw_seg.annotations
+        annot_offset = ann_remove_offset(interactive_annot, time_offset)
+        ## saving annotations
+        annot_offset.save(filename_annot, overwrite=True)
+    else:
+        pass
+        # print(f"Bad channels and annotations were not saved.")
+        # return 0
+    ##
+    ## print(f"bad_ch_list: {bad_ch_list}")
+    ##
     ## bad segments and bad channels identification
     ###########################################################
     ## re-refencing
@@ -502,10 +614,11 @@ def main(args):
     ###########################################################
     ## ICA to remove blinks and other artifacts
     ##
-    flag_ica = int(input('Load the pre-calculated ICA (1-True, 0-False) ?: '))
+    flag_ica = input('Load pre-calculated ICA components (1-True, 0-False) ?: ')
+    flag_ica = 1 if (flag_ica == '') else int(flag_ica)
     ##
-    if flag_ica:
-        filename_ica = path+'session_'+str(session)+'/ica/'+'ica-baseline.fif.gz'
+    if flag_ica==1 :
+        # filename_ica = path+'session_'+str(session)+'/ica/'+'ica-baseline.fif.gz'
         ## print(f'filename: {filename_ica}')
         try:
             ica = mne.preprocessing.read_ica(filename_ica, verbose=None)
@@ -513,10 +626,7 @@ def main(args):
             print(f'Pre-calculated ICA was not found.')
             flag_ica = False
     else:
-        pass
-
-    if not(flag_ica):    
-        ##
+        ## calcalate ICA components
         ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
         ##
         ## ica works better with a signal with offset 0; a high pass filter with a 1 Hz cutoff frequency could improve that condition
@@ -525,31 +635,26 @@ def main(args):
         ## ICA fitting model to the filtered raw data
         ica.fit(filt_raw, reject_by_annotation=True)
         ##
-        print(f"saving ica model in {path+'session_'+str(session)+'/ica/'+'ica-baseline.fif.gz'}")
-        ica.save(path+'session_'+str(session)+'/ica/'+'ica-baseline.fif.gz', overwrite=True)
+        print(f"saving ica model in {filename_ica}")
+        ica.save(filename_ica, overwrite=True)
         ##
-    else:
-        pass
         ## interactive selection of ICA components to exclude
         ## ica components visualization
     ica.plot_components(inst=raw_seg, contours=0,)
     ica.plot_sources(raw_seg, start=0, stop=240, show_scrollbars=False, block=True)
-        ##
-        # ica_excl_list = ica.exclude
-        # print(f"ica exclude components: {ica_excl_list}")
-        ##
-
+    ##
     ## manual selection de components to exclude (not necessary if they were choosen interactively)
     # ica.exclude = [0,4] # indices that were chosen# based on previous ICA calculations
     # print(f'ICA blink component: {ica.exclude}')
     raw_seg_ica = raw_seg.copy()
     ica.apply(raw_seg_ica)
     ##
+    ## interpolate bad channels
+    raw_seg_ica.interpolate_bads()
+    ##
     ## data visualization
     mne.viz.plot_raw(raw_seg, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline before ICA', block=False)
     mne.viz.plot_raw(raw_seg_ica, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline after ICA', block=True)
-
-    return 0
     ##
     ## ICA to remove blinks and other artifacts
     ###########################################################
@@ -561,8 +666,8 @@ def main(args):
     ## time frequency data visualization
     ## logarithmic
     start=  0.60 # 10^start,  
-    stop =  1.65 # 10^stop
-    num  = 50 # samples
+    stop =  1.50 # 10^stop
+    num  = 50 # samplesq
     freqs = np.logspace(start, stop, num=num,)
     # print(f'log freqs: {freqs}')
 
@@ -572,52 +677,222 @@ def main(args):
 
     data_bl, times_bl, freqs_bl = tfr_bl.get_data(picks=['eeg'],return_times=True, return_freqs=True)
     # picks=['AFz','Cz','POz']
-    print(f"data:\n{data_bl.shape}")
+    print(f"data shape:\n{data_bl.shape}")
     # print(f"data:\n{data_bl}")
-    #
+    ##
+    # chx = 0
+    # data_chx = data_bl[chx]
+    # print(f"data chx shape: {data_chx.shape}")
+    # print(f"data chx:\n{data_chx}")
+    # mean_chx = np.mean(data_chx, axis=1)
+    # print(f"mean chx shape: {mean_chx.shape}")
+    # print(f"mean chx:\n{mean_chx}")
     #  print(f"times:\n{times}")
-    print(f"freqs: {len(freqs_bl)}\n{freqs_bl}")
+    # print(f"freqs: {len(freqs_bl)}\n{freqs_bl}")
 
     ## data visualization
+    # tfr_bl.plot(picks=['VREF'], title='auto', yscale='auto', show=False)
     # tfr_bl.plot(picks=['VREF'], title='auto', yscale='linear', show=False)
     # tfr_bl.plot(picks=['VREF'], title='auto', yscale='log', show=False)
     
     ## mean along time samples
-    ## for each channel, an average for each frequency
+    # for each channel, an average for each frequency
     mean_bl = np.mean(data_bl, axis=2)
-    print(f"mean data: {mean_bl.shape}")
+    print(f"mean data shape: {mean_bl.shape}")
+    # print(f"mean arr:\n{mean_bl}")
+    #
+    # save mean_bl for data normalization
+    np.save(filename_tr_ref, mean_bl)
+
+    # print(f"loading mean_bl...")
+    # mean_bl = np.load(filename_tr_ref)
+    # print(f"done")
 
     ###############################
-    ## data normalization
+    ## time-frequency power normalization for each channel
     dim_ch, dim_fr, dim_t = data_bl.shape
     print(f"bl dim_ch, dim_fr, dim_t: {dim_ch, dim_fr, dim_t}")
+    
+    ## initialization new array
+    data_bl_norm = np.zeros((dim_ch, dim_fr, dim_t))
 
     id_ch=0
+    print(f"normalization ch:\n")
     for mean_ch, arr_num in zip(mean_bl, data_bl):
         # mean for each frequency per channel
         ## mean_ch is an array with a number of elements equal to the number of evaluated frequencies
         ## each element of the array represents the mean value of time samples per each frequency
-        arr_den = np.repeat(mean_ch, dim_t ,axis=0).reshape((len(mean_ch),-1))
+        arr_den = np.repeat(mean_ch, dim_t ,axis=0).reshape(len(mean_ch),-1)
         arr_dB = 10*np.log10(arr_num / arr_den)
         # print(f"mean_ch ch arr_res:{mean_ch.shape} {id_ch}, {arr_dB.shape}")
-        data_bl[id_ch] = arr_dB
+        # data_bl[id_ch] = arr_dB
+        data_bl_norm[id_ch] = arr_dB
+        print(f"{id_ch}", end=", ")
         id_ch+=1
+    print(f"")
 
     ## baseline scaling
     ## dB = 10*log10( matrix_time_freq / mean_for_each_freq_baseline )
     # data_2 = data*20
     tfr_bl_norm = tfr_bl.copy()
-    tfr_bl_norm._data = data_bl
+    tfr_bl_norm._data = data_bl_norm
 
+    ## measure of central tendecy -- median of power bands per time-sample per EEG-channel
+    df_all = average_power_bands(data_bl_norm ,times_bl, freqs_bl)
+
+    print(f"df all:\n{df_all}")
+
+    ## selected channel
+    ch_label = 'VREF'
+
+    # data_norm, times_vref, freqs_vref = tfr_bl_norm.get_data(picks=[ch_label],return_times=True, return_freqs=True)
+    # print(f"vref data shape: {data_norm.shape}")
+    ##
     ## data visualization
-    vlim = (-10,10)    
-    tfr_bl.plot(picks=['VREF'], title='auto', yscale='auto', show=False)
+    fig_tf0, ax_tf0 = plt.subplots(nrows=1, ncols=1, figsize=(16,4), sharey=True, sharex=True)
+    fig_tf1, ax_tf1 = plt.subplots(nrows=1, ncols=1, figsize=(16,4), sharey=True, sharex=True)
+
+    vlim = (-12,12)
+    mask_tf = np.zeros((dim_fr, dim_t)).astype(bool)
+    # tfr_bl.plot(picks=['VREF'], title='auto', yscale='auto', show=False)
     
-    tfr_bl_norm.copy().plot(picks=['VREF'], title='Power (VREF) normalized', yscale='auto', vlim=vlim, show=False)
+    tfr_bl_norm.plot(picks=[ch_label], title=f'Power ({ch_label}) normalized\ndB change from baseline', yscale='auto', vlim = vlim, axes=ax_tf0, show=False)
+    # tfr_bl_norm.plot(picks=[ch_label], title=f'Power ({ch_label}) normalized\ndB change from baseline', yscale='auto', vlim = vlim, show=False)
+
+    data_vref, times_vref, freqs_vref = tfr_bl_norm.get_data(picks=[ch_label],return_times=True, return_freqs=True)
+    print(f"{ch_label} data shape: {data_vref.shape}")
+    ##
+    ## normalized tf matrix to dataframe [VREF]
+    df_tf = pd.DataFrame(data_vref[0])
+    df_tf['freq'] = freqs_vref
+    # print(f"df_tf:\n{df_tf}")
+    ##
+    ## accumulative power per band per every time sample
+    ##
+    ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+    # selecting rows based on condition
+    df_theta = df_tf.loc[(df_tf['freq'] >= 4)  & (df_tf['freq'] < 8)]
+    df_alpha = df_tf.loc[(df_tf['freq'] >= 8)  & (df_tf['freq'] < 12)]
+    df_beta  = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 30)]
+
+    # print(f"df_theta:\n{df_theta}")
+    # print(f"df_theta shape:\n{df_theta.shape}")
+    ##
+    ## exclude column freq
+    df_theta = df_theta.loc[:,df_theta.columns != 'freq']
+    df_alpha = df_alpha.loc[:,df_alpha.columns != 'freq']
+    df_beta  =  df_beta.loc[:,df_beta.columns  != 'freq']
+
+    ## calculate mean power in the theta band for each time sample
+    # theta_mean = df_theta.mean(axis=0).to_numpy()
+    theta_median = df_theta.median(axis=0).to_numpy()
+    alpha_median = df_alpha.median(axis=0).to_numpy()
+    beta_median  = df_beta.median(axis=0).to_numpy()
+
+    # theta_arg_max = np.argmax(theta_median)
+    # alpha_arg_max = np.argmax(alpha_median)
+    # beta_arg_max  = np.argmax(beta_median)
+
+    # theta_arg_min = np.argmin(theta_median)
+    # alpha_arg_min = np.argmin(alpha_median)
+    # beta_arg_min  = np.argmin(beta_median)
+
+    # print(f"tmax theta:{times_vref[theta_arg_max]}")
+    # print(f"tmax alpha:{times_vref[alpha_arg_max]}")
+    # print(f"tmax beta:{times_vref[beta_arg_max]}")
+
+    # print(f"tmin theta:{times_vref[theta_arg_min]}")
+    # print(f"tmin alpha:{times_vref[alpha_arg_min]}")
+    # print(f"tmin beta:{times_vref[beta_arg_min]}")
+
+    
+    # print(f"theta mean:\n{theta_mean}")
+    # print(f"theta mean shape:\n{theta_mean.shape}")
+    
+    arr_max_ids = np.argmax(data_vref[0], axis=0)
+    freqs_vref_max = freqs_vref[arr_max_ids]
 
 
-    tfr_bl.plot_topo(picks='eeg', title='topo map', yscale='auto', show=True,)
-    tfr_bl_norm.copy().plot_topo(picks='eeg', title='topo map', yscale='auto', show=True, vmin=vlim[0],vmax=vlim[1])
+    tfr_bl_norm.plot(picks=[ch_label], title=f'Power ({ch_label}) normalized\ndB change from baseline', yscale='auto', vlim = vlim, mask=mask_tf, mask_alpha=0.7, mask_cmap='coolwarm', axes=ax_tf1, show=False)
+
+    ax_tf1.axhline(y=4.0, alpha=1.0, drawstyle='steps',linestyle='--', color='tab:green')
+    ax_tf1.axhline(y=8.0, alpha=1.0, drawstyle='steps',linestyle='--', color='tab:green')
+    ax_tf1.axhline(y=12.0, alpha=1.0, drawstyle='steps',linestyle='--', color='tab:green')
+    ax_tf1.axhline(y=30.0, alpha=1.0, drawstyle='steps',linestyle='--', color='tab:green')
+
+    # ax_tf[1].plot(times_vref, freqs_vref_max)
+    # ax_tf[1].axhline(y=8.0, alpha=0.3, drawstyle='steps',linestyle='--')
+
+    fig_bands, ax_bands = plt.subplots(nrows=3, ncols=1, figsize=(9,6), sharey=True, sharex=True)
+    ax_bands[0].plot(times_vref, beta_median,  label='beta [12-30 Hz]')
+    ax_bands[1].plot(times_vref, alpha_median, label='alpha [8-12 Hz]')
+    ax_bands[2].plot(times_vref, theta_median, label='theta [4-8 Hz]')
+
+    ax_bands[0].set_ylim([-15,15])
+    ax_bands[0].legend(loc='upper right')
+    ax_bands[1].legend(loc='upper right')
+    ax_bands[2].legend(loc='upper right')
+
+    ax_bands[-1].set_xlabel('Time [s]')
+    ax_bands[0].set_title(f'Power({ch_label}) -- dB change from baseline [median]')
+
+    ## topoplot for a selected moment in time
+    t_sel = 8.4 # 6.25 4.25 seconds 
+    df_sel = df_all.loc[(df_all['time'] > (t_sel-0.002)) & (df_all['time'] < (t_sel+0.002))]
+    print(f'df_sel:\n{df_sel}')
+    
+    arr_theta = get_data_band(df_sel, 'theta')
+    arr_alpha = get_data_band(df_sel, 'alpha')
+    arr_beta  = get_data_band(df_sel, 'beta')
+
+    fig_tp, ax_tp = plt.subplots(nrows=3, ncols=1, figsize=(2.5, 9),)
+    
+    im, cn = mne.viz.plot_topomap(arr_beta, tfr_bl_norm.info, vlim=vlim, contours=0, cmap='coolwarm',axes=ax_tp[0], ) 
+    im, cn = mne.viz.plot_topomap(arr_alpha, tfr_bl_norm.info, vlim=vlim, contours=0, cmap='coolwarm',axes=ax_tp[1],) 
+    im, cn = mne.viz.plot_topomap(arr_theta, tfr_bl_norm.info, vlim=vlim, contours=0, cmap='coolwarm',axes=ax_tp[2],) 
+    # im, cn = mne.viz.plot_topomap(arr_data[0], tfr_bl_norm.info, vlim=vlim, contours=0, cmap='coolwarm',axes=ax_tp[1]) # raw_seg  cmap='magma' 'coolwarm', 'RdBu_r'
+    
+
+    
+    ax_tp[0].set_title('beta [12-30 Hz]')
+    ax_tp[1].set_title('alpha [8-12 Hz]')
+    ax_tp[2].set_title('theta [4-8 Hz]' )
+
+    # Make colorbar
+    cbar_ax = fig_tp.add_axes([0.03, 0.075, 0.94, 0.02])
+    fig_tp.colorbar(im, cax=cbar_ax, label='dB change from baseline', location='bottom')
+
+
+    ## finding the time values from maximum values in beta_median, alpha_median, and theta_median
+    # ids_beta = np.argwhere(beta_median > 6)
+    # ids_alpha = np.argwhere(alpha_median > 6)
+    # ids_theta = np.argwhere(theta_median > 6)
+    ##
+    # print(f"time values max values beta: {times_vref[ids_beta]}")
+    # print(f"time values max values alpha: {times_vref[ids_alpha]}")
+    # print(f"time values max values theta: {times_vref[ids_theta]}")
+    # ##
+    # ## topoplots for selected time for theta, alpha, and beta bands
+    # ##
+    # fig_tp, ax_tp = plt.subplots(nrows=1, ncols=1, figsize=(12,6), sharey=True, sharex=True)
+    # ##
+    # ## theta
+    # im, cn = mne.viz.plot_topomap(data_arr, raw_data['baseline'][0].info, vlim=y_limits, contours=0, axes=ax_tp, cmap='coolwarm', ) # cmap='magma' 'coolwarm', 'RdBu_r'
+    # ax.title.set_text(title)
+    # # Make colorbar
+    # cbar_ax = fig_bands.add_axes([0.02, 0.25, 0.03, 0.60])
+    # fig_bands.colorbar(im, cax=cbar_ax, label='dB change from baseline')
+
+    # fig_bands.suptitle(title_fig, size='large', weight='bold')
+
+
+    # ax_bands[0].fill_between(times_vref, beta_min, beta_max, facecolor='yellow', alpha=0.5, label='beta band')
+    # ax_bands[1].fill_between(times_vref, alpha_min, alpha_max, facecolor='yellow', alpha=0.5, label='alpha band')
+    # ax_bands[2].fill_between(times_vref, theta_min, theta_max, facecolor='yellow', alpha=0.5, label='theta band')
+    
+
+    # tfr_bl.plot_topo(picks='eeg', title='topo map', yscale='auto', show=True,)
+    # tfr_bl_norm.copy().plot_topo(picks='eeg', title='topo map', yscale='auto', show=True, vmin=vlim[0],vmax=vlim[1])
 
     plt.show(block=True)
     return 0
