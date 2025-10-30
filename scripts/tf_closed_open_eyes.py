@@ -468,12 +468,15 @@ def main(args):
     plt.ion()
     ############################
 
+    # selected segment
+    label_seg = 'b_closed_eyes'
+
     ## create folder to save preprocesing parameters
-    Path(path+'session_'+str(session)+"/prep").mkdir(parents=True, exist_ok=True)
-    filename_bad_ch = path+'session_'+str(session)+'/prep/'+'bad_ch_baseline.csv'
-    filename_annot  = path+'session_'+str(session)+'/prep/'+'annot_baseline.fif'
-    filename_ica    = path+'session_'+str(session)+'/prep/'+'ica_baseline.fif.gz'
-    filename_tr_ref = path+'session_'+str(session)+'/prep/'+'tf_mean_baseline.npy'
+    Path(path+'session_'+str(session)+f"/prep/{label_seg}/").mkdir(parents=True, exist_ok=True)
+    filename_bad_ch = path+'session_'+str(session)+f'/prep/{label_seg}/'+'bad_ch.csv'
+    filename_annot  = path+'session_'+str(session)+f'/prep/{label_seg}/'+'annot.fif'
+    filename_ica    = path+'session_'+str(session)+f'/prep/{label_seg}/'+'ica.fif.gz'
+    filename_tr_ref = path+'session_'+str(session)+f'/prep/'+'tf_mean_baseline.npy'
     
     ################################
     ## Stage 1: high pass filter (in place)
@@ -496,23 +499,32 @@ def main(args):
     ## cropping data according to every section (annotations), namely 'baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes', and 'b_opened_eyes'
     eeg_data_dict = get_eeg_segments(raw_data,)
 
-    ###########################################
-    ## baseline selection
-    ##
-    ## if baseline is not present, we choose the first a_opened_eyes (resting) as baseline
-    ##
-    if len(eeg_data_dict['baseline']) > 0:
-        ## baseline was collected during open eyes and fixation at the begining of the session
-        raw_seg = eeg_data_dict['baseline'][0]
-    elif len(eeg_data_dict['a_opened_eyes']) > 0:
-        ## baseline was not collected at the begining -->> we take as baseline the first period of open-eyes during resting 
-        raw_seg = eeg_data_dict['a_opened_eyes'][0]
-    else:
-        print('Baseline was not found.')
-        return 0
-    ##
-    ## baseline selection
+    # ###########################################
+    # ## baseline selection
+    # ##
+    # ## if baseline is not present, we choose the first a_opened_eyes (resting) as baseline
+    # ##
+    # if len(eeg_data_dict['baseline']) > 0:
+    #     ## baseline was collected during open eyes and fixation at the begining of the session
+    #     raw_seg = eeg_data_dict['baseline'][0]
+    # elif len(eeg_data_dict['a_opened_eyes']) > 0:
+    #     ## baseline was not collected at the begining -->> we take as baseline the first period of open-eyes during resting 
+    #     raw_seg = eeg_data_dict['a_opened_eyes'][0]
+    # else:
+    #     print('Baseline was not found.')
+    #     return 0
+    # ##
     
+    # ## baseline selection
+    print(f"loading mean_bl...")
+    mean_bl = np.load(filename_tr_ref)
+    print(f"mean arr:\n{mean_bl}")
+    print(f"done")
+    
+    ##
+    ## first segment closed eyes
+    raw_seg = eeg_data_dict[label_seg][0]
+
     ##
     ## to load pre-calculated (selected) values
     flag_prep = input(f'Load pre-selected bad-channels and bad-segments (1-True, 0-False) ?: ')
@@ -548,7 +560,7 @@ def main(args):
         ##
         ## interactively, select bad channels: flat lines or noisy channels
         ##
-        mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline) -- Please select bad segments and bad channels interactively', block=True)
+        mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f"Time-series signals EEG {label_seg} -- Please select bad segments and bad channels interactively", block=True)
         ##
         ## power spectral density (psd)
         ##
@@ -568,7 +580,7 @@ def main(args):
     ##
     # print(f"excluded bad channels: {bad_ch_list}")
     ##
-    flag_rewrite = input(f"Re-write bad channels and bad-segments (1-True, 0-False)?: ")
+    flag_rewrite = input(f"(Re-)Write bad channels and bad-segments (1-True, 0-False)?: ")
     flag_rewrite = 0 if flag_rewrite == '' else int(flag_rewrite)
     ##
     if flag_rewrite==1:
@@ -656,9 +668,9 @@ def main(args):
     raw_seg_csd = mne.preprocessing.compute_current_source_density(raw_seg_ica)
     ##
     ## data visualization
-    mne.viz.plot_raw(raw_seg, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline before ICA', block=False)
-    mne.viz.plot_raw(raw_seg_ica, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline after ICA', block=False)
-    mne.viz.plot_raw(raw_seg_csd, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline after Surface Laplacian', block=True)
+    mne.viz.plot_raw(raw_seg, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'{label_seg} before ICA', block=False)
+    mne.viz.plot_raw(raw_seg_ica, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'{label_seg} after ICA', block=False)
+    mne.viz.plot_raw(raw_seg_csd, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'{label_seg} after Surface Laplacian', block=True)
     ##
     ## ICA to remove blinks and other artifacts
     ###########################################################
@@ -678,13 +690,13 @@ def main(args):
     # tfr_bl = raw_seg_ica.compute_tfr('morlet',freqs, picks=['eeg'])
     # data_bl, times_bl, freqs_bl = tfr_bl.get_data(picks=['eeg'],return_times=True, return_freqs=True)
     
-    tfr_bl = raw_seg_csd.compute_tfr('morlet',freqs,)
+    tfr_bl = raw_seg_csd.compute_tfr('morlet',freqs, reject_by_annotation=True,)
     data_bl, times_bl, freqs_bl = tfr_bl.get_data(return_times=True, return_freqs=True)
 
     # print(tfr_bl)
-    print(f"baseline type (tfr_power): {type(tfr_bl)}")
+    print(f"{label_seg} type (tfr_power): {type(tfr_bl)}")
     print(f"data shape:\n{data_bl.shape}")
-    # print(f"data:\n{data_bl}")
+    print(f"data:\n{data_bl}")
     ##
     # chx = 0
     # data_chx = data_bl[chx]
@@ -701,14 +713,14 @@ def main(args):
     # tfr_bl.plot(picks=['VREF'], title='auto', yscale='linear', show=False)
     # tfr_bl.plot(picks=['VREF'], title='auto', yscale='log', show=False)
     
-    ## mean along time samples
-    # for each channel, an average for each frequency
-    mean_bl = np.mean(data_bl, axis=2)
-    # print(f"mean data shape: {mean_bl.shape}")
-    # print(f"mean arr:\n{mean_bl}")
-    #
-    # save mean_bl for data normalization
-    np.save(filename_tr_ref, mean_bl)
+    # ## mean along time samples
+    # # for each channel, an average for each frequency
+    # mean_bl = np.mean(data_bl, axis=2)
+    # # print(f"mean data shape: {mean_bl.shape}")
+    # # print(f"mean arr:\n{mean_bl}")
+    # #
+    # # save mean_bl for data normalization
+    # np.save(filename_tr_ref, mean_bl)
 
     # print(f"loading mean_bl...")
     # mean_bl = np.load(filename_tr_ref)
