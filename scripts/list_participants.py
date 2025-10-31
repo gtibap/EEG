@@ -774,6 +774,13 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = ' '
             rows_plot = 2
+        elif session==1:
+            ## date: 31 Oct 2025, in the lab with the macbook. Patient in a electric wheelchair
+            fn_in = 'session_'+str(session)+'/'+'neuro_021_6sem_20251031_111545.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = ' '
+            rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
