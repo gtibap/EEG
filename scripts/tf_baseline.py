@@ -449,6 +449,14 @@ def main(args):
     else:
         pass
 
+    ############################
+    ## read annotations (.csv file)
+    my_annot = mne.read_annotations(path + fn_csv[0])
+    print(f'annotations:\n{my_annot}')
+    ## adding annotations to raw data
+    raw_data.set_annotations(my_annot)
+    ##
+
     ## exclude channels of the net boundaries that usually bring noise or artifacts
     ## geodesic system we remove channels in the boundaries
     raw_data.info["bads"] = bad_channels_dict[acquisition_system]
@@ -473,46 +481,57 @@ def main(args):
     filename_bad_ch = path+'session_'+str(session)+'/prep/'+'bad_ch_baseline.csv'
     filename_annot  = path+'session_'+str(session)+'/prep/'+'annot_baseline.fif'
     filename_ica    = path+'session_'+str(session)+'/prep/'+'ica_baseline.fif.gz'
+    filename_ex_ica = path+'session_'+str(session)+'/prep/'+'ica_excluded.csv'
     filename_tr_ref = path+'session_'+str(session)+'/prep/'+'tf_mean_baseline.npy'
     
     ################################
     ## Stage 1: high pass filter (in place)
     #################################
     low_cut =    0.5
-    hi_cut  =   None
-    raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+    hi_cut  =   45.0
+    raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks=['eeg'])
 
-    ############################
-    ## read annotations (.csv file)
-    my_annot = mne.read_annotations(path + fn_csv[0])
-    print(f'annotations:\n{my_annot}')
-    ## adding annotations to raw data
-    raw_data.set_annotations(my_annot)
-    ##
+    ## filter 1 Hz high pass for ICA
+    raw_filt = raw_data.copy().filter(l_freq=1.0, h_freq=hi_cut, picks=['eeg'])
+
+    
     ## time-series data visualization
-    mne.viz.plot_raw(raw_data, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f'EEG time-series ({acquisition_system})', block=True)
+    mne.viz.plot_raw(raw_data, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=None, lowpass=None, title=f'EEG after 0.5-45 Hz pass band filtering ({acquisition_system})', block=False)
+
+    ## time-series data visualization
+    # mne.viz.plot_raw(raw_filt, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=None, lowpass=None, title=f'EEG after 1-45 Hz pass band filtering ({acquisition_system})', block=True)
+
 
     ###########################################
     ## cropping data according to every section (annotations), namely 'baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes', and 'b_opened_eyes'
     eeg_data_dict = get_eeg_segments(raw_data,)
+    eeg_filt_dict = get_eeg_segments(raw_filt,)
 
     ###########################################
     ## baseline selection
     ##
     ## if baseline is not present, we choose the first a_opened_eyes (resting) as baseline
     ##
-    if len(eeg_data_dict['baseline']) > 0:
-        ## baseline was collected during open eyes and fixation at the begining of the session
-        raw_seg = eeg_data_dict['baseline'][0]
-    elif len(eeg_data_dict['a_opened_eyes']) > 0:
-        ## baseline was not collected at the begining -->> we take as baseline the first period of open-eyes during resting 
+    # if len(eeg_data_dict['baseline']) > 0:
+    #     ## baseline was collected during open eyes and fixation at the begining of the session
+    #     raw_seg = eeg_data_dict['baseline'][0]
+    # elif len(eeg_data_dict['a_opened_eyes']) > 0:
+    #     ## baseline was not collected at the begining -->> we take as baseline the first period of open-eyes during resting 
+    #     raw_seg = eeg_data_dict['a_opened_eyes'][0]
+    # else:
+    #     print('Baseline was not found.')
+    #     return 0
+    if len(eeg_data_dict['a_opened_eyes']) > 0:
+        ## we take as baseline the first period of open-eyes during resting 
         raw_seg = eeg_data_dict['a_opened_eyes'][0]
+        filt_seg = eeg_filt_dict['a_opened_eyes'][0]
     else:
         print('Baseline was not found.')
         return 0
+
     ##
     ## baseline selection
-    
+    ##########################
     ##
     ## to load pre-calculated (selected) values
     flag_prep = input(f'Load pre-selected bad-channels and bad-segments (1-True, 0-False) ?: ')
@@ -530,7 +549,7 @@ def main(args):
         ## adding annotations to raw data
         raw_seg.set_annotations(my_annot)
 
-        mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline)\nPlease select bad segments and bad channels interactively', block=True)
+        # mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline)\nPlease select bad segments and bad channels interactively', block=True)
 
     else:
         pass
@@ -555,7 +574,7 @@ def main(args):
         ## interactively, identify channels that are out of the tendency (ouliers) as bad channels
         ## 
         fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-        mne.viz.plot_raw_psd(raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0.9, fmax=101, xscale='log',)
+        mne.viz.plot_raw_psd(raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0.5, fmax=75, xscale='log',)
         ##
         ax_psd.set_title('EEG power spectral density (baseline)')
         ##
@@ -564,8 +583,7 @@ def main(args):
         flag_bad_ch = input('Include more bad channels? (1 (True), 0 (False)): ')
         flag_bad_ch = 0 if (flag_bad_ch == '') else int(flag_bad_ch)
         # print(f"flag bad_ch: {flag_bad_ch}")
-    ##
-    ##
+
     # print(f"excluded bad channels: {bad_ch_list}")
     ##
     flag_rewrite = input(f"Re-write bad channels and bad-segments (1-True, 0-False)?: ")
@@ -592,6 +610,20 @@ def main(args):
         # print(f"Bad channels and annotations were not saved.")
         # return 0
     ##
+    ##
+    ## same bad channels and annotations for the filtering version of seg data
+    interactive_annot = raw_seg.annotations
+    time_offset = raw_seg.first_samp / sampling_rate  ## in seconds
+    annot_offset = ann_remove_offset(interactive_annot, time_offset)
+    filt_seg.set_annotations(annot_offset)
+    filt_seg.info['bads'] = bad_ch_list
+    ##
+    ##
+    # mne.viz.plot_raw(raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline)\nPlease select bad segments and bad channels interactively', block=False)
+
+    # mne.viz.plot_raw(filt_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, title='Time-series signals EEG (baseline)\nPlease select bad segments and bad channels interactively', block=True)
+
+    # return 0
     ## print(f"bad_ch_list: {bad_ch_list}")
     ##
     ## bad segments and bad channels identification
@@ -602,7 +634,9 @@ def main(args):
     ##
     ## the average referencing improve signals quality that we can see in the time-series and psd
     ##
+    print(f"average re-referencing")
     raw_seg.set_eeg_reference(ref_channels="average", ch_type='eeg')
+    filt_seg.set_eeg_reference(ref_channels="average", ch_type='eeg')
     ##
     ## re-refencing
     ###########################################################
@@ -622,6 +656,8 @@ def main(args):
         ## print(f'filename: {filename_ica}')
         try:
             ica = mne.preprocessing.read_ica(filename_ica, verbose=None)
+            df_ex_ica = pd.read_csv(filename_ex_ica)
+            ica.exclude = df_ex_ica['ex_ica'].to_list()
         except:
             print(f'Pre-calculated ICA was not found.')
             flag_ica = False
@@ -630,10 +666,10 @@ def main(args):
         ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
         ##
         ## ica works better with a signal with offset 0; a high pass filter with a 1 Hz cutoff frequency could improve that condition
-        filt_raw = raw_seg.copy().filter(l_freq=1.0, h_freq=None)
+        # filt_raw = raw_seg.copy().filter(l_freq=1.0, h_freq=None)
         ##
         ## ICA fitting model to the filtered raw data
-        ica.fit(filt_raw, reject_by_annotation=True)
+        ica.fit(filt_seg, reject_by_annotation=True)
         ##
         print(f"saving ica model in {filename_ica}")
         ica.save(filename_ica, overwrite=True)
@@ -643,6 +679,18 @@ def main(args):
     ica.plot_components(inst=raw_seg, contours=0,)
     ica.plot_sources(raw_seg, start=0, stop=240, show_scrollbars=False, block=True)
     ##
+    ## save excluded ica components
+    df_ex_ica = pd.DataFrame()
+    df_ex_ica['ex_ica'] = ica.exclude
+
+    flag_ex_ica = input('Saved excluded ICA components (1-True, 0-False) ?: ')
+    flag_ex_ica = 0 if (flag_ex_ica == '') else int(flag_ex_ica)
+    if flag_ex_ica==1:
+        df_ex_ica.to_csv(filename_ex_ica)
+    else:
+        pass
+
+    ##
     ## manual selection de components to exclude (not necessary if they were choosen interactively)
     # ica.exclude = [0,4] # indices that were chosen# based on previous ICA calculations
     # print(f'ICA blink component: {ica.exclude}')
@@ -650,14 +698,16 @@ def main(args):
     ica.apply(raw_seg_ica)
     ##
     ## interpolate bad channels
+    print("Bad channels interpolation")
     raw_seg_ica.interpolate_bads()
     ##
     ## Surface Laplacian (current source density)
+    print(f"current source density (Laplacian surface)")
     raw_seg_csd = mne.preprocessing.compute_current_source_density(raw_seg_ica)
     ##
     ## data visualization
-    mne.viz.plot_raw(raw_seg, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline before ICA', block=False)
-    mne.viz.plot_raw(raw_seg_ica, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline after ICA', block=False)
+    # mne.viz.plot_raw(raw_seg, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline before ICA', block=False)
+    # mne.viz.plot_raw(raw_seg_ica, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline after ICA', block=False)
     mne.viz.plot_raw(raw_seg_csd, start=0, duration=240, scalings=scale_dict, highpass=1.0, lowpass=45.0, filtorder=4, title=f'baseline after Surface Laplacian', block=True)
     ##
     ## ICA to remove blinks and other artifacts
@@ -677,13 +727,39 @@ def main(args):
 
     # tfr_bl = raw_seg_ica.compute_tfr('morlet',freqs, picks=['eeg'])
     # data_bl, times_bl, freqs_bl = tfr_bl.get_data(picks=['eeg'],return_times=True, return_freqs=True)
-    
-    tfr_bl = raw_seg_csd.compute_tfr('morlet',freqs,)
+    print(f"Time-frequency analysis (Morlet wavelet)")
+    tfr_bl = raw_seg_csd.compute_tfr('morlet', freqs, reject_by_annotation=False)
+
+    ## visualization time-frequency plots
+    fig_tf, ax_tf = plt.subplots(nrows=1, ncols=1, figsize=(16,4), sharey=True, sharex=True)
+    ## data visualization
+    tfr_bl.plot(picks=['VREF'], title='auto', yscale='auto', axes=ax_tf, show=True)
+    ##
     data_bl, times_bl, freqs_bl = tfr_bl.get_data(return_times=True, return_freqs=True)
+    print(f"tf_bl data shape:\n{data_bl.shape}")
+    ##
+    ## define a mask to avoid data inside bad_segments
+    mask_data_bl = np.zeros(data_bl.shape) 
+    ## annotations bad segments
+    for ann in annot_offset:
+        if ann['description'].startswith('bad'):
+            onset = ann['onset']
+            duration = ann['duration']
+            print(f"bad segment:\nonset: {onset}\nduration: {duration}")
+            ## bad segment in the plot
+            ax_tf.fill_between(times_bl, 0, 1, where=((times_bl >= onset)&(times_bl < (onset+duration))), color='green', alpha=0.25, transform=ax_tf.get_xaxis_transform())
+            ##
+            print(f"times: {times_bl}")
+            idx_times = np.nonzero((times_bl>=onset) & (times_bl<(onset+duration)))
+            t0 = idx_times[0][0]
+            t1 = idx_times[0][-1]
+            print(f"samples (t0, t1): ({t0,t1})")
+            ## all channels, all frequencies, and a range of time
+            mask_data_bl[:,:,t0:t1]=1
 
     # print(tfr_bl)
-    print(f"baseline type (tfr_power): {type(tfr_bl)}")
-    print(f"data shape:\n{data_bl.shape}")
+    # print(f"baseline type (tfr_power): {type(tfr_bl)}")
+    
     # print(f"data:\n{data_bl}")
     ##
     # chx = 0
@@ -696,26 +772,39 @@ def main(args):
     #  print(f"times:\n{times}")
     # print(f"freqs: {len(freqs_bl)}\n{freqs_bl}")
 
-    ## data visualization
-    # tfr_bl.plot(picks=['VREF'], title='auto', yscale='auto', show=False)
+    
     # tfr_bl.plot(picks=['VREF'], title='auto', yscale='linear', show=False)
     # tfr_bl.plot(picks=['VREF'], title='auto', yscale='log', show=False)
     
     ## mean along time samples
     # for each channel, an average for each frequency
-    mean_bl = np.mean(data_bl, axis=2)
-    # print(f"mean data shape: {mean_bl.shape}")
-    # print(f"mean arr:\n{mean_bl}")
-    #
-    # save mean_bl for data normalization
-    np.save(filename_tr_ref, mean_bl)
+    print(f"TF-mean values per frequency per channel")
+    data_bl_masked = np.ma.array(data_bl, mask=mask_data_bl)
+    mean_bl = data_bl_masked.mean(axis=2)
+    mean_bl = mean_bl.data
 
+    # mean_bl = np.mean(data_bl, axis=2)
+    print(f"mean data shape: {mean_bl.shape}")
+    print(f"mean arr:\n{mean_bl}")
+    #
+    flag_tf = input('Saved Time-frequency mean values (1-True, 0-False) ?: ')
+    flag_tf = 0 if (flag_tf == '') else int(flag_tf)
+    if flag_tf==1:
+        # save mean_bl for data normalization
+        np.save(filename_tr_ref, mean_bl)
+    else:
+        pass
+    
     # print(f"loading mean_bl...")
     # mean_bl = np.load(filename_tr_ref)
     # print(f"mean arr:\n{mean_bl}")
     # print(f"done")
 
     ###############################
+    plt.show(block=True)
+    return 0
+
+
     ## time-frequency power normalization for each channel
     dim_ch, dim_fr, dim_t = data_bl.shape
     print(f"bl dim_ch, dim_fr, dim_t: {dim_ch, dim_fr, dim_t}")
