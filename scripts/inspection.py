@@ -206,7 +206,7 @@ def get_eeg_segments_two(raw_r, raw_v):
 def main(args):
     global spectrum, data_spectrum, fig, ax, ani, draw_image, frame_slider, data_eeg, raw_closed_eyes, ax_topoplot, axfreq, fig_topoplot, cbar_ax, sampling_rate, raw_data, ch_names_list
 
-    print(f'arg {args[1]}') ## folder location
+    print(f'arg {args[1]}') ## folder location = ../data/
     print(f'arg {args[2]}') ## subject = {0:Mme Chen, 1:Taha, 2:Carlie, 3:Iulia, 4:A. Caron}
     print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
     print(f'arg {args[4]}') ## ABT = {0:resting, 1:biking}
@@ -228,7 +228,7 @@ def main(args):
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
     if abt == 0:
-        path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system = participants_list(path, subject, session, 0)
+        path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system, info_p, Dx = participants_list(path, subject, session, 0)
         ## exclude channels of the net boundaries that usually bring noise or artifacts
         raw_data.info["bads"] = bad_channels_dict[acquisition_system]
         raw_data.drop_channels(raw_data.info['bads'])
@@ -401,7 +401,7 @@ def main(args):
 
 
     labels_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes',]
-    label_title = ['baseline','resting closed eyes','resting opened eyes','ABT closed eyes','ABT opened eyes']
+    label_title = ['baseline','resting closed eyes','resting opened eyes','cycling closed eyes','cycling opened eyes']
 
     ########################
     ## redefine annotations per segment
@@ -511,26 +511,31 @@ def main(args):
         fig_psd = plt.figure(fig_title, figsize=(9, 7))
         number_ax = len(eeg_data_dict[section])
         print(f'number ax: {number_ax}')
-        ax_psd = [[]]*number_ax
-        idx=0
-        for eeg_segment in eeg_data_dict[section]:
-            print(f'eeg_segment')
-            ## channels' spectrum of frequencies
-            ax_psd[idx] = fig_psd.add_subplot(number_ax,1,idx+1)
-            mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[idx], fmax=100, reject_by_annotation=True, xscale='log',)
-            # ax_psd[idx].set_title(label_title[ax_number] +'_'+str(idx))
-            ax_psd[idx].set_title('')
-            ax_psd[idx].set_ylim([-20, 50])
-            ## channels' voltage vs time
-            # filt_raw = eeg_segment.copy().filter(l_freq=1.0, h_freq=45.0)
-            # highpass=1.0, lowpass=45.0,
-            mne.viz.plot_raw(eeg_segment, start=0, duration=240, highpass=1.0, lowpass=45.0, filtorder=4, scalings=scale_dict, title=label_title[ax_number]+'_'+str(idx), block=False)
+        if number_ax > 0:
+            ax_psd = [[]]*number_ax
+            idx=0
+            for eeg_segment in eeg_data_dict[section]:
+                print(f'eeg_segment')
+                ## channels' spectrum of frequencies
+                ax_psd[idx] = fig_psd.add_subplot(number_ax,1,idx+1)
+                mne.viz.plot_raw_psd(eeg_segment, exclude=[], ax=ax_psd[idx], fmax=100, reject_by_annotation=True, xscale='log',)
+                # ax_psd[idx].set_title(label_title[ax_number] +'_'+str(idx))
+                ax_psd[idx].set_title('')
+                ax_psd[idx].set_xlabel('')
+                ax_psd[idx].set_ylim([-20, 50])
+                ## channels' voltage vs time
+                # filt_raw = eeg_segment.copy().filter(l_freq=1.0, h_freq=45.0)
+                # highpass=1.0, lowpass=45.0,
+                mne.viz.plot_raw(eeg_segment, start=0, duration=240, highpass=1.0, lowpass=45.0, filtorder=4, scalings=scale_dict, title=label_title[ax_number]+'_'+str(idx), block=False)
 
-            idx+=1
-
-        plt.show(block=True)
-        fig_psd.suptitle(label_title[ax_number])
-        fig_psd.savefig(path_psd+section, transparent=False,)
+                idx+=1
+            
+            ax_psd[-1].set_xlabel("frequency [Hz]")
+            plt.show(block=True)
+            fig_psd.suptitle(label_title[ax_number])
+            fig_psd.savefig(path_psd+section, transparent=False,)
+        else:
+            pass
 
     plt.show(block=True)
     return 0

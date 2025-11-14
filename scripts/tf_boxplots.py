@@ -413,6 +413,50 @@ def get_data_band(df, label):
     return arr_data[0]
 #############################
 
+#############################
+def baseline_ref(obj_list, label_ref):
+        ## get the first label_ref segment
+        id=0
+        while obj_list[id].get_label() != label_ref:
+            print(f"{id} label: {obj_list[id].get_label()}")
+            id+=1
+        ##
+        ## segment to calculate reference baseline 
+        seg_ref = obj_list[id]
+        print(f"{seg_ref.get_label()}: {seg_ref.get_id()}")
+
+        # interactive selection of bad segments and bad channels
+        print(f"Interactive selection of bad segments and bad channels...")
+        seg_ref.selection_bads()
+        print(f"bad channels: {seg_ref.get_bad_channels()}")
+        # re-referencing appli. average
+        seg_ref.re_referencing()
+        print("ICA components...")
+        seg_ref.ica_components()
+        print("Bad channels interpolation...")
+        seg_ref.bads_interpolation()
+        print(f"current source density (Laplacian surface)...")
+        seg_ref.apply_csd()
+        print(f"plot csd data...")
+        seg_ref.plot_time_series('csd')
+        print(f"time-frequency analysis...")
+        seg_ref.tf_calculation()
+        ## get reference for baseline normalization
+        print(f"calculating average values for time-frequency normalization...")
+        tf_ref = seg_ref.get_tf_baseline()
+        ## tf data normalization
+        print(f"normalization {label_ref} segment...")
+        seg_ref.tf_normalization(tf_ref)
+        ## tf plot
+        print(f"plot normalized time-frequency analysis...")
+        # seg_ref.tf_plot(flag_norm=False)
+        seg_ref.tf_plot('VREF', flag_norm=True)
+        ## band separation
+        print(f"plot frequency bands...")
+        seg_ref.channel_bands_power('VREF')
+
+        return tf_ref
+    
 
 #############################
 ## EEG filtering and signals pre-processing
@@ -503,11 +547,11 @@ def main(args):
     eeg_filt_dict = get_eeg_segments(raw_filt,)
 
     # ###########################################
-    # ## data for baseline normalization
-    print(f"loading mean_bl...")
-    mean_bl = np.load(filename_tr_ref)
-    print(f"mean arr:\n{mean_bl.shape}")
-    print(f"done")
+    # # ## data for baseline normalization
+    # print(f"loading mean_bl...")
+    # mean_bl = np.load(filename_tr_ref)
+    # print(f"mean arr:\n{mean_bl.shape}")
+    # print(f"done")
 
     ##################
     # selected segment
@@ -530,31 +574,42 @@ def main(args):
     for obj in obj_list:
         print(f"{obj.get_label()} {obj.get_id()}")
 
-    # interactive selection of bad segments and bad channels
-    obj_list[0].selection_bads()
-    print(f"bad channels: {obj_list[0].get_bad_channels()}")
-    # re-referencing appli. average
-    obj_list[0].re_referencing()
-    print("ICA components...")
-    obj_list[0].ica_components()
-    print("Bad channels interpolation...")
-    obj_list[0].bads_interpolation()
-    print(f"current source density (Laplacian surface)...")
-    obj_list[0].apply_csd()
-    print(f"plot csd data...")
-    obj_list[0].plot_time_series('csd')
-    print(f"time-frequency analysis...")
-    obj_list[0].tf_calculation()
-    ## get reference for baseline normalization
-    tf_ref = obj_list[0].get_tf_baseline()
-    ## tf data normalization
-    obj_list[0].tf_normalizaiton(tf_ref)
-    ## tf plot
-    obj_list[0].tf_plot(flag_norm=False)
-    obj_list[0].tf_plot(flag_norm=True)
+    ## reference label for baseline normalization
+    label_ref = 'a_opened_eyes'
+    tf_ref = baseline_ref(obj_list, label_ref)
 
-    #
-    obj_list[0].channel_bands_power('VREF')
+    print(f"tf_ref shape {tf_ref.shape}")
+    print(f"tf_ref {tf_ref}")
+                
+
+    # # interactive selection of bad segments and bad channels
+    # obj_list[0].selection_bads()
+    # print(f"bad channels: {obj_list[0].get_bad_channels()}")
+    # # re-referencing appli. average
+    # obj_list[0].re_referencing()
+    # print("ICA components...")
+    # obj_list[0].ica_components()
+    # print("Bad channels interpolation...")
+    # obj_list[0].bads_interpolation()
+    # print(f"current source density (Laplacian surface)...")
+    # obj_list[0].apply_csd()
+    # print(f"plot csd data...")
+    # obj_list[0].plot_time_series('csd')
+    # print(f"time-frequency analysis...")
+    # obj_list[0].tf_calculation()
+    # ## get reference for baseline normalization
+    # tf_ref = obj_list[0].get_tf_baseline()
+    # ## tf data normalization
+    # obj_list[0].tf_normalization(tf_ref)
+    # ## tf plot
+    # obj_list[0].tf_plot(flag_norm=False)
+    # obj_list[0].tf_plot(flag_norm=True)
+
+    # #
+    # obj_list[0].channel_bands_power('VREF')
+
+    ##########################################
+    ## box plots
     
     
 
