@@ -414,48 +414,61 @@ def get_data_band(df, label):
 #############################
 
 #############################
-def baseline_ref(obj_list, label_ref):
-        ## get the first label_ref segment
-        id=0
-        while obj_list[id].get_label() != label_ref:
-            print(f"{id} label: {obj_list[id].get_label()}")
-            id+=1
-        ##
-        ## segment to calculate reference baseline 
-        seg_ref = obj_list[id]
-        print(f"{seg_ref.get_label()}: {seg_ref.get_id()}")
+def baseline_ref(obj_list, label_ref, filename):
+    ## get the first segment with label equal to label_ref
+    id=0
+    while obj_list[id].get_label() != label_ref:
+        # print(f"{id} label: {obj_list[id].get_label()}")
+        id+=1
+    ##
+    ## selected segment to calculate reference baseline 
+    seg_ref = obj_list[id]
+    print(f"Selected segment to calculate reference baseline:\n{seg_ref.get_label()}: {seg_ref.get_id()}")
 
-        # interactive selection of bad segments and bad channels
-        print(f"Interactive selection of bad segments and bad channels...")
-        seg_ref.selection_bads()
-        print(f"bad channels: {seg_ref.get_bad_channels()}")
-        # re-referencing appli. average
-        seg_ref.re_referencing()
-        print("ICA components...")
-        seg_ref.ica_components()
-        print("Bad channels interpolation...")
-        seg_ref.bads_interpolation()
-        print(f"current source density (Laplacian surface)...")
-        seg_ref.apply_csd()
-        print(f"plot csd data...")
-        seg_ref.plot_time_series('csd')
-        print(f"time-frequency analysis...")
-        seg_ref.tf_calculation()
-        ## get reference for baseline normalization
-        print(f"calculating average values for time-frequency normalization...")
-        tf_ref = seg_ref.get_tf_baseline()
-        ## tf data normalization
-        print(f"normalization {label_ref} segment...")
-        seg_ref.tf_normalization(tf_ref)
-        ## tf plot
-        print(f"plot normalized time-frequency analysis...")
-        # seg_ref.tf_plot(flag_norm=False)
-        seg_ref.tf_plot('VREF', flag_norm=True)
+    # interactive selection of bad segments and bad channels
+    print(f"Interactive selection of bad segments and bad channels...")
+    seg_ref.selection_bads()
+    print(f"bad channels: {seg_ref.get_bad_channels()}")
+    
+    # re-referencing appli. average
+    seg_ref.re_referencing()
+    
+    print("ICA components...")
+    seg_ref.ica_components()
+
+    print("Bad channels interpolation...")
+    seg_ref.bads_interpolation()
+    
+    print(f"current source density (Laplacian surface)...")
+    seg_ref.apply_csd()
+    # print(f"plot csd data...")
+    # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
+    
+    print(f"time-frequency analysis...")
+    seg_ref.tf_calculation()
+    ## get reference for baseline normalization
+    print(f"calculating average values for time-frequency normalization...")
+    tf_ref = seg_ref.get_tf_baseline()
+    ## save calculated average as tf_reference
+    try:
+        np.save(filename, tf_ref)
+    except:
+        print(f"Error: something went wrong saving time-frequency analysis.")
+    
+    ## tf data normalization
+    print(f"normalization {label_ref} segment...")
+    seg_ref.tf_normalization(tf_ref)
+    ## tf plot
+    print(f"plot normalized time-frequency analysis...")
+    # seg_ref.tf_plot(flag_norm=False)
+    ch_name_list = ['VREF','E36','E104']
+    for ch_name in ch_name_list:
+        seg_ref.tf_plot(ch_name, flag_norm=True)
         ## band separation
         print(f"plot frequency bands...")
-        seg_ref.channel_bands_power('VREF')
+        seg_ref.channel_bands_power(ch_name)
 
-        return tf_ref
+    return tf_ref
     
 
 #############################
@@ -494,6 +507,9 @@ def main(args):
         return 0
     else:
         pass
+
+    ## create folder (if it does not exist) to save preprocesing parameters
+    # Path(path+'session_'+str(session)+"/prep").mkdir(parents=True, exist_ok=True)
 
     ## path filename for baseline normalization
     filename_tr_ref = path+'session_'+str(session)+f'/prep/'+'tf_mean_baseline.npy'
@@ -566,7 +582,7 @@ def main(args):
         id_seg = 0
         for raw_seg, filt_seg in zip(eeg_data_dict[label_seg], eeg_filt_dict[label_seg]):
             ## instanciate object per each segment (baseline, open eyes, closed eyes)
-            obj_list.append(TF_components(raw_seg, filt_seg, label_seg, id_seg))
+            obj_list.append(TF_components(path, session, raw_seg, filt_seg, label_seg, id_seg))
             id_seg+=1
 
     ## print recorded information
@@ -576,10 +592,12 @@ def main(args):
 
     ## reference label for baseline normalization
     label_ref = 'a_opened_eyes'
-    tf_ref = baseline_ref(obj_list, label_ref)
+    tf_ref = baseline_ref(obj_list, label_ref, filename_tr_ref)
 
     print(f"tf_ref shape {tf_ref.shape}")
-    print(f"tf_ref {tf_ref}")
+    print(f"tf_ref:\n{tf_ref}")
+
+
                 
 
     # # interactive selection of bad segments and bad channels

@@ -4,6 +4,8 @@
 import mne
 from mne.preprocessing import EOGRegression, ICA, corrmap, create_ecg_epochs, create_eog_epochs
 
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -13,12 +15,23 @@ from scipy.interpolate import make_splrep
 
 class TF_components:
 
-    def __init__(self, raw_seg, filt_seg, label_seg, id_seg):
+    def __init__(self, path, session, raw_seg, filt_seg, label_seg, id_seg):
         ## EEG data per segment
         self.raw_seg = raw_seg
         self.filt_seg = filt_seg
-        self.label_seg = label_seg
         self.id_seg = id_seg
+        self.label_seg = label_seg
+
+        if label_seg == 'a_closed_eyes':
+            self.label = 'a_ce'
+        elif label_seg == 'a_opened_eyes':
+            self.label = 'a_oe'
+        elif label_seg == 'b_closed_eyes':
+            self.label = 'b_ce'
+        elif label_seg == 'b_opened_eyes':
+            self.label = 'b_oe'
+        else:
+            self.label = ''
 
         # for ica calculations
         self.raw_seg_ica = []
@@ -37,6 +50,26 @@ class TF_components:
         self.tfr_seg_norm = []
         self.times_tf = []
 
+        ## create folder to save preprocesing parameters
+        Path(path+'session_'+str(session)+"/prep/"+self.label_seg).mkdir(parents=True, exist_ok=True)
+        self.root_name = path+'session_'+str(session)+'/prep/'+self.label_seg+'/'
+        self.filename_annot  = f"{self.root_name}{self.label}_{id_seg}_bad_annot.fif"
+        self.filename_bad_ch = f"{self.root_name}{self.label}_{id_seg}_bad_channels.csv"
+        self.filename_ex_ica = f"{self.root_name}{self.label}_{id_seg}_ica_excluded.csv"
+        self.filename_ica    = f"{self.root_name}{self.label}_{id_seg}_ica_model.fif.gz"
+
+        ## create folder to save figures
+        Path(f"{path}session_{session}/prep/{self.label_seg}/figures/").mkdir(parents=True, exist_ok=True)
+        root_figs = f"{path}session_{session}/prep/{self.label_seg}/figures/"
+        self.psd_filename    = f"{root_figs}{self.label}_{id_seg}_psd.png"
+        self.raw_filename    = f"{root_figs}{self.label}_{id_seg}_raw.png"
+        self.ica_s_filename  = f"{root_figs}{self.label}_{id_seg}_ica_sources.png"
+        self.ica_c_filename  = f"{root_figs}{self.label}_{id_seg}_ica_components"
+        self.csd_filename    = f"{root_figs}{self.label}_{id_seg}_csd.png"
+        self.tf_ch_filename  = f"{root_figs}{self.label}_{id_seg}_tf"
+        self.tf_cu_filename  = f"{root_figs}{self.label}_{id_seg}_tf_curves"
+        self.tf_bp_filename  = f"{root_figs}{self.label}_{id_seg}_tf_boxplot"
+
         ## ica parameters to calculate ICA components
         self.ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
 
@@ -51,7 +84,31 @@ class TF_components:
 
     ##################################
     def selection_bads(self):
-         #########################################################
+        ###########################################
+        ## read previous bad channels and segments
+        try:
+            print(f"Loading bad channels... ",end='')
+            ## load bad channel list
+            load_df = pd.read_csv(self.filename_bad_ch)
+            self.bad_ch_list = load_df['bad_ch'].to_list()
+            self.raw_seg.info['bads'] = self.bad_ch_list
+            print(f"done.")
+            ##
+        except:
+            print(f"Bad channels file was not found.")
+        ## read bad annotations list
+        try:
+            print(f"Loading bad segments... ",end='')
+            ## read annotation bad_seg
+            my_annot = mne.read_annotations(self.filename_annot)
+            # print(f'annotations:\n{my_annot}')
+            ## adding annotations to raw data
+            self.raw_seg.set_annotations(my_annot)
+            print(f"done.")
+        except:
+            print(f"Bad segments file was not found.")
+
+        #########################################################
         ## iterative bad segments and bad channels identification
         ##
         flag_bad_ch = True
@@ -65,7 +122,7 @@ class TF_components:
             ##
             ## interactively, select bad channels: flat lines or noisy channels
             ##
-            mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"Time-series signals EEG {self.label_seg} -- Please select bad segments and bad channels interactively", block=True)
+            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"EEG {self.label_seg} -- Please select bad segments and bad channels interactively", block=False)
             ##
             ## power spectral density (psd)
             ##
@@ -74,7 +131,10 @@ class TF_components:
             fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
             mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0.9, fmax=101, xscale='log',)
             ##
-            ax_psd.set_title('EEG power spectral density (baseline)')
+            ax_psd.set_title('EEG power spectral density (psd)')
+            # Save figures
+            fig_psd.savefig(self.psd_filename)
+            fig_raw.grab().save(self.raw_filename)
             ##
             flag_bad_ch = input('Include more bad channels? (1 (True), 0 (False)): ')
             flag_bad_ch = 0 if (flag_bad_ch == '') else int(flag_bad_ch)
@@ -91,6 +151,24 @@ class TF_components:
         self.filt_seg.set_annotations(self.bad_annot_list)
         self.filt_seg.info['bads'] = self.bad_ch_list
 
+        ###########################################
+        ## save selected bad channels and segments
+        try:
+            ## save bad channels list to csv through a pandas dataframe
+            data_dict = {}
+            data_dict['bad_ch'] = self.bad_ch_list
+            df = pd.DataFrame(data_dict)
+            # print(f"dataframe:\n{df}")
+            df.to_csv(self.filename_bad_ch)
+        except:
+            print(f"Error: something went wrong saving bad channels.")
+        ## save selected bad annotations
+        try:
+            ## save annotations to .fif
+            self.bad_annot_list.save(self.filename_annot, overwrite=True)
+        except:
+            print(f"Error: something went wrong saving bad annotations.")
+        
         return 0
 
     #######################
@@ -120,19 +198,69 @@ class TF_components:
     
     ##################################
     def ica_components(self):
-        ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+        ## read pre-caluculated ICA model
+        try:
+            print(f"loading pre-calculated ICA model... ", end='')
+            self.ica = mne.preprocessing.read_ica(self.filename_ica, verbose=None)
+            df_ex_ica = pd.read_csv(self.filename_ex_ica)
+            self.ica.exclude = df_ex_ica['ex_ica'].to_list()
+            print(f"done.")
+        except:
+            print(f'Pre-calculated ICA was not found.')
+        
+        flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
+        flag_ica = 0 if (flag_ica == '') else int(flag_ica)
         ##
-        ## ICA fitting model to the filtered raw data
-        self.ica.fit(self.filt_seg, reject_by_annotation=True)
+        if flag_ica==1 :
+            ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+            ## ICA fitting model to the filtered raw data
+            self.ica.fit(self.filt_seg, reject_by_annotation=True)
+        else:
+            pass
         ## interactive selection of ica components to exclude
-        self.ica.plot_components(inst=self.raw_seg, contours=0,)
-        self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, block=True)
+        fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True)
+        try:
+            ## save ICA plot components
+            if isinstance(fig_ica_comp, list):
+                id = 0
+                for fig in fig_ica_comp:
+                    fig.savefig(f"{self.ica_c_filename}_{id}.png")
+                    id+=1
+            else:
+                fig.savefig(f"{self.ica_c_filename}.png")
+        except:
+            print(f"Error: something went wrong saving ICA components.")
+
+        ## interactive selection of ICA components to exclude
+        self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, block=True)
+        
         ## selected ica components to exclude
         self.ica_exclude = self.ica.exclude
+        print(f"ica excluded components: {self.ica_exclude}")
         ## apply ica
         self.raw_seg_ica = self.raw_seg.copy()
         ## ica in place
         self.ica.apply(self.raw_seg_ica)
+        ## save ica fitted model and excluded components
+        # print(f"saving ica model in {filename_ica}")
+        try:
+            ## save ICA model
+            self.ica.save(self.filename_ica, overwrite=True)
+            ## save ICA excluded components
+            df_ex_ica = pd.DataFrame()
+            df_ex_ica['ex_ica'] = self.ica_exclude
+            df_ex_ica.to_csv(self.filename_ex_ica)
+        except:
+            print(f"Error: something went wrong writing ICA model.")
+
+        ## save figure ICA sources
+        fig_ica_sources = self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=False, block=False)
+        try:
+            ## save ICA plot sources
+            fig_ica_sources.grab().save(self.ica_s_filename)
+        except:
+            print(f"Error: something went wrong saving ICA sources.")
+    
         return 0
 
     ##################################
@@ -144,6 +272,14 @@ class TF_components:
     ##################################
     def apply_csd(self):
         self.raw_seg_csd = mne.preprocessing.compute_current_source_density(self.raw_seg_ica)
+        
+        ## save figure csd
+        fig_csd = mne.viz.plot_raw(self.raw_seg_csd, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
+        try:
+            fig_csd.grab().save(self.csd_filename)
+        except:
+            print(f"Error: something went wrong saving csd.")
+
         return 0
     
     ##################################
@@ -152,7 +288,7 @@ class TF_components:
         ## logarithmic scale frequencies
         start= 0.60 # 10^start,  
         stop = 1.50 # 10^stop
-        num  = 100 # samplesq
+        num  = 75 # samplesq
         freqs = np.logspace(start, stop, num=num,)
         # print(f'log freqs: {freqs}')
 
@@ -162,11 +298,11 @@ class TF_components:
         self.tfr_seg = self.raw_seg_csd.compute_tfr('morlet', freqs, reject_by_annotation=False)
         ## time-frequency data
         self.data_tf, self.times_tf, self.freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
-        print(f"data tf analysis shape: {self.data_tf.shape}")
-        print(f"times tf analysis shape: {self.times_tf.shape}")
-        print(f"freqs tf analysis shape: {self.freqs_tf.shape}")
-        print(f"times tf analysis: {self.times_tf}")
-        print(f"freqs tf analysis: {self.freqs_tf}")
+        # print(f"data tf analysis shape: {self.data_tf.shape}")
+        # print(f"times tf analysis shape: {self.times_tf.shape}")
+        # print(f"freqs tf analysis shape: {self.freqs_tf.shape}")
+        # print(f"times tf analysis: {self.times_tf}")
+        # print(f"freqs tf analysis: {self.freqs_tf}")
         
         return 0
 
@@ -174,7 +310,7 @@ class TF_components:
     def get_tf_baseline(self):
         ## create a mask to avoid data of bad segments
         self.mask_data_tf = np.zeros(self.data_tf.shape)
-        self.mask_ann = np.zeros(len(self.times_tf))
+        # self.mask_ann = np.zeros(len(self.times_tf))
         ## annotations bad segments
         for ann in self.bad_annot_list:
             if ann['description'].startswith('bad'):
@@ -189,7 +325,7 @@ class TF_components:
                 print(f"samples bad segment (t0, t1): ({t0,t1})")
                 ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
                 self.mask_data_tf[:,:,t0:t1]=1
-                self.mask_ann[t0:t1]=1
+                # self.mask_ann[t0:t1]=1
         ## including a mask to avoid bad segments in the mean calculation
         data_tf_masked = np.ma.array(self.data_tf, mask=self.mask_data_tf)
         ## mean values per frequency per channel (ref for baseline normalization)
@@ -230,9 +366,13 @@ class TF_components:
         return 0
     
     ###############################
-    def channel_bands_power(self, ch_label):
+    def channel_bands_power(self, ch_name):
         ## separate components frequency bands theta, alpha, and beta
-        data_ch, times_ch, freqs_ch = self.tfr_seg_norm.get_data(picks=[ch_label],return_times=True, return_freqs=True)
+        data_ch, times_ch, freqs_ch = self.tfr_seg_norm.get_data(picks=[ch_name],return_times=True, return_freqs=True)
+
+        ## 128-channel geodesic to 10-10 equivalent names
+        ch_label = self.get_ch_equivalent(ch_name)
+
         print(f"Channel {ch_label} data shape: {data_ch.shape}")
         print(f"times shape: {times_ch.shape}")
         print(f"freqs shape: {freqs_ch.shape}")
@@ -243,6 +383,7 @@ class TF_components:
 
         ## normalized tf matrix to dataframe [VREF]
         df_tf = pd.DataFrame(data_ch[0])
+        print(f"df_tf shape: {df_tf.shape}")
         # rows-->freqs (from the lowest to highest freqs), columns-->times
         df_tf['freq'] = freqs_ch
         # print(f"df_tf:\n{df_tf}")
@@ -277,13 +418,13 @@ class TF_components:
         # print(f"beta median shape:  {self.activity_beta_band.shape}")
 
         ## plot curves frequency bands
-        self.plot_curves_bands()
-        self.plot_boxplots_bands()
+        self.plot_curves_bands(ch_label)
+        self.plot_boxplots_bands(ch_label)
 
         return 0
     
     ###############################
-    def plot_curves_bands(self):
+    def plot_curves_bands(self, ch_label):
         ##
         fig_bands, ax_bands = plt.subplots(nrows=3, ncols=1, figsize=(9,6), sharey=True, sharex=True)
         ax_bands[0].plot(self.times_tf, self.activity_beta_band,  label='beta [12-30 Hz]')
@@ -296,7 +437,7 @@ class TF_components:
         ax_bands[2].legend(loc='upper right')
 
         ax_bands[-1].set_xlabel('Time [s]')
-        ax_bands[0].set_title(f'Power({self.label_seg} {self.id_seg}) -- dB change from baseline [median]')
+        ax_bands[0].set_title(f'Power({ch_label}) -- dB change from baseline [frequency bands]')
 
         ## plot annotations bad segments
         for ann in self.bad_annot_list:
@@ -308,10 +449,12 @@ class TF_components:
                     ax_bands[id].fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:red', alpha=0.25, transform=ax_bands[id].get_xaxis_transform())
                 ##
 
+        fig_bands.savefig(f"{self.tf_cu_filename}_{ch_label}.png")
+        
         return 0
 
     ###############################
-    def plot_boxplots_bands(self):
+    def plot_boxplots_bands(self, ch_label):
         ## dataframe of frequency bands to create boxplots
         data_dict = {
             'theta': self.activity_theta_band,
@@ -320,7 +463,25 @@ class TF_components:
         }
         df_bands = pd.DataFrame(data_dict)
         ## adding mask bad segments
-        df_bands['mask'] = self.mask_ann
+        ############################
+        ## create a mask to avoid data of bad segments
+        mask_ann = np.zeros(len(self.times_tf))
+        ## annotations bad segments
+        for ann in self.bad_annot_list:
+            if ann['description'].startswith('bad'):
+                onset = ann['onset']
+                duration = ann['duration']
+                print(f"bad segment:\nonset: {onset}\nduration: {duration}")
+                ## identify samples inside the bad segment
+                idx_times = np.nonzero((self.times_tf>=onset) & (self.times_tf<(onset+duration)))
+                ## initial (t0) and final (t1) samples of the bad segment
+                t0 = idx_times[0][0]
+                t1 = idx_times[0][-1]
+                print(f"samples bad segment (t0, t1): ({t0,t1})")
+                ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
+                mask_ann[t0:t1]=1
+        ############################
+        df_bands['mask'] = mask_ann
         ##
         ## boxplots
         # print(f"df_bands:\n{df_bands}")
@@ -329,6 +490,9 @@ class TF_components:
 
         fig_box, ax_box = plt.subplots(nrows=1, ncols=1, figsize=(9,6), sharey=True,)
         df_masked.boxplot(['theta','alpha','beta'], showfliers=False, ax=ax_box)
+
+        ax_box.set_title(f"Power ({ch_label}) -- boxplots frequency bands")
+        ax_box.set_ylabel(f"dB change from baseline")
         
         # fig_box, ax_box = plt.subplots(nrows=1, ncols=3, figsize=(9,6), sharey=True,)
         # df_bands_all.boxplot(['a_closed_eyes_theta','b_closed_eyes_theta'], showfliers=False, ax=ax_box[0])
@@ -343,18 +507,37 @@ class TF_components:
         # ax_box[1].set_title(f"alpha band")
         # ax_box[2].set_title(f"beta band")
 
+        fig_box.savefig(f"{self.tf_bp_filename}_{ch_label}.png")
+
         return 0
 
     ###############################
+    def get_ch_equivalent(self, ch_name):
+        if ch_name == 'E36':
+            ch_label = 'C3'
+        elif ch_name == 'E104':
+            ch_label = 'C4'
+        elif ch_name == 'VREF':
+            ch_label = 'Cz'
+        else:
+            ch_label = ch_name
+        
+        return ch_label
+    
+    ###############################
     def tf_plot(self, ch_name, flag_norm=True):
+
+        ## 128-channel geodesic to 10-10 equivalent names
+        ch_label = self.get_ch_equivalent(ch_name)
+
         ## visualization time-frequency plots
         fig_tf, ax_tf = plt.subplots(nrows=1, ncols=1, figsize=(16,4), sharey=True, sharex=True)
         ## plot data
         if flag_norm:
             range = (-12,12)
-            self.tfr_seg_norm.plot(picks=[ch_name], title='auto', yscale='auto', vlim=range, axes=ax_tf, show=True)
+            self.tfr_seg_norm.plot(picks=[ch_name], title=f"Power ({ch_label})-- dB change from baseline", yscale='auto', vlim=range, axes=ax_tf, show=True)
         else:
-            self.tfr_seg.plot(picks=[ch_name], title='auto', yscale='auto', axes=ax_tf, show=True)
+            self.tfr_seg.plot(picks=[ch_name], title=f"Power ({ch_label})", yscale='auto', axes=ax_tf, show=True)
 
         ## plot annotations bad segments
         for ann in self.bad_annot_list:
@@ -362,13 +545,14 @@ class TF_components:
                 onset = ann['onset']
                 duration = ann['duration']
                 ## bad segment in the plot
-                ax_tf.fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:red', alpha=0.25, transform=ax_tf.get_xaxis_transform())
+                ax_tf.fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:pink', alpha=0.5, transform=ax_tf.get_xaxis_transform())
                 ##
 
+        fig_tf.savefig(f"{self.tf_ch_filename}_{ch_label}_{self.id_seg}.png")
         return 0
 
     ##################################
-    def plot_time_series(self, label):
+    def plot_time_series(self, label, title):
         data = []
         if label=='csd':
             data = self.raw_seg_csd
@@ -376,7 +560,7 @@ class TF_components:
             print(f"plot error: data not found")
             return 0
 
-        mne.viz.plot_raw(data, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'baseline after Surface Laplacian', block=True)
+        mne.viz.plot_raw(data, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=title, block=True)
 
         return 0
     
