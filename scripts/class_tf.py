@@ -83,7 +83,7 @@ class TF_components:
         self.scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
     ##################################
-    def selection_bads(self):
+    def selection_bads(self, flag_update):
         ###########################################
         ## read previous bad channels and segments
         try:
@@ -112,7 +112,7 @@ class TF_components:
         ## iterative bad segments and bad channels identification
         ##
         flag_bad_ch = True
-        while flag_bad_ch:
+        while (flag_bad_ch) and (flag_update) :
             ##
             ## raw data visualization (baseline)
             ## visual observation of time-series and psd from raw data helps to identify bad channels
@@ -122,16 +122,17 @@ class TF_components:
             ##
             ## interactively, select bad channels: flat lines or noisy channels
             ##
-            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"EEG {self.label_seg} -- Please select bad segments and bad channels interactively", block=False)
+            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
             ##
             ## power spectral density (psd)
             ##
             ## interactively, identify channels that are out of the tendency (ouliers) as bad channels
             ## 
+            ## we exclude VREF because it is the reference (0 volts all the time)
             fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
             mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0.9, fmax=101, xscale='log',)
             ##
-            ax_psd.set_title('EEG power spectral density (psd)')
+            ax_psd.set_title(f"PSD (EEG) -- {self.label_seg}_{self.id_seg}")
             # Save figures
             fig_psd.savefig(self.psd_filename)
             fig_raw.grab().save(self.raw_filename)
@@ -153,21 +154,24 @@ class TF_components:
 
         ###########################################
         ## save selected bad channels and segments
-        try:
-            ## save bad channels list to csv through a pandas dataframe
-            data_dict = {}
-            data_dict['bad_ch'] = self.bad_ch_list
-            df = pd.DataFrame(data_dict)
-            # print(f"dataframe:\n{df}")
-            df.to_csv(self.filename_bad_ch)
-        except:
-            print(f"Error: something went wrong saving bad channels.")
-        ## save selected bad annotations
-        try:
-            ## save annotations to .fif
-            self.bad_annot_list.save(self.filename_annot, overwrite=True)
-        except:
-            print(f"Error: something went wrong saving bad annotations.")
+        if flag_update:
+            try:
+                ## save bad channels list to csv through a pandas dataframe
+                data_dict = {}
+                data_dict['bad_ch'] = self.bad_ch_list
+                df = pd.DataFrame(data_dict)
+                # print(f"dataframe:\n{df}")
+                df.to_csv(self.filename_bad_ch)
+            except:
+                print(f"Error: something went wrong saving bad channels.")
+            ## save selected bad annotations
+            try:
+                ## save annotations to .fif
+                self.bad_annot_list.save(self.filename_annot, overwrite=True)
+            except:
+                print(f"Error: something went wrong saving bad annotations.")
+        else:
+            pass
         
         return 0
 
@@ -197,7 +201,7 @@ class TF_components:
         return 0
     
     ##################################
-    def ica_components(self):
+    def ica_components(self, flag_update):
         ## read pre-caluculated ICA model
         try:
             print(f"loading pre-calculated ICA model... ", end='')
@@ -208,32 +212,36 @@ class TF_components:
         except:
             print(f'Pre-calculated ICA was not found.')
         
-        flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
-        flag_ica = 0 if (flag_ica == '') else int(flag_ica)
-        ##
-        if flag_ica==1 :
-            ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
-            ## ICA fitting model to the filtered raw data
-            self.ica.fit(self.filt_seg, reject_by_annotation=True)
+        if flag_update:
+            flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
+            flag_ica = 0 if (flag_ica == '') else int(flag_ica)
+            ##
+            if flag_ica==1 :
+                ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+                ## ICA fitting model to the filtered raw data
+                self.ica.fit(self.filt_seg, reject_by_annotation=True)
+            else:
+                pass
+            ## interactive selection of ica components to exclude
+            fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components")
+            try:
+                ## save ICA plot components
+                if isinstance(fig_ica_comp, list):
+                    id = 0
+                    for fig in fig_ica_comp:
+                        fig.savefig(f"{self.ica_c_filename}_{id}.png")
+                        id+=1
+                else:
+                    fig.savefig(f"{self.ica_c_filename}.png")
+            except:
+                print(f"Error: something went wrong saving ICA components.")
+
+            ## interactive selection of ICA components to exclude
+            self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
+
         else:
             pass
-        ## interactive selection of ica components to exclude
-        fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True)
-        try:
-            ## save ICA plot components
-            if isinstance(fig_ica_comp, list):
-                id = 0
-                for fig in fig_ica_comp:
-                    fig.savefig(f"{self.ica_c_filename}_{id}.png")
-                    id+=1
-            else:
-                fig.savefig(f"{self.ica_c_filename}.png")
-        except:
-            print(f"Error: something went wrong saving ICA components.")
-
-        ## interactive selection of ICA components to exclude
-        self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, block=True)
-        
+            
         ## selected ica components to exclude
         self.ica_exclude = self.ica.exclude
         print(f"ica excluded components: {self.ica_exclude}")
@@ -243,23 +251,27 @@ class TF_components:
         self.ica.apply(self.raw_seg_ica)
         ## save ica fitted model and excluded components
         # print(f"saving ica model in {filename_ica}")
-        try:
-            ## save ICA model
-            self.ica.save(self.filename_ica, overwrite=True)
-            ## save ICA excluded components
-            df_ex_ica = pd.DataFrame()
-            df_ex_ica['ex_ica'] = self.ica_exclude
-            df_ex_ica.to_csv(self.filename_ex_ica)
-        except:
-            print(f"Error: something went wrong writing ICA model.")
+        if flag_update:
+            try:
+                ## save ICA model
+                self.ica.save(self.filename_ica, overwrite=True)
+                ## save ICA excluded components
+                df_ex_ica = pd.DataFrame()
+                df_ex_ica['ex_ica'] = self.ica_exclude
+                df_ex_ica.to_csv(self.filename_ex_ica)
+            except:
+                print(f"Error: something went wrong writing ICA model.")
 
-        ## save figure ICA sources
-        fig_ica_sources = self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=False, block=False)
-        try:
-            ## save ICA plot sources
-            fig_ica_sources.grab().save(self.ica_s_filename)
-        except:
-            print(f"Error: something went wrong saving ICA sources.")
+            ## save figure ICA sources
+            fig_ica_sources = self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=False, block=False)
+            try:
+                ## save ICA plot sources
+                fig_ica_sources.grab().save(self.ica_s_filename)
+            except:
+                print(f"Error: something went wrong saving ICA sources.")
+
+        else:
+            pass
     
         return 0
 
