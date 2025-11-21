@@ -109,7 +109,7 @@ def baseline_ref(obj_list, label_ref):
     ## selected segment to calculate reference baseline 
     seg_ref = obj_list[id]
     print(f"Selected segment to calculate reference baseline:\n{seg_ref.get_label()}: {seg_ref.get_id()}")
-
+    ##
     # # interactive selection of bad segments and bad channels
     # print(f"Interactive selection of bad segments and bad channels...")
     # seg_ref.selection_bads()
@@ -178,6 +178,42 @@ def ica_artifacts_reduction(obj_list, flag_update):
         obj.ica_components(flag_update)
         print(f"excluded ica components: {obj.get_ica_exclude()}\n")
     return 0
+
+#############################################################    
+def calculate_tf(obj_list, tf_ref):
+    ## calculate time-freq transformation for each segment
+    for obj in obj_list:
+        print(f"{obj.get_label()}-{obj.get_id()}: time-frequency transformation... ")
+        print("Bad channels interpolation...")
+        obj.bads_interpolation()
+        
+        print(f"current source density (Laplacian surface)...")
+        obj.apply_csd()
+        # print(f"plot csd data...")
+        # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
+        
+        print(f"time-frequency transformation...")
+        obj.tf_calculation()
+
+        print(f"Tf normalization... ")
+        obj.tf_normalization(tf_ref)
+
+    return 0
+
+##########################################################
+def tf_freq_bands(obj_list, eeg_system):
+    ##
+    print(f"Power per frequency bands... ")
+    ## selected channels
+    ch_name_list = ['Cz','C3','C4']
+    for ch_name in ch_name_list:
+        ## for each selected channel
+        for obj in obj_list:
+            ## for each segment
+            obj.channel_bands_power(ch_name, eeg_system)
+
+    return 0 
+
 
 #############################
 ## EEG filtering and signals pre-processing
@@ -279,33 +315,43 @@ def main(args):
     ## data segmentation, each segment would be an object 
     obj_list = eeg_segmentation(eeg_data_dict, eeg_filt_dict, label_seg_list, path, session)
 
-    flag_update = int(input(f"Update bad-channels or bad-segments or ICA components (0-False, 1-True)?: "))
-
     #############################################
-    ## observe EEG signals to identify and select bad segments and bad channels from each segments
+    ## observe EEG signals to identify and select bad segments and bad channels from each segment
+    flag_update = int(input(f"Update bad-channels or bad-segments (0-False, 1-True)?: "))
     annotation_bad_channels_and_segments(obj_list, flag_update)
 
     #############################################
     ## apply ICA to try to remove components of noise and artifacts
+    flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
     ica_artifacts_reduction(obj_list, flag_update)
 
-    return 0
     #############################################
-    ## reference label for baseline normalization. We chose the first segment of open eyes during resting
+    ## reference label for baseline normalization.
+    # We chose the first segment of open eyes during resting
     label_ref = 'a_opened_eyes'
     tf_ref = baseline_ref(obj_list, label_ref)
 
     ## save calculated the time-frequency reference for a posterior normalization of each segment
     try:
+        print(f"saving baseline reference... ",end='')
         np.save(filename_tr_ref, tf_ref)
+        print(f"done.")
     except:
         print(f"Error: something went wrong saving time-frequency analysis.")
 
     print(f"tf_ref shape {tf_ref.shape}")
     print(f"tf_ref:\n{tf_ref}")
+    
+    #################################################
+    ## calculate time-frequency transformations for each segment
+    calculate_tf(obj_list, tf_ref)
+    # acquisition_system
+    ## a verifier ...
+    tf_freq_bands(obj_list, acquisition_system)
 
-    # #################################################
-    ## 
+
+
+    return 0
 
     # ###############################################
     # ##

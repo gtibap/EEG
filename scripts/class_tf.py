@@ -334,7 +334,7 @@ class TF_components:
                 ## initial (t0) and final (t1) samples of the bad segment
                 t0 = idx_times[0][0]
                 t1 = idx_times[0][-1]
-                print(f"samples bad segment (t0, t1): ({t0,t1})")
+                # print(f"samples bad segment (t0, t1): ({t0,t1})")
                 ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
                 self.mask_data_tf[:,:,t0:t1]=1
                 # self.mask_ann[t0:t1]=1
@@ -378,12 +378,13 @@ class TF_components:
         return 0
     
     ###############################
-    def channel_bands_power(self, ch_name):
+    def channel_bands_power(self, ch_label, eeg_system):
+        
+        ## 128-channel geodesic to 10-10 equivalent names
+        ch_name = self.get_ch_equivalent(ch_label, eeg_system)
+
         ## separate components frequency bands theta, alpha, and beta
         data_ch, times_ch, freqs_ch = self.tfr_seg_norm.get_data(picks=[ch_name],return_times=True, return_freqs=True)
-
-        ## 128-channel geodesic to 10-10 equivalent names
-        ch_label = self.get_ch_equivalent(ch_name)
 
         print(f"Channel {ch_label} data shape: {data_ch.shape}")
         print(f"times shape: {times_ch.shape}")
@@ -524,23 +525,26 @@ class TF_components:
         return 0
 
     ###############################
-    def get_ch_equivalent(self, ch_name):
-        if ch_name == 'E36':
-            ch_label = 'C3'
-        elif ch_name == 'E104':
-            ch_label = 'C4'
-        elif ch_name == 'VREF':
-            ch_label = 'Cz'
+    def get_ch_equivalent(self, ch_name, eeg_system):
+        if eeg_system == 'geodesic':
+            if ch_name == 'C3':
+                ch_label = 'E36'
+            elif ch_name == 'C4':
+                ch_label = 'E104'
+            elif ch_name == 'Cz':
+                ch_label = 'VREF'
+            else:
+                ch_label = ch_name
         else:
             ch_label = ch_name
         
         return ch_label
     
     ###############################
-    def tf_plot(self, ch_name, flag_norm=True):
+    def tf_plot(self, ch_name, eeg_system, flag_norm=True):
 
         ## 128-channel geodesic to 10-10 equivalent names
-        ch_label = self.get_ch_equivalent(ch_name)
+        ch_label = self.get_ch_equivalent(ch_name, eeg_system)
 
         ## visualization time-frequency plots
         fig_tf, ax_tf = plt.subplots(nrows=1, ncols=1, figsize=(16,4), sharey=True, sharex=True)
