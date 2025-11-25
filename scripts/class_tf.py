@@ -50,6 +50,9 @@ class TF_components:
         self.tfr_seg_norm = []
         self.times_tf = []
 
+        # pandas data frames
+        self.df_ch_bands = pd.DataFrame()
+
         ## create folder to save preprocesing parameters
         Path(path+'session_'+str(session)+"/prep/"+self.label_seg).mkdir(parents=True, exist_ok=True)
         self.root_name = path+'session_'+str(session)+'/prep/'+self.label_seg+'/'
@@ -246,9 +249,12 @@ class TF_components:
         self.ica_exclude = self.ica.exclude
         print(f"ica excluded components: {self.ica_exclude}")
         ## apply ica
-        self.raw_seg_ica = self.raw_seg.copy()
+        # self.raw_seg_ica = self.raw_seg.copy()
+        # ## ica in place
+        # self.ica.apply(self.raw_seg_ica)
         ## ica in place
-        self.ica.apply(self.raw_seg_ica)
+        self.ica.apply(self.raw_seg)
+
         ## save ica fitted model and excluded components
         # print(f"saving ica model in {filename_ica}")
         if flag_update:
@@ -278,15 +284,18 @@ class TF_components:
     ##################################
     def bads_interpolation(self):
         print("Bad channels interpolation")
-        self.raw_seg_ica.interpolate_bads()
+        # self.raw_seg_ica.interpolate_bads()
+        self.raw_seg.interpolate_bads()
         return 0
     
     ##################################
     def apply_csd(self):
-        self.raw_seg_csd = mne.preprocessing.compute_current_source_density(self.raw_seg_ica)
+        # self.raw_seg_csd = mne.preprocessing.compute_current_source_density(self.raw_seg_ica)
+        ## in place
+        self.raw_seg = mne.preprocessing.compute_current_source_density(self.raw_seg)
         
         ## save figure csd
-        fig_csd = mne.viz.plot_raw(self.raw_seg_csd, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
+        fig_csd = mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
         try:
             fig_csd.grab().save(self.csd_filename)
         except:
@@ -295,7 +304,7 @@ class TF_components:
         return 0
     
     ##################################
-    def tf_calculation(self):
+    def tf_calculation(self, ch_list):
         ## Time-frequency (tf) decomposition from each EEG channel
         ## logarithmic scale frequencies
         start= 0.60 # 10^start,  
@@ -307,21 +316,28 @@ class TF_components:
         # tfr_bl = raw_seg_ica.compute_tfr('morlet',freqs, picks=['eeg'])
         # data_bl, times_bl, freqs_bl = tfr_bl.get_data(picks=['eeg'],return_times=True, return_freqs=True)
         # print(f"Time-frequency analysis (Morlet wavelet)")
-        self.tfr_seg = self.raw_seg_csd.compute_tfr('morlet', freqs, reject_by_annotation=False)
+        # self.tfr_seg = self.raw_seg_csd.compute_tfr('morlet', freqs, reject_by_annotation=False)
+        ## in place
+        self.tfr_seg = self.raw_seg.compute_tfr('morlet', freqs, picks=ch_list, reject_by_annotation=False)
         ## time-frequency data
-        self.data_tf, self.times_tf, self.freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
+        # self.data_tf, self.times_tf, self.freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
         # print(f"data tf analysis shape: {self.data_tf.shape}")
         # print(f"times tf analysis shape: {self.times_tf.shape}")
         # print(f"freqs tf analysis shape: {self.freqs_tf.shape}")
         # print(f"times tf analysis: {self.times_tf}")
         # print(f"freqs tf analysis: {self.freqs_tf}")
+        ##
+        ## adding time and annotations to results of frequency bands
+        self.set_annotations_freq_bands()
         
         return 0
 
     ###############################
     def get_tf_baseline(self):
+
+        data_tf, times_tf, freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
         ## create a mask to avoid data of bad segments
-        self.mask_data_tf = np.zeros(self.data_tf.shape)
+        mask_data_tf = np.zeros(data_tf.shape)
         # self.mask_ann = np.zeros(len(self.times_tf))
         ## annotations bad segments
         for ann in self.bad_annot_list:
@@ -330,16 +346,16 @@ class TF_components:
                 duration = ann['duration']
                 print(f"bad segment:\nonset: {onset}\nduration: {duration}")
                 ## identify samples inside the bad segment
-                idx_times = np.nonzero((self.times_tf>=onset) & (self.times_tf<(onset+duration)))
+                idx_times = np.nonzero((times_tf>=onset) & (times_tf<(onset+duration)))
                 ## initial (t0) and final (t1) samples of the bad segment
                 t0 = idx_times[0][0]
                 t1 = idx_times[0][-1]
                 # print(f"samples bad segment (t0, t1): ({t0,t1})")
                 ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
-                self.mask_data_tf[:,:,t0:t1]=1
+                mask_data_tf[:,:,t0:t1]=1
                 # self.mask_ann[t0:t1]=1
         ## including a mask to avoid bad segments in the mean calculation
-        data_tf_masked = np.ma.array(self.data_tf, mask=self.mask_data_tf)
+        data_tf_masked = np.ma.array(data_tf, mask=mask_data_tf)
         ## mean values per frequency per channel (ref for baseline normalization)
         self.baseline_tf = data_tf_masked.mean(axis=2)
         self.baseline_tf = self.baseline_tf.data
@@ -350,16 +366,18 @@ class TF_components:
     
     ###############################
     def tf_normalization(self, tf_ref):
+
+        data_tf, times_tf, freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
         ## time-frequency power normalization for each channel
-        dim_ch, dim_fr, dim_t = self.data_tf.shape
+        dim_ch, dim_fr, dim_t = data_tf.shape
         # print(f"bl dim_ch, dim_fr, dim_t: {dim_ch, dim_fr, dim_t}")
         
         ## initialization new array for baseline normalization
-        data_tf_norm = np.zeros(self.data_tf.shape)
+        data_tf_norm = np.zeros(data_tf.shape)
 
         id_ch=0
         # print(f"normalization ch:")
-        for mean_ch, arr_num in zip(tf_ref, self.data_tf):
+        for mean_ch, arr_num in zip(tf_ref, data_tf):
             # mean for each frequency per channel
             ## mean_ch is an array with a number of elements equal to the number of evaluated frequencies
             ## each element of the array represents the mean value of time samples per each frequency
@@ -372,8 +390,8 @@ class TF_components:
             id_ch+=1
         # print(f"")
         # copy of the tf transformation
-        self.tfr_seg_norm = self.tfr_seg.copy()
-        self.tfr_seg_norm._data = data_tf_norm
+        # self.tfr_seg_norm = self.tfr_seg.copy()
+        self.tfr_seg._data = data_tf_norm
 
         return 0
     
@@ -430,9 +448,19 @@ class TF_components:
         # print(f"alpha median shape: {self.activity_alpha_band.shape}")
         # print(f"beta median shape:  {self.activity_beta_band.shape}")
 
-        ## plot curves frequency bands
-        self.plot_curves_bands(ch_label)
-        self.plot_boxplots_bands(ch_label)
+        # ## plot curves frequency bands
+        # self.plot_curves_bands(ch_label)
+        # self.plot_boxplots_bands(ch_label)
+
+        data_dict = {
+            f'{ch_label}_theta': self.activity_theta_band,
+            f'{ch_label}_alpha': self.activity_alpha_band,
+            f'{ch_label}_beta' : self.activity_beta_band,
+        }
+        df_bands = pd.DataFrame(data_dict)
+
+        ## concat freq bands activity of selected channels
+        self.df_ch_bands = pd.concat([self.df_ch_bands, df_bands], axis=1, ignore_index=True)
 
         return 0
     
@@ -598,4 +626,38 @@ class TF_components:
     
     ##################################
     def get_ica_exclude(self):
+
         return self.ica_exclude
+
+    ##################################
+    def set_annotations_freq_bands(self):
+        
+        data_tf, times_tf, freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
+        ## include a column of time in the dataframe
+        self.df_ch_bands['time'] = times_tf
+        # ## adding mask bad segments
+        ############################
+        ## create a mask to avoid data of bad segments
+        mask_ann = np.zeros(len(times_tf))
+        ## annotations bad segments
+        for ann in self.bad_annot_list:
+            if ann['description'].startswith('bad'):
+                onset = ann['onset']
+                duration = ann['duration']
+                print(f"bad segment:\nonset: {onset}\nduration: {duration}")
+                ## identify samples inside the bad segment
+                idx_times = np.nonzero((times_tf>=onset) & (times_tf<(onset+duration)))
+                ## initial (t0) and final (t1) samples of the bad segment
+                t0 = idx_times[0][0]
+                t1 = idx_times[0][-1]
+                print(f"samples bad segment (t0, t1): ({t0,t1})")
+                ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
+                mask_ann[t0:t1]=1
+        ############################
+        ## include a column of mask to identify sections of bad annotations (value=1)
+        self.df_ch_bands['mask'] = mask_ann
+
+        return 0
+    
+    def get_df_ch_bands(self):
+        return self.df_ch_bands

@@ -53,6 +53,8 @@ def get_eeg_segments(raw_data,):
     a_opened_eyes_list = []
     b_closed_eyes_list = []
     b_opened_eyes_list = []
+    c_closed_eyes_list = []
+    c_opened_eyes_list = []
 
     for ann in raw_data.annotations:
         # print(f'ann:\n{ann}')
@@ -77,6 +79,12 @@ def get_eeg_segments(raw_data,):
         elif label == 'b_opened_eyes':
             b_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
 
+        elif label == 'c_closed_eyes':
+            c_closed_eyes_list.append(crop_fun(raw_data, t1, t2))
+
+        elif label == 'c_opened_eyes':
+            c_opened_eyes_list.append(crop_fun(raw_data, t1, t2))
+
         else:
             pass
 
@@ -85,6 +93,8 @@ def get_eeg_segments(raw_data,):
     print(f'size list a_opened_eyes: {len(a_opened_eyes_list)}')
     print(f'size list b_closed_eyes: {len(b_closed_eyes_list)}')
     print(f'size list b_opened_eyes: {len(b_opened_eyes_list)}')
+    print(f'size list c_closed_eyes: {len(c_closed_eyes_list)}')
+    print(f'size list c_opened_eyes: {len(c_opened_eyes_list)}')
 
     ## eeg data to a dictionary
     eeg_data_dict={}
@@ -93,13 +103,15 @@ def get_eeg_segments(raw_data,):
     eeg_data_dict['a_opened_eyes'] = a_opened_eyes_list
     eeg_data_dict['b_closed_eyes'] = b_closed_eyes_list
     eeg_data_dict['b_opened_eyes'] = b_opened_eyes_list
+    eeg_data_dict['c_closed_eyes'] = c_closed_eyes_list
+    eeg_data_dict['c_opened_eyes'] = c_opened_eyes_list
 
     return eeg_data_dict
 #############################
 #############################
 
 #############################
-def baseline_ref(obj_list, label_ref):
+def baseline_ref(obj_list, ch_list, label_ref):
     ## get the first segment with label equal to label_ref
     id=0
     while obj_list[id].get_label() != label_ref:
@@ -130,7 +142,7 @@ def baseline_ref(obj_list, label_ref):
     # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
     
     print(f"time-frequency analysis...")
-    seg_ref.tf_calculation()
+    seg_ref.tf_calculation(ch_list)
     ## get reference for baseline normalization
     print(f"calculating average values for time-frequency normalization...")
     tf_ref = seg_ref.get_tf_baseline()
@@ -146,6 +158,7 @@ def eeg_segmentation(eeg_data_dict, eeg_filt_dict, label_seg_list, path, session
         id_seg = 0
         ## usually three repetitions per segment of closed and open eyes during resting and cycling. Baseline is an exception
         for raw_seg, filt_seg in zip(eeg_data_dict[label_seg], eeg_filt_dict[label_seg]):
+
             ## instanciate object per each segment (baseline, open eyes, closed eyes)
             obj = TF_components(path, session, raw_seg, filt_seg, label_seg, id_seg)
             obj_list.append(obj)
@@ -180,7 +193,7 @@ def ica_artifacts_reduction(obj_list, flag_update):
     return 0
 
 #############################################################    
-def calculate_tf(obj_list, tf_ref):
+def calculate_tf(obj_list, ch_list, tf_ref):
     ## calculate time-freq transformation for each segment
     for obj in obj_list:
         print(f"{obj.get_label()}-{obj.get_id()}: time-frequency transformation... ")
@@ -193,7 +206,7 @@ def calculate_tf(obj_list, tf_ref):
         # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
         
         print(f"time-frequency transformation...")
-        obj.tf_calculation()
+        obj.tf_calculation(ch_list)
 
         print(f"Tf normalization... ")
         obj.tf_normalization(tf_ref)
@@ -201,21 +214,31 @@ def calculate_tf(obj_list, tf_ref):
     return 0
 
 ##########################################################
-def tf_freq_bands(obj_list, eeg_system):
+def tf_freq_bands(obj_list, eeg_system, ch_name_list):
     ##
     print(f"Power per frequency bands... ")
-    ## selected channels
-    ch_name_list = ['Cz','C3','C4']
+    ## alpha, theta, beta bands activity selected channels
+    # df_ch_list = pd.DataFrame()
+    # ## selected channels
+    # ch_name_list = ['Cz','C3','C4']
     for ch_name in ch_name_list:
         ## for each selected channel
         for obj in obj_list:
-            ## for each segment
+            ## for every segment (obj) of each selected channel (ch_name)
+            ## df_ch_bands : theta, beta, alpha activity of selected channels 
             obj.channel_bands_power(ch_name, eeg_system)
+    ##
+    ## print data df_ch_bands
+    for obj in obj_list[0]:
+        ## for every segment (obj) of each selected channel (ch_name)
+        ## df_ch_bands : theta, beta, alpha activity of selected channels 
+        df = obj.get_df_ch_bands()
+        print(f"dataframe {obj.get_segment()}--{obj.getId()}, df shape {df.shape}:\n{df}")
+    ##
+    return 0
 
-    return 0 
 
-
-#############################
+###########################################
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
@@ -309,7 +332,7 @@ def main(args):
     ###############################################
     # each segment has its own properties. We create an object de la class TF_components per segment that includes the raw data and filtered data
     # label_seg_list = ['baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes']
-    label_seg_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes']
+    label_seg_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
 
     #####################################################
     ## data segmentation, each segment would be an object 
@@ -325,11 +348,16 @@ def main(args):
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
     ica_artifacts_reduction(obj_list, flag_update)
 
+    ##################
+    ## selected channels; the two lists of channels are equivalent
+    ch_name_128 = ['VREF','E36','E104']
+    ch_name_10_10 = ['Cz','C3','C4']
     #############################################
+    print(f"for baseline normalization...")
     ## reference label for baseline normalization.
     # We chose the first segment of open eyes during resting
     label_ref = 'a_opened_eyes'
-    tf_ref = baseline_ref(obj_list, label_ref)
+    tf_ref = baseline_ref(obj_list, ch_name_128, label_ref)
 
     ## save calculated the time-frequency reference for a posterior normalization of each segment
     try:
@@ -344,10 +372,14 @@ def main(args):
     
     #################################################
     ## calculate time-frequency transformations for each segment
-    calculate_tf(obj_list, tf_ref)
+    calculate_tf(obj_list, ch_name_128, tf_ref)
     # acquisition_system
+
+
+    
     ## a verifier ...
-    tf_freq_bands(obj_list, acquisition_system)
+    ## selected channels
+    freq_bands_dict = tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
 
 
 
