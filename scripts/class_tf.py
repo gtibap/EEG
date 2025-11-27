@@ -30,6 +30,10 @@ class TF_components:
             self.label = 'b_ce'
         elif label_seg == 'b_opened_eyes':
             self.label = 'b_oe'
+        elif label_seg == 'c_closed_eyes':
+            self.label = 'c_ce'
+        elif label_seg == 'c_opened_eyes':
+            self.label = 'c_oe'
         else:
             self.label = ''
 
@@ -402,7 +406,7 @@ class TF_components:
         ch_name = self.get_ch_equivalent(ch_label, eeg_system)
 
         ## separate components frequency bands theta, alpha, and beta
-        data_ch, times_ch, freqs_ch = self.tfr_seg_norm.get_data(picks=[ch_name],return_times=True, return_freqs=True)
+        data_ch, times_ch, freqs_ch = self.tfr_seg.get_data(picks=[ch_name],return_times=True, return_freqs=True)
 
         print(f"Channel {ch_label} data shape: {data_ch.shape}")
         print(f"times shape: {times_ch.shape}")
@@ -414,7 +418,7 @@ class TF_components:
 
         ## normalized tf matrix to dataframe [VREF]
         df_tf = pd.DataFrame(data_ch[0])
-        print(f"df_tf shape: {df_tf.shape}")
+        # print(f"df_tf shape: {df_tf.shape}")
         # rows-->freqs (from the lowest to highest freqs), columns-->times
         df_tf['freq'] = freqs_ch
         # print(f"df_tf:\n{df_tf}")
@@ -460,7 +464,7 @@ class TF_components:
         df_bands = pd.DataFrame(data_dict)
 
         ## concat freq bands activity of selected channels
-        self.df_ch_bands = pd.concat([self.df_ch_bands, df_bands], axis=1, ignore_index=True)
+        self.df_ch_bands = pd.concat([self.df_ch_bands, df_bands], axis=1,)
 
         return 0
     
