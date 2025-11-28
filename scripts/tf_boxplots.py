@@ -111,7 +111,7 @@ def get_eeg_segments(raw_data,):
 #############################
 
 #############################
-def baseline_ref(obj_list, ch_list, label_ref):
+def baseline_normalization(obj_list, ch_list, label_ref):
     ## get the first segment with label equal to label_ref
     id=0
     while obj_list[id].get_label() != label_ref:
@@ -122,32 +122,15 @@ def baseline_ref(obj_list, ch_list, label_ref):
     seg_ref = obj_list[id]
     print(f"Selected segment to calculate reference baseline:\n{seg_ref.get_label()}: {seg_ref.get_id()}")
     ##
-    # # interactive selection of bad segments and bad channels
-    # print(f"Interactive selection of bad segments and bad channels...")
-    # seg_ref.selection_bads()
-    # print(f"bad channels: {seg_ref.get_bad_channels()}")
-    
-    # # re-referencing appli. average
-    # seg_ref.re_referencing()
-    
-    # print("ICA components...")
-    # seg_ref.ica_components()
-
-    print("Bad channels interpolation...")
-    seg_ref.bads_interpolation()
-    
-    print(f"current source density (Laplacian surface)...")
-    seg_ref.apply_csd()
-    # print(f"plot csd data...")
-    # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
-    
-    print(f"time-frequency analysis...")
-    seg_ref.tf_calculation(ch_list)
     ## get reference for baseline normalization
     print(f"calculating average values for time-frequency normalization...")
     tf_ref = seg_ref.get_tf_baseline()
 
-    return tf_ref
+    for obj in obj_list:
+        print(f"Tf normalization... ")
+        obj.tf_normalization(tf_ref)
+
+    return 0
 
 ####################################################################################
 def eeg_segmentation(eeg_data_dict, eeg_filt_dict, label_seg_list, path, session):
@@ -193,7 +176,7 @@ def ica_artifacts_reduction(obj_list, flag_update):
     return 0
 
 #############################################################    
-def calculate_tf(obj_list, ch_list, tf_ref):
+def calculate_tf(obj_list, ch_list,):
     ## calculate time-freq transformation for each segment
     for obj in obj_list:
         print(f"{obj.get_label()}-{obj.get_id()}: time-frequency transformation... ")
@@ -207,9 +190,6 @@ def calculate_tf(obj_list, ch_list, tf_ref):
         
         print(f"time-frequency transformation...")
         obj.tf_calculation(ch_list)
-
-        print(f"Tf normalization... ")
-        obj.tf_normalization(tf_ref)
 
     return 0
 
@@ -229,11 +209,12 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
             obj.channel_bands_power(ch_name, eeg_system)
     ##
     ## print data df_ch_bands
-    for obj in obj_list[0]:
+    for obj in obj_list:
         ## for every segment (obj) of each selected channel (ch_name)
         ## df_ch_bands : theta, beta, alpha activity of selected channels 
         df = obj.get_df_ch_bands()
-        print(f"dataframe {obj.get_segment()}--{obj.getId()}, df shape {df.shape}:\n{df}")
+        print(f"dataframe {obj.get_label()}--{obj.get_id()}, df shape {df.shape}:\n{df}")
+        print(f"df columns:\n{list(df.columns.values)}")
     ##
     return 0
 
@@ -349,33 +330,35 @@ def main(args):
     ica_artifacts_reduction(obj_list, flag_update)
 
     ##################
-    ## selected channels; the two lists of channels are equivalent
+    ## selected channels; the two lists of channels are equivalent, one in the 128 electrodes and the other in the 64 electrodes
     ch_name_128 = ['VREF','E36','E104']
     ch_name_10_10 = ['Cz','C3','C4']
-    #############################################
+    
+    #################################################
+    ## calculate time-frequency transformations for each segment
+    calculate_tf(obj_list, ch_name_128,)
+
+    #################################################
     print(f"for baseline normalization...")
     ## reference label for baseline normalization.
     # We chose the first segment of open eyes during resting
     label_ref = 'a_opened_eyes'
-    tf_ref = baseline_ref(obj_list, ch_name_128, label_ref)
+    baseline_normalization(obj_list, ch_name_128, label_ref)
 
-    ## save calculated the time-frequency reference for a posterior normalization of each segment
-    try:
-        print(f"saving baseline reference... ",end='')
-        np.save(filename_tr_ref, tf_ref)
-        print(f"done.")
-    except:
-        print(f"Error: something went wrong saving time-frequency analysis.")
+    # ## save calculated the time-frequency reference for a posterior normalization of each segment
+    # try:
+    #     print(f"saving baseline reference... ",end='')
+    #     np.save(filename_tr_ref, tf_ref)
+    #     print(f"done.")
+    # except:
+    #     print(f"Error: something went wrong saving time-frequency analysis.")
 
-    print(f"tf_ref shape {tf_ref.shape}")
-    print(f"tf_ref:\n{tf_ref}")
-    
-    #################################################
-    ## calculate time-frequency transformations for each segment
-    calculate_tf(obj_list, ch_name_128, tf_ref)
+    # print(f"tf_ref shape {tf_ref.shape}")
+    # print(f"tf_ref:\n{tf_ref}")
+
+    # ###########################
+
     # acquisition_system
-
-
     
     ## a verifier ...
     ## selected channels
