@@ -84,6 +84,7 @@ class TF_components:
         self.bad_annot_list = []
         self.bad_ch_list = []
         self.ica_exclude = []
+        self.time_bad_segs = []
 
         self.sampling_rate = raw_seg.info['sfreq']
         ## scale selection for visualization raw data with annotations
@@ -362,11 +363,11 @@ class TF_components:
         data_tf_masked = np.ma.array(data_tf, mask=mask_data_tf)
         ## mean values per frequency per channel (ref for baseline normalization)
         self.baseline_tf = data_tf_masked.mean(axis=2)
-        self.baseline_tf = self.baseline_tf.data
+        # self.baseline_tf = self.baseline_tf.data
 
         # print(f"ref baseline data shape: {self.baseline_tf.shape}")
         # print(f"ref baseline data:\n{self.baseline_tf}")
-        return self.baseline_tf
+        return self.baseline_tf.data
     
     ###############################
     def tf_normalization(self, tf_ref):
@@ -408,7 +409,7 @@ class TF_components:
         ## separate components frequency bands theta, alpha, and beta
         data_ch, times_ch, freqs_ch = self.tfr_seg.get_data(picks=[ch_name],return_times=True, return_freqs=True)
 
-        print(f"Channel {ch_label} data shape: {data_ch.shape}")
+        print(f"Channel {ch_label}/{ch_name} data shape: {data_ch.shape}")
         print(f"times shape: {times_ch.shape}")
         print(f"freqs shape: {freqs_ch.shape}")
 
@@ -427,9 +428,10 @@ class TF_components:
         ##
         ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
         # selecting group of rows based on frequency band values
-        df_theta = df_tf.loc[(df_tf['freq'] >= 4)  & (df_tf['freq'] < 8)]
-        df_alpha = df_tf.loc[(df_tf['freq'] >= 8)  & (df_tf['freq'] < 12)]
-        df_beta  = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 30)]
+        df_theta  = df_tf.loc[(df_tf['freq'] >= 4)  & (df_tf['freq'] < 8)]
+        df_alpha  = df_tf.loc[(df_tf['freq'] >= 8)  & (df_tf['freq'] < 12)]
+        df_beta_l = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 20)]
+        df_beta_h = df_tf.loc[(df_tf['freq'] >= 20) & (df_tf['freq'] < 30)]
 
         # print(f"df_theta  shape: {df_theta.shape}")
         # print(f"df_alpha  shape: {df_alpha.shape}")
@@ -439,14 +441,16 @@ class TF_components:
         # print(f"df_theta shape:\n{df_theta.shape}")
         ##
         ## exclude column freq
-        df_theta = df_theta.loc[:,df_theta.columns != 'freq']
-        df_alpha = df_alpha.loc[:,df_alpha.columns != 'freq']
-        df_beta  =  df_beta.loc[:,df_beta.columns  != 'freq']
+        df_theta  = df_theta.loc[:,df_theta.columns != 'freq']
+        df_alpha  = df_alpha.loc[:,df_alpha.columns != 'freq']
+        df_beta_l = df_beta_l.loc[:,df_beta_l.columns  != 'freq']
+        df_beta_h = df_beta_h.loc[:,df_beta_h.columns  != 'freq']
 
         ## calculate median value for each time sample for each freq. band
-        self.activity_theta_band = df_theta.median(axis=0).to_numpy()
-        self.activity_alpha_band = df_alpha.median(axis=0).to_numpy()
-        self.activity_beta_band  = df_beta.median(axis=0).to_numpy()
+        activity_theta_band  = df_theta.median(axis=0).to_numpy()
+        activity_alpha_band  = df_alpha.median(axis=0).to_numpy()
+        activity_beta_l_band = df_beta_l.median(axis=0).to_numpy()
+        activity_beta_h_band = df_beta_h.median(axis=0).to_numpy()
 
         # print(f"theta median shape: {self.activity_theta_band.shape}")
         # print(f"alpha median shape: {self.activity_alpha_band.shape}")
@@ -457,9 +461,10 @@ class TF_components:
         # self.plot_boxplots_bands(ch_label)
 
         data_dict = {
-            f'{ch_label}_theta': self.activity_theta_band,
-            f'{ch_label}_alpha': self.activity_alpha_band,
-            f'{ch_label}_beta' : self.activity_beta_band,
+            f'{ch_label}_theta': activity_theta_band,
+            f'{ch_label}_alpha': activity_alpha_band,
+            f'{ch_label}_beta_l' : activity_beta_l_band,
+            f'{ch_label}_beta_h' : activity_beta_h_band,
         }
         df_bands = pd.DataFrame(data_dict)
 
@@ -468,6 +473,62 @@ class TF_components:
 
         return 0
     
+    ###############################
+    ## plot beta-low and beta-high of selected channels
+    def plot_curves_beta_bands(self, ch_list):
+        ## from the dataframe self.df_ch_bands make plots beta-low for selected channels
+        fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(9,6), sharey=True, sharex=True)
+
+        # time
+        time = self.df_ch_bands[f"time"].to_numpy()
+
+        for ch_name in ch_list:
+            beta_l = self.df_ch_bands[f"{ch_name}_beta_l"].to_numpy()
+            beta_h = self.df_ch_bands[f"{ch_name}_beta_h"].to_numpy()
+
+            ax[0].plot(time, beta_l, label=f'{ch_name}')
+            ax[1].plot(time, beta_h, label=f'{ch_name}')
+        
+        # ax_bands[0].plot(self.times_tf, self.activity_beta_band,  label='beta [12-30 Hz]')
+        # ax_bands[1].plot(self.times_tf, self.activity_alpha_band, label='alpha [8-12 Hz]')
+        # ax_bands[2].plot(self.times_tf, self.activity_theta_band, label='theta [4-8 Hz]')
+
+        ax[0].set_ylim([-15,15])
+
+        ax[0].legend(loc='upper right')
+        ax[1].legend(loc='upper right')
+        # ax_bands[2].legend(loc='upper right')
+
+        ax[0].set_xlabel('Time [s]')
+        ax[1].set_xlabel('Time [s]')
+
+        ax[0].set_ylabel(f'dB change from baseline')
+        
+        ax[0].set_title(f'low beta')
+        ax[1].set_title(f'high beta')
+
+        fig.suptitle(f'{self.label_seg}-{self.id_seg}')
+        # ax[0].set_title(f'Power({ch_label}) -- dB change from baseline [frequency bands]')
+
+        ## plot annotations bad segments
+        for time_ann in self.time_bad_segs:
+            print(f"time bad annot: {time_ann}")
+            ax[0].fill_between(time, 0, 1, where=((time >= time_ann[0])&(time < time_ann[1])), color='tab:red', alpha=0.25, transform=ax[0].get_xaxis_transform())
+            ax[1].fill_between(time, 0, 1, where=((time >= time_ann[0])&(time < time_ann[1])), color='tab:red', alpha=0.25, transform=ax[1].get_xaxis_transform())
+
+        # for ann in self.bad_annot_list:
+        #     if ann['description'].startswith('bad'):
+        #         onset = ann['onset']
+        #         duration = ann['duration']
+        #         ## bad segment in the plot each band 
+        #         for id in np.arange(len(ax_bands)):
+        #             ax_bands[id].fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:red', alpha=0.25, transform=ax_bands[id].get_xaxis_transform())
+        #         ##
+
+        # fig_bands.savefig(f"{self.tf_cu_filename}_{ch_label}.png")
+        
+        return 0
+
     ###############################
     def plot_curves_bands(self, ch_label):
         ##
@@ -496,6 +557,71 @@ class TF_components:
 
         fig_bands.savefig(f"{self.tf_cu_filename}_{ch_label}.png")
         
+        return 0
+
+###############################
+    def boxplots_beta_bands(self, ch_list):
+        print(f"ch list: {ch_list}")
+        print(f"{self.label_seg}-{self.id_seg}")
+        ## dataframe of frequency bands to create boxplots
+        print(f"df_ch_bands.columns: {self.df_ch_bands.columns}")
+
+        df_masked = self.df_ch_bands.loc[self.df_ch_bands['mask']==0]
+
+
+        # data_dict = {
+        #     'theta': self.activity_theta_band,
+        #     'alpha': self.activity_alpha_band,
+        #     'beta' : self.activity_beta_band,
+        # }
+        # df_bands = pd.DataFrame(data_dict)
+        ## adding mask bad segments
+        ############################
+        # ## create a mask to avoid data of bad segments
+        # mask_ann = np.zeros(len(self.times_tf))
+        # ## annotations bad segments
+        # for ann in self.bad_annot_list:
+        #     if ann['description'].startswith('bad'):
+        #         onset = ann['onset']
+        #         duration = ann['duration']
+        #         print(f"bad segment:\nonset: {onset}\nduration: {duration}")
+        #         ## identify samples inside the bad segment
+        #         idx_times = np.nonzero((self.times_tf>=onset) & (self.times_tf<(onset+duration)))
+        #         ## initial (t0) and final (t1) samples of the bad segment
+        #         t0 = idx_times[0][0]
+        #         t1 = idx_times[0][-1]
+        #         print(f"samples bad segment (t0, t1): ({t0,t1})")
+        #         ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
+        #         mask_ann[t0:t1]=1
+        # ############################
+        # df_bands['mask'] = mask_ann
+        ##
+        ## boxplots
+        # print(f"df_bands:\n{df_bands}")
+        # df_masked = df_bands.loc[df_bands['mask']==0]
+        # print(f"df_masked:\n{df_masked}")
+
+        fig_box, ax_box = plt.subplots(nrows=1, ncols=1, figsize=(9,6), sharey=True,)
+        df_masked.boxplot(['theta','alpha','beta'], showfliers=False, ax=ax_box)
+
+        ax_box.set_title(f"Power ({ch_list}) -- boxplots frequency bands")
+        ax_box.set_ylabel(f"dB change from baseline")
+        
+        # fig_box, ax_box = plt.subplots(nrows=1, ncols=3, figsize=(9,6), sharey=True,)
+        # df_bands_all.boxplot(['a_closed_eyes_theta','b_closed_eyes_theta'], showfliers=False, ax=ax_box[0])
+        # df_bands_all.boxplot(['a_closed_eyes_alpha','b_closed_eyes_alpha'], showfliers=False, ax=ax_box[1])
+        # df_bands_all.boxplot(['a_closed_eyes_beta' ,'b_closed_eyes_beta'], showfliers=False, ax=ax_box[2])
+
+        # ax_box[0].set_xticks([1, 2], ['a', 'b',])
+        # ax_box[1].set_xticks([1, 2], ['a', 'b',])
+        # ax_box[2].set_xticks([1, 2], ['a', 'b',])
+
+        # ax_box[0].set_title(f"theta band")
+        # ax_box[1].set_title(f"alpha band")
+        # ax_box[2].set_title(f"beta band")
+
+        # fig_box.savefig(f"{self.tf_bp_filename}_{ch_label}.png")
+
         return 0
 
     ###############################
@@ -566,6 +692,7 @@ class TF_components:
             elif ch_name == 'Cz':
                 ch_label = 'VREF'
             else:
+                print(f"{ch_name} is not in the table of equivalences.")
                 ch_label = ch_name
         else:
             ch_label = ch_name
@@ -654,6 +781,8 @@ class TF_components:
                 ## initial (t0) and final (t1) samples of the bad segment
                 t0 = idx_times[0][0]
                 t1 = idx_times[0][-1]
+
+                self.time_bad_segs.append([onset, onset+duration])
                 print(f"samples bad segment (t0, t1): ({t0,t1})")
                 ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
                 mask_ann[t0:t1]=1
