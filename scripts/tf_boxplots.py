@@ -3,6 +3,7 @@
 #
 import mne
 from mne.preprocessing import ICA
+from mne.time_frequency import psd_array_multitaper
 
 import os
 from pathlib import Path
@@ -125,10 +126,25 @@ def baseline_normalization(obj_list, ch_list, label_ref):
     ## get reference for baseline normalization
     print(f"calculating average values for time-frequency normalization...")
     tf_ref = seg_ref.get_tf_baseline()
+    
+    # print(f"baseline normalization, shape tf_ref: {tf_ref.shape}\nfreq: {freq_tf}")
+    # fig, ax = plt.subplots(1,3, sharex=True, sharey=True)
+    # for ax_id, arr in enumerate(tf_ref):
+    #     ax[ax_id].plot(freq_tf, arr)
 
     for obj in obj_list:
         print(f"Tf normalization... ")
         obj.tf_normalization(tf_ref)
+
+    # ## get reference for baseline normalization
+    # print(f"calculating average values for time-frequency normalization...")
+    # tf_ref, freq_tf = seg_ref.get_tf_baseline()
+
+    # print(f"baseline normalization, shape tf_ref: {tf_ref.shape}\nfreq: {freq_tf}")
+    # fig2, ax2 = plt.subplots(1,3, sharex=True, sharey=True)
+    # for ax2_id, arr in enumerate(tf_ref):
+    #     ax2[ax2_id].plot(freq_tf, arr)
+
 
     return 0
 
@@ -215,8 +231,8 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
         ## add a mask to mark band segments
         obj.set_annotations_freq_bands()
         df = obj.get_df_ch_bands()
-        print(f"dataframe {obj.get_label()}--{obj.get_id()}, df shape {df.shape}:\n{df}")
-        print(f"df columns:\n{list(df.columns.values)}")
+        # print(f"dataframe {obj.get_label()}--{obj.get_id()}, df shape {df.shape}:\n{df}")
+        # print(f"df columns:\n{list(df.columns.values)}")
     ##
 
     return 0
@@ -360,14 +376,34 @@ def main(args):
     # print(f"tf_ref:\n{tf_ref}")
 
     # ###########################
-    # acquisition_system
-    
-    ## a verifier ...
-    ## selected channels
+    ## values of frequency bands (median values) over time
     freq_bands_dict = tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
 
+    #############################
+    ## boxplots: beta band
+    ## sel_ch: 'Cz', 'C3', or 'C4'
     sel_ch = ch_name_10_10[0]
+    ## sel_band: 'beta', 'beta_l', 'beta_h'
+    sel_band = 'beta_l'
     ## boxplots
+    for sel_ch in ch_name_10_10[:1]:
+        for sel_band in ['beta_l',]:
+            create_fig_boxplot(obj_list, label_seg_list, sel_ch, sel_band)
+
+
+    #############################
+    # ## estimate psd from tf normalized data (self.raw_seg)
+    # psds, freqs = psd_array_multitaper(x, sfreq)
+    
+    create_fig_psds(obj_list, label_seg_list, sel_ch,)
+
+    
+    plt.show(block=True)
+
+    return 0
+
+def create_fig_boxplot(obj_list, label_seg_list, sel_ch, sel_band):
+    ## create fig
     fig_box, ax_box = plt.subplots(nrows=2, ncols=3, figsize=(9,6), sharey=True,)
     ax_box = ax_box.flatten()
     
@@ -375,56 +411,117 @@ def main(args):
     ## index's list to visualizer results during each label_seg in a subplots figure
     ax_list = [0,3,1,4,2,5]
     for label_seg, ax_id in zip(label_seg_list, ax_list):
-        print(f"label_seg: {label_seg}")
-        data = cadre_boxplot(obj_list, label_seg, sel_ch,)
+        # print(f"label_seg: {label_seg}")
+        data = get_data_boxplot(obj_list, label_seg, sel_ch, sel_band)
         # print(f"data_dict:\n{data}")
         # obj.plot_curves_beta_bands(ch_name_list)
         # obj.boxplots_beta_bands(ch_name_list)
         ax_box[ax_id].boxplot(data, sym='')
-        # ax_box[ax_id].set_title(f"{label_seg}")
+        ax_box[ax_id].set_title(f"{label_seg}")
     
     # ax_box[0].set_ylabel(f"closed eyes")
     # ax_box[3].set_ylabel(f"open eyes")
-    ax_box[0].legend([f"closed eyes"],loc="upper right",)
-    ax_box[1].legend([f"closed eyes"],loc="upper right",)
-    ax_box[2].legend([f"closed eyes"],loc="upper right",)
-    ax_box[3].legend([f"open eyes"],  loc="upper right",)
-    ax_box[4].legend([f"open eyes"],  loc="upper right",)
-    ax_box[5].legend([f"open eyes"],  loc="upper right",)
+    # ax_box[0].legend([f"closed eyes"],loc="upper right",)
+    # ax_box[1].legend([f"closed eyes"],loc="upper right",)
+    # ax_box[2].legend([f"closed eyes"],loc="upper right",)
+    # ax_box[3].legend([f"open eyes"],  loc="upper right",)
+    # ax_box[4].legend([f"open eyes"],  loc="upper right",)
+    # ax_box[5].legend([f"open eyes"],  loc="upper right",)
 
-    ax_box[0].set_title(f"resting (beginning)")
-    ax_box[1].set_title(f"cycling (middle)")
-    ax_box[2].set_title(f"resting (end)")
-    ax_box[3].set_title(f"resting (beginning)")
-    ax_box[4].set_title(f"cycling (middle)")
-    ax_box[5].set_title(f"resting (end)")
+    # ax_box[0].set_title(f"resting (beginning)")
+    # ax_box[1].set_title(f"cycling (middle)")
+    # ax_box[2].set_title(f"resting (end)")
+    # ax_box[3].set_title(f"resting (beginning)")
+    # ax_box[4].set_title(f"cycling (middle)")
+    # ax_box[5].set_title(f"resting (end)")
+
+    ax_box[0].set_ylim([-17,17])
 
     fig_box.supylabel(f"dB change from baseline")
     fig_box.supxlabel(f"iteration number")
-    fig_box.suptitle(f"Low-beta band -- {sel_ch}")
-        
-
-    plt.show(block=True)
-
+    fig_box.suptitle(f"{sel_band} band -- {sel_ch}")
 
     return 0
 
-def cadre_boxplot(obj_list, label_seg, sel_ch,):
+def get_data_boxplot(obj_list, label_seg, sel_ch, sel_band):
     data = []
     for obj in obj_list:
+        ## includes data from all iterations of selected label_seg
         if obj.get_label() == label_seg:
-            print(f"{label_seg}: {obj.get_id()}")
+            # print(f"{label_seg}: {obj.get_id()}")
             df = obj.get_df_ch_bands()
             ## exclude data of annot. bad (e.i. mask=1)
             df = df.loc[df['mask']==0]
-            ## get beta-low component of selected channel for boxplot 
-            data.append(df[f'{sel_ch}_beta_l'].to_list())
+            ## get beta-low component of selected channel for boxplot
+            data.append(df[f'{sel_ch}_{sel_band}'].to_list())
         else:
             pass
             # print(f"pass")
 
-    # ax.boxplot(data_dict, sym='')
+    return data
 
+
+def create_fig_psds(obj_list, label_seg_list, sel_ch,):
+    ## create fig
+    fig_box, ax_box = plt.subplots(nrows=2, ncols=3, figsize=(9,6), sharey=True, sharex=True)
+    ax_box = ax_box.flatten()
+    
+    # label_seg_list = ['a_ce','a_oe','b_ce','b_oe','c_ce','c_oe']
+    ## index's list to visualizer results during each label_seg in a subplots figure
+    ax_list = [0,3,1,4,2,5]
+    for label_seg, ax_id in zip(label_seg_list, ax_list):
+        # print(f"label_seg: {label_seg}")
+        data = get_data_psds(obj_list, label_seg, sel_ch,)
+        # print(f"data_dict:\n{data}")
+        # obj.plot_curves_beta_bands(ch_name_list)
+        # obj.boxplots_beta_bands(ch_name_list)
+        for xd in data:
+            ax_box[ax_id].plot(xd[0], xd[1])
+        
+        ax_box[ax_id].set_title(f"{label_seg}")
+    
+    # ax_box[0].set_ylabel(f"closed eyes")
+    # ax_box[3].set_ylabel(f"open eyes")
+    # ax_box[0].legend([f"closed eyes"],loc="upper right",)
+    # ax_box[1].legend([f"closed eyes"],loc="upper right",)
+    # ax_box[2].legend([f"closed eyes"],loc="upper right",)
+    # ax_box[3].legend([f"open eyes"],  loc="upper right",)
+    # ax_box[4].legend([f"open eyes"],  loc="upper right",)
+    # ax_box[5].legend([f"open eyes"],  loc="upper right",)
+
+    # ax_box[0].set_title(f"resting (beginning)")
+    # ax_box[1].set_title(f"cycling (middle)")
+    # ax_box[2].set_title(f"resting (end)")
+    # ax_box[3].set_title(f"resting (beginning)")
+    # ax_box[4].set_title(f"cycling (middle)")
+    # ax_box[5].set_title(f"resting (end)")
+
+    # ax_box[0].set_ylim([-17,17])
+
+    # fig_box.supylabel(f"dB change from baseline")
+    # fig_box.supxlabel(f"iteration number")
+    # fig_box.suptitle(f"{sel_band} band -- {sel_ch}")
+
+    return 0
+
+def get_data_psds(obj_list, label_seg, sel_ch,):
+    data = []
+    for obj in obj_list:
+        ## includes data from all iterations of selected label_seg
+        if obj.get_label() == label_seg:
+            # print(f"{label_seg}: {obj.get_id()}")
+            raw = obj.get_raw_seg()
+            ## exclude data of annot. bad (e.i. mask=1)
+            # df = df.loc[df['mask']==0]
+            ## get data selected channel
+            ch_data = raw.get_data(picks=['VREF'],reject_by_annotation='omit')
+            ## get beta-low component of selected channel for boxplot
+            ## estimate psd from tf normalized data (self.raw_seg)
+            psds, freqs = psd_array_multitaper(ch_data[0], obj.get_sfreq(), fmin=4, fmax=75)
+            data.append([freqs, 10*np.log10(psds)])
+        else:
+            pass
+            # print(f"pass")
     return data
 
     # ###############################################

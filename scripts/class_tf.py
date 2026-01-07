@@ -430,8 +430,9 @@ class TF_components:
         # selecting group of rows based on frequency band values
         df_theta  = df_tf.loc[(df_tf['freq'] >= 4)  & (df_tf['freq'] < 8)]
         df_alpha  = df_tf.loc[(df_tf['freq'] >= 8)  & (df_tf['freq'] < 12)]
-        df_beta_l = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 20)]
-        df_beta_h = df_tf.loc[(df_tf['freq'] >= 20) & (df_tf['freq'] < 30)]
+        df_beta   = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 30)]
+        df_beta_l = df_tf.loc[(df_tf['freq'] >= 12) & (df_tf['freq'] < 21)]
+        df_beta_h = df_tf.loc[(df_tf['freq'] >= 21) & (df_tf['freq'] < 30)]
 
         # print(f"df_theta  shape: {df_theta.shape}")
         # print(f"df_alpha  shape: {df_alpha.shape}")
@@ -443,12 +444,14 @@ class TF_components:
         ## exclude column freq
         df_theta  = df_theta.loc[:,df_theta.columns != 'freq']
         df_alpha  = df_alpha.loc[:,df_alpha.columns != 'freq']
+        df_beta   = df_beta.loc[:,df_beta.columns  != 'freq']
         df_beta_l = df_beta_l.loc[:,df_beta_l.columns  != 'freq']
         df_beta_h = df_beta_h.loc[:,df_beta_h.columns  != 'freq']
 
         ## calculate median value for each time sample for each freq. band
         activity_theta_band  = df_theta.median(axis=0).to_numpy()
         activity_alpha_band  = df_alpha.median(axis=0).to_numpy()
+        activity_beta_band   = df_beta.median(axis=0).to_numpy()
         activity_beta_l_band = df_beta_l.median(axis=0).to_numpy()
         activity_beta_h_band = df_beta_h.median(axis=0).to_numpy()
 
@@ -463,6 +466,7 @@ class TF_components:
         data_dict = {
             f'{ch_label}_theta': activity_theta_band,
             f'{ch_label}_alpha': activity_alpha_band,
+            f'{ch_label}_beta' : activity_beta_band,
             f'{ch_label}_beta_l' : activity_beta_l_band,
             f'{ch_label}_beta_h' : activity_beta_h_band,
         }
@@ -792,5 +796,13 @@ class TF_components:
 
         return 0
     
+    ##################################
     def get_df_ch_bands(self):
         return self.df_ch_bands
+    
+    ##################################
+    def get_raw_seg(self):
+        return self.raw_seg
+    
+    def get_sfreq(self):
+        return self.sampling_rate
