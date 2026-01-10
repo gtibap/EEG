@@ -367,7 +367,7 @@ class TF_components:
 
         # print(f"ref baseline data shape: {self.baseline_tf.shape}")
         # print(f"ref baseline data:\n{self.baseline_tf}")
-        return self.baseline_tf.data
+        return self.baseline_tf.data, freqs_tf
     
     ###############################
     def tf_normalization(self, tf_ref):
