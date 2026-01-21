@@ -230,6 +230,7 @@ class TF_components:
                 self.ica.fit(self.filt_seg, reject_by_annotation=True)
             else:
                 pass
+            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)", block=False)
             ## interactive selection of ica components to exclude
             fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components")
             try:

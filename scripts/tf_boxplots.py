@@ -281,6 +281,9 @@ def main(args):
     ## path filename for baseline normalization
     filename_tr_ref = path+'session_'+str(session)+f'/prep/'+'tf_mean_baseline.npy'
 
+    ## path filename boxplots
+    path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
+
     ############################
     ## read annotations (.csv file)
     my_annot = mne.read_annotations(path + fn_csv[0])
@@ -385,7 +388,7 @@ def main(args):
     # sel_ch = ch_name_10_10[2]
     ## sel_band: 'beta', 'beta_l', 'beta_h'
     sel_band = 'beta_l'
-    label_band = 'low-beta band [12-21 Hz]'
+    label_band = 'EEG low-beta band [12-20 Hz]'
     
     ## boxplots
     fig_box, ax_box = plt.subplots(nrows=2, ncols=3, figsize=(9,6), sharey=True,)
@@ -406,11 +409,11 @@ def main(args):
         ax_box[ax_ch[0]].boxplot(c_list, sym='', tick_labels=labels,)
         ax_box[ax_ch[1]].boxplot(o_list, sym='', tick_labels=labels,)
 
-        ax_box[ax_ch[0]].set_title(f"{sel_ch}")
+        ax_box[ax_ch[0]].set_title(f"channel: {sel_ch}")
         # ax_box[ax_ch[1]].set_title(f"{sel_ch} -- open eyes")
 
-        ax_box[ax_ch[0]].annotate(f'closed eyes', xy=(.025, .975), xycoords='axes fraction', horizontalalignment='left', verticalalignment='top', fontsize=10)
-        ax_box[ax_ch[1]].annotate('open eyes', xy=(.025, .975), xycoords='axes fraction', horizontalalignment='left', verticalalignment='top', fontsize=10)
+        ax_box[ax_ch[0]].annotate(f'closed eyes', xy=(.975, .975), xycoords='axes fraction', horizontalalignment='right', verticalalignment='top', fontsize=10)
+        ax_box[ax_ch[1]].annotate('open eyes', xy=(.975, .975), xycoords='axes fraction', horizontalalignment='right', verticalalignment='top', fontsize=10)
         
         # ax_box[0].set_ylabel(f"closed eyes")
         # ax_box[3].set_ylabel(f"open eyes")
@@ -432,7 +435,9 @@ def main(args):
 
     fig_box.supylabel(f"dB change from baseline")
     # fig_box.supxlabel(f"cycling")
-    fig_box.suptitle(f"{label_band}")
+    fig_box.suptitle(f"{info_p}\n{label_band}")
+    ##save fig
+    fig_box.savefig(f"{path_fig_boxplot}{sel_band}_boxplot.png")
 
     #############################
     # ## estimate psd from tf normalized data (self.raw_seg)
