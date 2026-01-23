@@ -24,16 +24,22 @@ class TF_components:
 
         if label_seg == 'a_closed_eyes':
             self.label = 'a_ce'
+            self.title_fig = 'resting (before cycling) closed-eyes'
         elif label_seg == 'a_opened_eyes':
             self.label = 'a_oe'
+            self.title_fig = 'resting (before cycling) open-eyes'
         elif label_seg == 'b_closed_eyes':
             self.label = 'b_ce'
+            self.title_fig = 'ABT (cycling) closed-eyes'
         elif label_seg == 'b_opened_eyes':
             self.label = 'b_oe'
+            self.title_fig = 'ABT (cycling) open-eyes'
         elif label_seg == 'c_closed_eyes':
             self.label = 'c_ce'
+            self.title_fig = 'resting (after cycling) closed-eyes'
         elif label_seg == 'c_opened_eyes':
             self.label = 'c_oe'
+            self.title_fig = 'resting (after cycling) open-eyes'
         else:
             self.label = ''
 
@@ -130,7 +136,7 @@ class TF_components:
             ##
             ## interactively, select bad channels: flat lines or noisy channels
             ##
-            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
+            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, n_channels=60, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
             ##
             ## power spectral density (psd)
             ##
@@ -250,7 +256,12 @@ class TF_components:
 
         else:
             pass
-            
+    
+        ## optional ############
+        ## display EEG before ICA
+        # mne.viz.plot_raw(self.raw_seg.copy(), picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n Before ICA", block=False)
+        ## optional ############
+
         ## selected ica components to exclude
         self.ica_exclude = self.ica.exclude
         print(f"ica excluded components: {self.ica_exclude}")
@@ -260,6 +271,11 @@ class TF_components:
         # self.ica.apply(self.raw_seg_ica)
         ## ica in place
         self.ica.apply(self.raw_seg)
+
+        ## optional ############
+        ## display EEG after ICA
+        # mne.viz.plot_raw(self.raw_seg.copy(), picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n After ICA", block=True)
+        ## optional ############
 
         ## save ica fitted model and excluded components
         # print(f"saving ica model in {filename_ica}")
@@ -729,6 +745,43 @@ class TF_components:
                 ##
 
         fig_tf.savefig(f"{self.tf_ch_filename}_{ch_label}_{self.id_seg}.png")
+        return 0
+
+    ###############################
+    def tfr_norm_plot(self, ch_name, eeg_system,):
+
+        ## 128-channel geodesic to 10-10 equivalent names
+        ch_label = self.get_ch_equivalent(ch_name, eeg_system)
+
+        ## data tf results
+        data_tf, times_tf, freqs_tf = self.tfr_seg.get_data(picks=[ch_label], return_times=True, return_freqs=True)
+
+        ## visualization time-frequency plots
+        fig_tf, ax_tf = plt.subplots(nrows=1, ncols=1, figsize=(16,4), sharey=True, sharex=True)
+
+        ## masks
+        arr_mask = self.df_ch_bands['mask'].to_numpy()
+        print(f"arr_mask shape: {arr_mask.shape}")
+        arr_mask = np.logical_not(arr_mask).reshape(1,-1)
+        arr_mask = np.repeat(arr_mask, len(freqs_tf),axis=0)
+
+        range = (-12,12)
+        self.tfr_seg.plot(picks=[ch_label], mask=arr_mask, mask_alpha=0.5, title=f"Time-frequency power, channel: {ch_name}, {self.title_fig} {self.id_seg}\ndB change from baseline", yscale='auto', vlim=range, axes=ax_tf, show=False)
+
+            # self.tfr_seg.plot(picks=[ch_label], title=f"Power ({ch_name})", yscale='auto', axes=ax_tf, show=False)
+
+        ## plot annotations bad segments
+        # for ann in self.bad_annot_list:
+        #     if ann['description'].startswith('bad'):
+        #         onset = ann['onset']
+        #         duration = ann['duration']
+        #         ## bad segment in the plot
+        #         ax_tf.fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:pink', alpha=0.5, transform=ax_tf.get_xaxis_transform())
+        #         ##
+
+        fig_tf.savefig(f"{self.tf_ch_filename}_{ch_name}.png")
+        plt.close(fig_tf)
+
         return 0
 
     ##################################

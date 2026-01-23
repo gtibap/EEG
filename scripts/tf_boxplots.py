@@ -188,7 +188,7 @@ def ica_artifacts_reduction(obj_list, flag_update):
         ##
         print("ICA components...")
         obj.ica_components(flag_update)
-        print(f"excluded ica components: {obj.get_ica_exclude()}\n")
+        # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
     return 0
 
 #############################################################    
@@ -237,6 +237,23 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
 
     return 0
 
+##########################################################
+def plot_tfr(obj_list, eeg_system, ch_name_list):
+
+    print(f"Power per frequency bands... ")
+    ## alpha, theta, beta bands activity selected channels
+    # df_ch_list = pd.DataFrame()
+    # ## selected channels
+    # ch_name_list = ['Cz','C3','C4']
+    for ch_name in ch_name_list:
+        ## for each selected channel
+        for obj in obj_list:
+            ## for every segment (obj) of each selected channel (ch_name)
+            ## save figure of time-frequency analysis for each selected channel
+            obj.tfr_norm_plot(ch_name, eeg_system,)
+    
+
+    
 
 ###########################################
 ## EEG filtering and signals pre-processing
@@ -381,6 +398,14 @@ def main(args):
     # ###########################
     ## values of frequency bands (median values) over time
     tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
+
+
+    ################################################
+    ## optional
+    print(f"Saving figures time-frequency analysis...")
+    plot_tfr(obj_list, acquisition_system, ch_name_10_10)
+    ## optional
+    ################################################
 
     #############################
     ## boxplots: beta band
