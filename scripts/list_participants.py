@@ -833,13 +833,34 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_022
     elif subject == 22:
-        info_p = ' '
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 61 y"
         path = path + 'a_neuroplasticity/n_022/'
         if session==0:
+            ## session Oct 16, 2025, in the lab, with the macbook
+            ## patient M, 61y, on a wheelchair during hospitalization
             fn_in = 'session_'+str(session)+'/'+'Neuro_022_20251016_125438.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: D - NLI: C5'
+            date = '2 w postop'
+            rows_plot = 2
+        elif session==1:
+            ## session Nov 17, 2025, in the lab, with the macbook
+            ## patient M, 61y, on a wheelchair before his follows up in the clinic
+            fn_in = 'session_'+str(session)+'/'+'Neuro_022_6sem_20251117_110450.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: C4'
+            date = '6 w postop'
+            rows_plot = 2
+        elif session==2:
+            ## session Jan 28, 2026, in the lab, with the macbook
+            ## patient able to walk. Data acquisition before his follows up in the clinic
+            fn_in = 'session_'+str(session)+'/'+'Neuro_022_3mois_20230209_232842.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = ''
+            date = '16 w postop'
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -847,6 +868,9 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
     ############################
     # neuro_023
     elif subject == 23:
@@ -1035,17 +1059,28 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_030
     elif subject == 30:
-        info_p = 'W, 68y'
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 68 y"
         path = path + 'a_neuroplasticity/n_030/'
         ###
         if session==0:
-            ## session Fri, Dec 19th, 2026, mac big screen
+            ## session Fri, Dec 19th, 2026, lab, mac big screen
             ## 
             fn_in = 'session_'+str(session)+'/'+'Neuro_030_20251219_033209.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: D - NLI: T4'
+            date = '2 w postop'
             rows_plot = 2
+        elif session==1:
+            ## session Tu, Jan 27, 2026, lab, blue chair
+            ## patient able to walk; hair voluminous, which has restrain scalp-electrodes' contact
+            fn_in = 'session_'+str(session)+'/'+'Neuro_30_visit_2_20230209_014114.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: T5'
+            date = '7 w postop'
+            rows_plot = 2
+        
         ###
         else:
             print(f"Data from session {session} did not find.")
@@ -1053,6 +1088,9 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
     ############################
     # neuro_031
     elif subject == 31:
@@ -1075,6 +1113,28 @@ def participants_list(path, subject, session, abt):
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
     
+    ############################
+    # neuro_032
+    elif subject == 32:
+        info_p = 'H, y'
+        path = path + 'a_neuroplasticity/n_032/'
+        ###
+        if session==0:
+            ## session on Monday, January 26th, 2026, 12h30, in the CIT lab, macbook
+            ## patient able to walk. Test on the blue chair (dentist's chair)
+            fn_in = 'session_'+str(session)+'/'+'Neuro_032_premiere_session_20230208_002721.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = ' '
+            rows_plot = 2
+        ###
+        else:
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
     else:
         fn_in = ''
         fn_csv = ''
