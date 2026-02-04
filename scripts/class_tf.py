@@ -75,6 +75,8 @@ class TF_components:
         Path(f"{path}session_{session}/prep/{self.label_seg}/figures/").mkdir(parents=True, exist_ok=True)
         root_figs = f"{path}session_{session}/prep/{self.label_seg}/figures/"
         self.psd_filename    = f"{root_figs}{self.label}_{id_seg}_psd.png"
+        self.psd_ica_filename= f"{root_figs}{self.label}_{id_seg}_psd_ica.png"
+        self.psd_chx_filename= f"{root_figs}{self.label}_{id_seg}_psd_chx.png"
         self.raw_filename    = f"{root_figs}{self.label}_{id_seg}_raw.png"
         self.ica_s_filename  = f"{root_figs}{self.label}_{id_seg}_ica_sources.png"
         self.ica_c_filename  = f"{root_figs}{self.label}_{id_seg}_ica_components"
@@ -82,7 +84,7 @@ class TF_components:
         self.tf_ch_filename  = f"{root_figs}{self.label}_{id_seg}_tf"
         self.tf_cu_filename  = f"{root_figs}{self.label}_{id_seg}_tf_curves"
         self.tf_bp_filename  = f"{root_figs}{self.label}_{id_seg}_tf_boxplot"
-
+        
         ## ica parameters to calculate ICA components
         self.ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
 
@@ -96,9 +98,8 @@ class TF_components:
         ## scale selection for visualization raw data with annotations
         self.scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    ##################################
-    def selection_bads(self, flag_update):
-        ###########################################
+    ###################################
+    def load_channels_annot_bads(self):
         ## read previous bad channels and segments
         try:
             print(f"Loading bad channels... ",end='')
@@ -122,6 +123,13 @@ class TF_components:
         except:
             print(f"Bad segments file was not found.")
 
+        return 0
+    
+    ##################################
+    def selection_bads(self, flag_update):
+        ## load bad channels and bad segments
+        ## to the raw data (self.raw_seg)
+        self.load_channels_annot_bads()
         #########################################################
         ## iterative bad segments and bad channels identification
         ##
@@ -136,7 +144,7 @@ class TF_components:
             ##
             ## interactively, select bad channels: flat lines or noisy channels
             ##
-            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, n_channels=60, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
+            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
             ##
             ## power spectral density (psd)
             ##
@@ -155,6 +163,15 @@ class TF_components:
             flag_bad_ch = 0 if (flag_bad_ch == '') else int(flag_bad_ch)
             # print(f"flag bad_ch: {flag_bad_ch}")
 
+        ## bad channels and bad annotations to filtered version of raw data        
+        self.update_channels_annot_bads()
+        ## save on disk bad channels and bad annotations
+        self.save_channels_annot_bads()
+        
+        return 0
+
+    #######################
+    def update_channels_annot_bads(self):
         ## bad channels
         self.bad_ch_list = self.raw_seg.info['bads']      
         ## bad annotations
@@ -166,29 +183,29 @@ class TF_components:
         self.filt_seg.set_annotations(self.bad_annot_list)
         self.filt_seg.info['bads'] = self.bad_ch_list
 
-        ###########################################
+        return 0
+    
+    ###########################################
+    def save_channels_annot_bads(self):
         ## save selected bad channels and segments
-        if flag_update:
-            try:
-                ## save bad channels list to csv through a pandas dataframe
-                data_dict = {}
-                data_dict['bad_ch'] = self.bad_ch_list
-                df = pd.DataFrame(data_dict)
-                # print(f"dataframe:\n{df}")
-                df.to_csv(self.filename_bad_ch)
-            except:
-                print(f"Error: something went wrong saving bad channels.")
-            ## save selected bad annotations
-            try:
-                ## save annotations to .fif
-                self.bad_annot_list.save(self.filename_annot, overwrite=True)
-            except:
-                print(f"Error: something went wrong saving bad annotations.")
-        else:
-            pass
+        try:
+            ## save bad channels list to csv through a pandas dataframe
+            data_dict = {}
+            data_dict['bad_ch'] = self.bad_ch_list
+            df = pd.DataFrame(data_dict)
+            # print(f"dataframe:\n{df}")
+            df.to_csv(self.filename_bad_ch)
+        except:
+            print(f"Error: something went wrong saving bad channels.")
+        ## save selected bad annotations
+        try:
+            ## save annotations to .fif
+            self.bad_annot_list.save(self.filename_annot, overwrite=True)
+        except:
+            print(f"Error: something went wrong saving bad annotations.")
         
         return 0
-
+    
     #######################
     def ann_remove_offset(self, interactive_annot, time_offset):
         arr_onset=np.array([])
@@ -215,45 +232,64 @@ class TF_components:
         return 0
     
     ##################################
-    def ica_components(self, flag_update):
-        ## read pre-caluculated ICA model
+    def read_ica_model(self):
         try:
             print(f"loading pre-calculated ICA model... ", end='')
             self.ica = mne.preprocessing.read_ica(self.filename_ica, verbose=None)
             df_ex_ica = pd.read_csv(self.filename_ex_ica)
             self.ica.exclude = df_ex_ica['ex_ica'].to_list()
             print(f"done.")
+            read_ica_flag = True
         except:
             print(f'Pre-calculated ICA was not found.')
+            read_ica_flag = False
+
+        return read_ica_flag
+    
+    #####################################
+    def save_fig_ica_comp(self, fig_ica_comp):
+        try:
+            ## save ICA plot components
+            if isinstance(fig_ica_comp, list):
+                id = 0
+                for fig in fig_ica_comp:
+                    fig.savefig(f"{self.ica_c_filename}_{id}.png")
+                    id+=1
+            else:
+                fig.savefig(f"{self.ica_c_filename}.png")
+        except:
+            print(f"Error: something went wrong saving ICA components.")
+        return 0
+    ######################################
+    def ica_components(self, flag_update):
+        ## read pre-caluculated ICA model
+        self.read_ica_model()
         
         if flag_update:
+            ## update list of excluded ICA components or (re-)calculate ICA components
             flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
             flag_ica = 0 if (flag_ica == '') else int(flag_ica)
-            ##
+            ## re-calculate ICA components    
             if flag_ica==1 :
                 ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
                 ## ICA fitting model to the filtered raw data
                 self.ica.fit(self.filt_seg, reject_by_annotation=True)
+                self.ica.exclude = []
             else:
                 pass
+            ##
+            ## eeg signals visualization (raw data with bad annot and bad channels)
             fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)", block=False)
-            ## interactive selection of ica components to exclude
+            ## plot_components shows 2D-topomaps of the ICA components
             fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components")
-            try:
-                ## save ICA plot components
-                if isinstance(fig_ica_comp, list):
-                    id = 0
-                    for fig in fig_ica_comp:
-                        fig.savefig(f"{self.ica_c_filename}_{id}.png")
-                        id+=1
-                else:
-                    fig.savefig(f"{self.ica_c_filename}.png")
-            except:
-                print(f"Error: something went wrong saving ICA components.")
-
+            ## save figure ica plot components
+            self.save_fig_ica_comp(fig_ica_comp)
             ## interactive selection of ICA components to exclude
-            self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
+            self.ica.plot_sources(inst=self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
 
+            print(f"ica excluded components: {self.ica.exclude}")
+            # blinks
+            # self.ica.plot_overlay(self.raw_seg,)
         else:
             pass
     
@@ -266,46 +302,195 @@ class TF_components:
         self.ica_exclude = self.ica.exclude
         print(f"ica excluded components: {self.ica_exclude}")
         ## apply ica
-        # self.raw_seg_ica = self.raw_seg.copy()
-        # ## ica in place
-        # self.ica.apply(self.raw_seg_ica)
+        copy_raw_seg = self.raw_seg.copy()
         ## ica in place
         self.ica.apply(self.raw_seg)
 
-        ## optional ############
-        ## display EEG after ICA
-        # mne.viz.plot_raw(self.raw_seg.copy(), picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n After ICA", block=True)
-        ## optional ############
+        # optional ############
+        # display EEG after ICA
+        # print(f"EEG signals display after ICA...")
+        fig_psd_ica, ax_psd_ica = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+
+        mne.viz.plot_raw_psd(copy_raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[0], show=False,)
+        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[1], show=False,)
+
+        ax_psd_ica[0].set_title(f"PSD(EEG) before ICA")
+        ax_psd_ica[1].set_title(f"PSD(EEG) after ICA")
+
+        ## display eeg signals before ICA
+        mne.viz.plot_raw(copy_raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n Before ICA", block=False)
+        ## display eeg signals after ICA
+        mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n After ICA", block=True)
+        # optional ############
 
         ## save ica fitted model and excluded components
         # print(f"saving ica model in {filename_ica}")
-        if flag_update:
-            try:
-                ## save ICA model
-                self.ica.save(self.filename_ica, overwrite=True)
-                ## save ICA excluded components
-                df_ex_ica = pd.DataFrame()
-                df_ex_ica['ex_ica'] = self.ica_exclude
-                df_ex_ica.to_csv(self.filename_ex_ica)
-            except:
-                print(f"Error: something went wrong writing ICA model.")
-
-            ## save figure ICA sources
-            fig_ica_sources = self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=False, block=False)
-            try:
-                ## save ICA plot sources
-                fig_ica_sources.grab().save(self.ica_s_filename)
-            except:
-                print(f"Error: something went wrong saving ICA sources.")
-
-        else:
-            pass
+        self.save_ica_model()
+        ## save plot ica sources
+        self.save_plot_ica_sources()
     
         return 0
+    ## ica components()
+    ######################################
+    
+    #################################
+    def save_ica_model(self):
+        try:
+            ## save ICA model
+            self.ica.save(self.filename_ica, overwrite=True)
+            ## save ICA excluded components
+            df_ex_ica = pd.DataFrame()
+            df_ex_ica['ex_ica'] = self.ica.exclude
+            df_ex_ica.to_csv(self.filename_ex_ica)
+        except:
+            print(f"Error: something went wrong writing ICA model.")
+        return 0
+    
+    #################################
+    def save_plot_ica_sources(self):
+        ## save figure ICA sources
+        fig_ica_sources = self.ica.plot_sources(self.raw_seg, start=0, stop=240, show_scrollbars=False, show=False, block=False)
+        try:
+            ## save ICA plot sources
+            fig_ica_sources.grab().save(self.ica_s_filename)
+        except:
+            print(f"Error: something went wrong saving ICA sources.")
 
+        return 0
+
+    ##############################
+    def display_psd_rawdata(self):
+        fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd, show=False,)
+        ax_psd.set_title(f"PSD(EEG) before ICA")
+        return 0
+    ##################################################
+    def ica_components_interactive(self,):
+        ## read pre-caluculated ICA model
+        read_ica_flag = self.read_ica_model()
+        
+        ## update list of excluded ICA components or (re-)calculate ICA components
+        # flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
+        # flag_ica = 0 if (flag_ica == '') else int(flag_ica)
+        flag_ica = 1
+        ## re-calculate ICA components    
+        while flag_ica==1 :
+            ## display psd eeg raw data
+            self.display_psd_rawdata()
+            ## copy of raw data
+            copy_raw_seg = self.raw_seg.copy()
+            
+            if read_ica_flag==False:
+                ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+                ## ICA fitting model to the filtered raw data
+                self.ica.fit(self.filt_seg, reject_by_annotation=True)
+                self.ica.exclude = []
+            ##
+            ## eeg signals visualization (raw data with bad annot and bad channels)
+            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)", block=False)
+            ## plot_components shows 2D-topomaps of the ICA components
+            fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components")
+            ## save figure ica plot components
+            self.save_fig_ica_comp(fig_ica_comp)
+            ## interactive selection of ICA components to exclude
+            self.ica.plot_sources(inst=self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
+            print(f"ica excluded components: {self.ica.exclude}")
+            ## visual comparison before and after ICA
+            
+            ## apply ica in place
+            self.ica.apply(copy_raw_seg)
+            self.display_comparison_ica(self.raw_seg, copy_raw_seg)
+            ## update ica calculation flag
+            option_ica = input(f"0: Next\n1: Re-calculate ICA components\n2: Redefine list of exclusion ICA components\n ?: ")
+            option_ica = 0 if (flag_ica == '') else int(flag_ica)
+            if option_ica==1:
+                ## update self.filt_reg bad channels and bad segments
+                    ## bad channels and bad annotations to filtered version of raw data        
+                self.update_channels_annot_bads()
+                ## save on disk bad channels and bad annotations
+                self.save_channels_annot_bads()
+                ## recalculate ICA components
+                read_ica_flag=False
+                ## keep in the loop
+                flag_ica = 1
+
+            elif option_ica==2:
+                ## same ICA model but choosing other components to exclude
+                ## does not recalculate ICA components
+                read_ica_flag=True
+                ## keep in the loop
+                flag_ica = 1
+            else:
+                ## break the loop
+                flag_ica=0
+    
+        ## optional ############
+        ## display EEG before ICA
+        # mne.viz.plot_raw(self.raw_seg.copy(), picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n Before ICA", block=False)
+        ## optional ############
+
+        ## selected ica components to exclude
+        self.ica_exclude = self.ica.exclude
+        print(f"ica excluded components: {self.ica_exclude}")
+        ## apply ica
+        copy_raw_seg = self.raw_seg.copy()
+        ## ica in place
+        self.ica.apply(self.raw_seg)
+
+        # # optional ############
+        # # display EEG after ICA
+        # # print(f"EEG signals display after ICA...")
+        # fig_psd_ica, ax_psd_ica = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+
+        # mne.viz.plot_raw_psd(copy_raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[0], show=False,)
+        # mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[1], show=False,)
+
+        # ax_psd_ica[0].set_title(f"PSD(EEG) before ICA")
+        # ax_psd_ica[1].set_title(f"PSD(EEG) after ICA")
+
+        # ## display eeg signals before ICA
+        # mne.viz.plot_raw(copy_raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n Before ICA", block=False)
+        # ## display eeg signals after ICA
+        # mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n After ICA", block=True)
+        # # optional ############
+
+        ## save ica fitted model and excluded components
+        # print(f"saving ica model in {filename_ica}")
+        self.save_ica_model()
+        ## save plot ica sources
+        self.save_plot_ica_sources()
+        ## save figure psd before and after ICA
+        # fig_psd_ica.savefig(self.psd_ica_filename)
+    
+        return 0
+    ## ica components_interactive()
+
+    ######################################
+    ## display psd rawdata before and after ICA
+    def display_comparison_ica(self, raw_before_ica, raw_after_ica):
+        # optional ############
+        # display EEG after ICA
+        # print(f"EEG signals display after ICA...")
+        fig_psd_ica, ax_psd_ica = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+
+        mne.viz.plot_raw_psd(raw_before_ica, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[0], show=False,)
+        mne.viz.plot_raw_psd(raw_after_ica, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[1], show=False,)
+
+        ax_psd_ica[0].set_title(f"PSD(EEG) before ICA")
+        ax_psd_ica[1].set_title(f"PSD(EEG) after ICA")
+
+        ## display eeg signals before ICA
+        mne.viz.plot_raw(raw_before_ica, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n Before ICA", block=False)
+        ## display eeg signals after ICA
+        mne.viz.plot_raw(raw_after_ica, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n After ICA", block=True)
+        # optional ############
+        fig_psd_ica.savefig(self.psd_ica_filename)
+
+        return 0
+    
     ##################################
     def bads_interpolation(self):
-        print("Bad channels interpolation")
+        # print("Bad channels interpolation")
         # self.raw_seg_ica.interpolate_bads()
         self.raw_seg.interpolate_bads()
         return 0
@@ -322,6 +507,22 @@ class TF_components:
             fig_csd.grab().save(self.csd_filename)
         except:
             print(f"Error: something went wrong saving csd.")
+
+        return 0
+    
+    def psd_selected_chx(self, channels_list):
+
+        fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        fig_psd = mne.viz.plot_raw_psd(self.raw_seg, picks=channels_list, fmin=0.9, fmax=101, xscale='log', ax=ax_psd, show=False,)
+        try:
+            fig_psd.grab().save(self.psd_chx_filename)
+        except:
+            print(f"Error: something went wrong saving csd.")
+
+            ##
+            # ax_psd.set_title(f"PSD (EEG) -- {self.label_seg}_{self.id_seg}")
+            # Save figures
+            # fig_psd.savefig(self.psd_filename)
 
         return 0
     
@@ -427,8 +628,8 @@ class TF_components:
         data_ch, times_ch, freqs_ch = self.tfr_seg.get_data(picks=[ch_name],return_times=True, return_freqs=True)
 
         print(f"Channel {ch_label}/{ch_name} data shape: {data_ch.shape}")
-        print(f"times shape: {times_ch.shape}")
-        print(f"freqs shape: {freqs_ch.shape}")
+        # print(f"times shape: {times_ch.shape}")
+        # print(f"freqs shape: {freqs_ch.shape}")
 
         # plot matrix selected channel (as an image)
         # fig_tf, ax_tf = plt.subplots(nrows=3, ncols=1, figsize=(16,4), sharey=True, sharex=True)
@@ -761,7 +962,7 @@ class TF_components:
 
         ## masks
         arr_mask = self.df_ch_bands['mask'].to_numpy()
-        print(f"arr_mask shape: {arr_mask.shape}")
+        # print(f"arr_mask shape: {arr_mask.shape}")
         arr_mask = np.logical_not(arr_mask).reshape(1,-1)
         arr_mask = np.repeat(arr_mask, len(freqs_tf),axis=0)
 
@@ -833,7 +1034,7 @@ class TF_components:
             if ann['description'].startswith('bad'):
                 onset = ann['onset']
                 duration = ann['duration']
-                print(f"bad segment:\nonset: {onset}\nduration: {duration}")
+                # print(f"bad segment:\nonset: {onset}\nduration: {duration}")
                 ## identify samples inside the bad segment
                 idx_times = np.nonzero((times_tf>=onset) & (times_tf<(onset+duration)))
                 ## initial (t0) and final (t1) samples of the bad segment
@@ -841,7 +1042,7 @@ class TF_components:
                 t1 = idx_times[0][-1]
 
                 self.time_bad_segs.append([onset, onset+duration])
-                print(f"samples bad segment (t0, t1): ({t0,t1})")
+                # print(f"samples bad segment (t0, t1): ({t0,t1})")
                 ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
                 mask_ann[t0:t1]=1
         ############################

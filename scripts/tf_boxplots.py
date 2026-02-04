@@ -121,10 +121,10 @@ def baseline_normalization(obj_list, ch_list, label_ref):
     ##
     ## selected segment to calculate reference baseline 
     seg_ref = obj_list[id]
-    print(f"Selected segment to calculate reference baseline:\n{seg_ref.get_label()}: {seg_ref.get_id()}")
+    print(f"Selected segment to calculate reference baseline: {seg_ref.get_label()}_{seg_ref.get_id()}")
     ##
     ## get reference for baseline normalization
-    print(f"calculating average values for time-frequency normalization...")
+    # print(f"calculating average values for time-frequency normalization...")
     tf_ref, freq_tf = seg_ref.get_tf_baseline()
     
     # print(f"baseline normalization, shape tf_ref: {tf_ref.shape}\nfreq: {freq_tf}")
@@ -133,7 +133,7 @@ def baseline_normalization(obj_list, ch_list, label_ref):
     #     ax[ax_id].plot(freq_tf, arr)
 
     for obj in obj_list:
-        print(f"Tf normalization... ")
+        # print(f"Tf normalization... ")
         obj.tf_normalization(tf_ref)
 
     # ## get reference for baseline normalization
@@ -177,7 +177,7 @@ def annotation_bad_channels_and_segments(obj_list, flag_update):
 
     return 0
 
-######################################
+###################################################
 def ica_artifacts_reduction(obj_list, flag_update):
     ## for each segment calculate ICA and identify components of noise/artifacts
     for obj in obj_list:
@@ -187,7 +187,8 @@ def ica_artifacts_reduction(obj_list, flag_update):
         obj.re_referencing()
         ##
         print("ICA components...")
-        obj.ica_components(flag_update)
+        # obj.ica_components(flag_update)
+        obj.ica_components_interactive()
         # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
     return 0
 
@@ -195,16 +196,19 @@ def ica_artifacts_reduction(obj_list, flag_update):
 def calculate_tf(obj_list, ch_list,):
     ## calculate time-freq transformation for each segment
     for obj in obj_list:
-        print(f"{obj.get_label()}-{obj.get_id()}: time-frequency transformation... ")
+        print(f"{obj.get_label()}-{obj.get_id()}:")
         print("Bad channels interpolation...")
         obj.bads_interpolation()
         
-        print(f"current source density (Laplacian surface)...")
+        print(f"Current source density (Laplacian surface)...")
         obj.apply_csd()
         # print(f"plot csd data...")
         # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
         
-        print(f"time-frequency transformation...")
+        # print(f"PSD selected channels: {ch_list}")
+        # obj.psd_selected_chx(ch_list)
+
+        print(f"Time-frequency transformation...")
         obj.tf_calculation(ch_list)
 
     return 0
@@ -212,7 +216,7 @@ def calculate_tf(obj_list, ch_list,):
 ##########################################################
 def tf_freq_bands(obj_list, eeg_system, ch_name_list):
     ##
-    print(f"Power per frequency bands... ")
+    # print(f"Power per frequency bands... ")
     ## alpha, theta, beta bands activity selected channels
     # df_ch_list = pd.DataFrame()
     # ## selected channels
@@ -240,7 +244,7 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
 ##########################################################
 def plot_tfr(obj_list, eeg_system, ch_name_list):
 
-    print(f"Power per frequency bands... ")
+    # print(f"Power per frequency bands... ")
     ## alpha, theta, beta bands activity selected channels
     # df_ch_list = pd.DataFrame()
     # ## selected channels
@@ -300,6 +304,12 @@ def main(args):
 
     ## path filename boxplots
     path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
+    # checking if the directory figures
+    # exist or not.
+    if not os.path.exists(path_fig_boxplot):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_fig_boxplot)
 
     ############################
     ## read annotations (.csv file)
@@ -375,10 +385,11 @@ def main(args):
     
     #################################################
     ## calculate time-frequency transformations for each segment
+    ## bad-channels interpolation and current-source-density filter are applied before tf-analysis
     calculate_tf(obj_list, ch_name_128,)
 
     #################################################
-    print(f"for baseline normalization...")
+    print(f"Baseline normalization...")
     ## reference label for baseline normalization.
     # We chose the first segment of open eyes during resting
     label_ref = 'a_opened_eyes'
@@ -397,15 +408,16 @@ def main(args):
 
     # ###########################
     ## values of frequency bands (median values) over time
+    print(f"Power per frequency bands... ")
     tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
 
 
-    ################################################
-    ## optional
-    print(f"Saving figures time-frequency analysis...")
-    plot_tfr(obj_list, acquisition_system, ch_name_10_10)
-    ## optional
-    ################################################
+    # #############################################
+    # # optional
+    # print(f"Saving figures time-frequency analysis...")
+    # plot_tfr(obj_list, acquisition_system, ch_name_10_10)
+    # # optional
+    # #############################################
 
     #############################
     ## boxplots: beta band
@@ -489,7 +501,7 @@ def create_fig_boxplot_single(obj_list, label_seg_list, sel_ch, sel_band):
     for label_seg, ax_id in zip(label_seg_list, ax_list):
         # print(f"label_seg: {label_seg}")
         data, accu = get_data_boxplot(obj_list, label_seg, sel_ch, sel_band)
-        print(f"data {label_seg} len(accu):\n{len(accu)}")
+        # print(f"data {label_seg} len(accu):\n{len(accu)}")
         if ax_id == 0:
             c_list.append(accu)
         else:
