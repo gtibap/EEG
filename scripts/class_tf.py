@@ -97,6 +97,8 @@ class TF_components:
         self.sampling_rate = raw_seg.info['sfreq']
         ## scale selection for visualization raw data with annotations
         self.scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
+        ## flag to identify selected segment
+        self.flag_selection = False
 
     ###################################
     def load_channels_annot_bads(self):
@@ -125,6 +127,13 @@ class TF_components:
 
         return 0
     
+    def data_visualization(self, ax_plot):
+        # display time-series signals
+        fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
+        ## display PSD from time-series signals
+        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_plot, fmin=0.9, fmax=101, xscale='log',)
+        return ax_plot, self.id_seg
+
     ##################################
     def selection_bads(self, flag_update):
         ## load bad channels and bad segments
@@ -365,64 +374,67 @@ class TF_components:
         ax_psd.set_title(f"PSD(EEG) before ICA")
         return 0
     ##################################################
-    def ica_components_interactive(self,):
+    def ica_components_interactive(self, flag_update_ica):
         ## read pre-caluculated ICA model
         read_ica_flag = self.read_ica_model()
         
         ## update list of excluded ICA components or (re-)calculate ICA components
         # flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
         # flag_ica = 0 if (flag_ica == '') else int(flag_ica)
-        flag_ica = 1
-        ## re-calculate ICA components    
-        while flag_ica==1 :
-            ## display psd eeg raw data
-            self.display_psd_rawdata()
-            ## copy of raw data
-            copy_raw_seg = self.raw_seg.copy()
-            
-            if read_ica_flag==False:
-                ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
-                ## ICA fitting model to the filtered raw data
-                self.ica.fit(self.filt_seg, reject_by_annotation=True)
-                self.ica.exclude = []
-            ##
-            ## eeg signals visualization (raw data with bad annot and bad channels)
-            fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)", block=False)
-            ## plot_components shows 2D-topomaps of the ICA components
-            fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components")
-            ## save figure ica plot components
-            self.save_fig_ica_comp(fig_ica_comp)
-            ## interactive selection of ICA components to exclude
-            self.ica.plot_sources(inst=self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
-            print(f"ica excluded components: {self.ica.exclude}")
-            ## visual comparison before and after ICA
-            
-            ## apply ica in place
-            self.ica.apply(copy_raw_seg)
-            self.display_comparison_ica(self.raw_seg, copy_raw_seg)
-            ## update ica calculation flag
-            option_ica = input(f"0: Next\n1: Re-calculate ICA components\n2: Redefine list of exclusion ICA components\n ?: ")
-            option_ica = 0 if (flag_ica == '') else int(flag_ica)
-            if option_ica==1:
-                ## update self.filt_reg bad channels and bad segments
-                    ## bad channels and bad annotations to filtered version of raw data        
-                self.update_channels_annot_bads()
-                ## save on disk bad channels and bad annotations
-                self.save_channels_annot_bads()
-                ## recalculate ICA components
-                read_ica_flag=False
-                ## keep in the loop
-                flag_ica = 1
+        if flag_update_ica:
+            flag_ica = 1
+            ## re-calculate ICA components    
+            while flag_ica==1 :
+                ## display psd eeg raw data
+                self.display_psd_rawdata()
+                ## copy of raw data
+                copy_raw_seg = self.raw_seg.copy()
+                
+                if read_ica_flag==False:
+                    ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+                    ## ICA fitting model to the filtered raw data
+                    print(f"creating an ICA model...")
+                    self.ica.fit(self.filt_seg, reject_by_annotation=True)
+                    self.ica.exclude = []
+                ##
+                ## eeg signals visualization (raw data with bad annot and bad channels)
+                fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)", block=False)
+                ## plot_components shows 2D-topomaps of the ICA components
+                fig_ica_comp = self.ica.plot_components(inst=self.raw_seg, contours=0, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components")
+                ## save figure ica plot components
+                self.save_fig_ica_comp(fig_ica_comp)
+                ## interactive selection of ICA components to exclude
+                self.ica.plot_sources(inst=self.raw_seg, start=0, stop=240, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
+                print(f"ica excluded components: {self.ica.exclude}")
+                ## visual comparison before and after ICA
+                
+                ## apply ica in place
+                self.ica.apply(copy_raw_seg)
+                self.display_comparison_ica(self.raw_seg, copy_raw_seg)
+                ## update ica calculation flag
+                option_ica = int(input(f"0: Save the current model\n1: Re-calculate ICA components\n2: Redefine list of exclusion ICA components\n ?: "))
+                # option_ica = 0 if (flag_ica == '') else int(flag_ica)
+                if option_ica==1:
+                    ## update self.filt_reg bad channels and bad segments
+                        ## bad channels and bad annotations to filtered version of raw data        
+                    self.update_channels_annot_bads()
+                    ## save on disk bad channels and bad annotations
+                    self.save_channels_annot_bads()
+                    ## recalculate ICA components
+                    read_ica_flag=False
+                    ## keep in the loop
+                    flag_ica = 1
+                elif option_ica==2:
+                    ## same ICA model but choosing other components to exclude
+                    ## does not recalculate ICA components
+                    read_ica_flag=True
+                    ## keep in the loop
+                    flag_ica = 1
+                else:
+                    ## break the loop
+                    flag_ica = 0
 
-            elif option_ica==2:
-                ## same ICA model but choosing other components to exclude
-                ## does not recalculate ICA components
-                read_ica_flag=True
-                ## keep in the loop
-                flag_ica = 1
-            else:
-                ## break the loop
-                flag_ica=0
+                print(f"continuous loop: {flag_ica}")
     
         ## optional ############
         ## display EEG before ICA
@@ -433,7 +445,7 @@ class TF_components:
         self.ica_exclude = self.ica.exclude
         print(f"ica excluded components: {self.ica_exclude}")
         ## apply ica
-        copy_raw_seg = self.raw_seg.copy()
+        # copy_raw_seg = self.raw_seg.copy()
         ## ica in place
         self.ica.apply(self.raw_seg)
 
@@ -1002,6 +1014,9 @@ class TF_components:
     def get_label(self):
         return self.label_seg
     
+    def get_label_simple(self):
+        return self.label
+    
     ##################################
     def get_id(self):
         return self.id_seg
@@ -1053,6 +1068,8 @@ class TF_components:
     
     ##################################
     def get_df_ch_bands(self):
+        ## Median values over time from each freq bands (theta, alpha, beta, beta_low, beta_high)
+        ## for a list of selected channels (C3, Cz, C4)
         return self.df_ch_bands
     
     ##################################
@@ -1061,3 +1078,9 @@ class TF_components:
     
     def get_sfreq(self):
         return self.sampling_rate
+    
+    def set_selected_flag(self):
+        self.flag_selection = True
+
+    def get_selected_flag(self):
+        return self.flag_selection

@@ -112,17 +112,20 @@ def get_eeg_segments(raw_data,):
 #############################
 
 #############################
-def baseline_normalization(obj_list, ch_list, label_ref):
+def baseline_normalization(obj_list, selected_segs_dict, ch_list, label_ref):
+    ## dictionary with labels and ids of selected segements
+    id_ref = selected_segs_dict[label_ref]
     ## get the first segment with label equal to label_ref
     id=0
-    while obj_list[id].get_label() != label_ref:
+    while (obj_list[id].get_label_simple() != label_ref) or (obj_list[id].get_id() != id_ref):
         # print(f"{id} label: {obj_list[id].get_label()}")
         id+=1
     ##
     ## selected segment to calculate reference baseline 
     seg_ref = obj_list[id]
+
     print(f"Selected segment to calculate reference baseline: {seg_ref.get_label()}_{seg_ref.get_id()}")
-    ##
+
     ## get reference for baseline normalization
     # print(f"calculating average values for time-frequency normalization...")
     tf_ref, freq_tf = seg_ref.get_tf_baseline()
@@ -132,9 +135,35 @@ def baseline_normalization(obj_list, ch_list, label_ref):
     # for ax_id, arr in enumerate(tf_ref):
     #     ax[ax_id].plot(freq_tf, arr)
 
+    ## normalization of each of the  selected segments
     for obj in obj_list:
-        # print(f"Tf normalization... ")
-        obj.tf_normalization(tf_ref)
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            print(f"{obj.get_label()}-{obj.get_id()}:")
+            # print(f"Tf normalization... ")
+            obj.tf_normalization(tf_ref)
+
+    # ## normalization of each of the  selected segments
+    # for sel_label in selected_segs_dict:
+    #     ## label segment and segment id
+    #     sel_id = selected_segs_dict[sel_label]
+    #     print(f"selected label and id: {sel_label, sel_id}")
+    #     ## for each segment calculate ICA and identify components of noise/artifacts
+    #     ## calculate time-freq transformation for each segment
+    #     for obj in obj_list:
+    #         ## label simple includes: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
+    #         label_seg = obj.get_label_simple()
+    #         id_seg    = obj.get_id()
+    #         print(f"obj label and id: {label_seg, id_seg}")
+    #         ## find the selected segment for each label
+    #         if (label_seg == sel_label) and (id_seg == sel_id):
+    #             print(f"{obj.get_label()}-{obj.get_id()}:")
+    #             # print(f"Tf normalization... ")
+    #             obj.tf_normalization(tf_ref)
+
+    # for obj in obj_list:
+    #     # print(f"Tf normalization... ")
+    #     obj.tf_normalization(tf_ref)
 
     # ## get reference for baseline normalization
     # print(f"calculating average values for time-frequency normalization...")
@@ -144,7 +173,6 @@ def baseline_normalization(obj_list, ch_list, label_ref):
     # fig2, ax2 = plt.subplots(1,3, sharex=True, sharey=True)
     # for ax2_id, arr in enumerate(tf_ref):
     #     ax2[ax2_id].plot(freq_tf, arr)
-
 
     return 0
 
@@ -177,39 +205,114 @@ def annotation_bad_channels_and_segments(obj_list, flag_update):
 
     return 0
 
+#################################################
+def set_selected_segments(obj_list, selected_segs_dict):
+    ## for each segment of each state
+    for sel_label in selected_segs_dict:
+        ## label segment and segment id
+        sel_id = selected_segs_dict[sel_label]
+        print(f"sel_label and id: {sel_label, sel_id}")
+        ## for each segment calculate ICA and identify components of noise/artifacts
+        for obj in obj_list:
+            ## label simple includes: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
+            label_seg = obj.get_label_simple()
+            id_seg    = obj.get_id()
+            print(f"obj label and id: {label_seg, id_seg}")
+            ## find the selected segment for each label
+            if (label_seg == sel_label) and (id_seg == sel_id):
+                obj.set_selected_flag()
+
+    return 0
+
 ###################################################
-def ica_artifacts_reduction(obj_list, flag_update):
-    ## for each segment calculate ICA and identify components of noise/artifacts
+def ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update):
+    ## ica only for selected segments     
     for obj in obj_list:
-        # interactive selection of bad segments and bad channels
-        print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of ICA components to exclude...")
-        # re-referencing appli. average before ICA
-        obj.re_referencing()
-        ##
-        print("ICA components...")
-        # obj.ica_components(flag_update)
-        obj.ica_components_interactive(flag_update)
-        # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            # interactive selection of bad segments and bad channels
+            print(f"{obj.get_label(), obj.get_id()}: interactive selection of ICA components to exclude...")
+            # re-referencing appli. average before ICA
+            obj.re_referencing()
+            ##
+            print("ICA components...")
+            # obj.ica_components(flag_update)
+            obj.ica_components_interactive(flag_update)
+            # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
+
+    ## iterate list segment labels that could includes: a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+    # for sel_label in selected_segs_dict:
+    #     ## label segment and segment id
+    #     sel_id = selected_segs_dict[sel_label]
+    #     print(f"sel_label and id: {sel_label, sel_id}")
+    #     ## for each segment calculate ICA and identify components of noise/artifacts
+    #     for obj in obj_list:
+    #         ## label simple includes: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
+    #         label_seg = obj.get_label_simple()
+    #         id_seg    = obj.get_id()
+    #         print(f"obj label and id: {label_seg, id_seg}")
+    #         ## find the selected segment for each label
+    #         if (label_seg == sel_label) and (id_seg == sel_id):
+    #             # interactive selection of bad segments and bad channels
+    #             print(f"{obj.get_label(), obj.get_id()}: interactive selection of ICA components to exclude...")
+    #             # re-referencing appli. average before ICA
+    #             obj.re_referencing()
+    #             ##
+    #             print("ICA components...")
+    #             # obj.ica_components(flag_update)
+    #             obj.ica_components_interactive(flag_update)
+    #             # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
     return 0
 
 #############################################################    
-def calculate_tf(obj_list, ch_list,):
-    ## calculate time-freq transformation for each segment
+def calculate_tf(obj_list, selected_segs_dict, ch_list,):
+    ## tf calculation only for the selected segments of each state that includes: a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
     for obj in obj_list:
-        print(f"{obj.get_label()}-{obj.get_id()}:")
-        print("Bad channels interpolation...")
-        obj.bads_interpolation()
-        
-        print(f"Current source density (Laplacian surface)...")
-        obj.apply_csd()
-        # print(f"plot csd data...")
-        # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
-        
-        # print(f"PSD selected channels: {ch_list}")
-        # obj.psd_selected_chx(ch_list)
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            print(f"{obj.get_label()}-{obj.get_id()}:")
+            print("Bad channels interpolation...")
+            obj.bads_interpolation()
+            
+            print(f"Current source density (Laplacian surface)...")
+            obj.apply_csd()
+            # print(f"plot csd data...")
+            # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
+            
+            # print(f"PSD selected channels: {ch_list}")
+            # obj.psd_selected_chx(ch_list)
 
-        print(f"Time-frequency transformation...")
-        obj.tf_calculation(ch_list)
+            print(f"Time-frequency transformation...")
+            obj.tf_calculation(ch_list)
+
+    # ## iterate list segment labels that could includes: a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+    # for sel_label in selected_segs_dict:
+    #     ## label segment and segment id
+    #     sel_id = selected_segs_dict[sel_label]
+    #     print(f"selected label and id: {sel_label, sel_id}")
+    #     ## for each segment calculate ICA and identify components of noise/artifacts
+    #     ## calculate time-freq transformation for each segment
+    #     for obj in obj_list:
+    #         ## label simple includes: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
+    #         label_seg = obj.get_label_simple()
+    #         id_seg    = obj.get_id()
+    #         print(f"obj label and id: {label_seg, id_seg}")
+    #         ## find the selected segment for each label
+    #         if (label_seg == sel_label) and (id_seg == sel_id):
+    #             print(f"{obj.get_label()}-{obj.get_id()}:")
+    #             print("Bad channels interpolation...")
+    #             obj.bads_interpolation()
+                
+    #             print(f"Current source density (Laplacian surface)...")
+    #             obj.apply_csd()
+    #             # print(f"plot csd data...")
+    #             # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
+                
+    #             # print(f"PSD selected channels: {ch_list}")
+    #             # obj.psd_selected_chx(ch_list)
+
+    #             print(f"Time-frequency transformation...")
+    #             obj.tf_calculation(ch_list)
 
     return 0
 
@@ -225,15 +328,17 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
         ## for each selected channel
         for obj in obj_list:
             ## for every segment (obj) of each selected channel (ch_name)
-            ## df_ch_bands : theta, beta, alpha activity of selected channels 
-            obj.channel_bands_power(ch_name, eeg_system)
+            ## df_ch_bands : theta, beta, alpha activity of selected channels
+            if obj.get_selected_flag():
+                obj.channel_bands_power(ch_name, eeg_system)
     ##
     ## add bad annotations in df_ch_bands
     for obj in obj_list:
         ## for every segment (obj) of each selected channel (ch_name)
         ## df_ch_bands : theta, beta, alpha activity of selected channels 
         ## add a mask to mark band segments
-        obj.set_annotations_freq_bands()
+        if obj.get_selected_flag():
+            obj.set_annotations_freq_bands()
         # df = obj.get_df_ch_bands()
         # print(f"dataframe {obj.get_label()}--{obj.get_id()}, df shape {df.shape}:\n{df}")
         # print(f"df columns:\n{list(df.columns.values)}")
@@ -271,7 +376,27 @@ def plot_tfr(obj_list, eeg_system, ch_name_list):
         
 
 #     return 0
-    
+#################################################
+def display_segments(obj_list, label_seg_list):
+    ## for each segment observe and identify bad channels and bad segments
+    for label_seg in label_seg_list:
+        fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(9,4), sharey=True, sharex=True)
+        ax = ax.flatten()
+        id_ax = 0
+        for obj in obj_list:
+            # interactive selection of bad segments and bad channels
+            print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
+            if obj.get_label() == label_seg:
+                ## load bad channels and bad annotations
+                ax[id_ax], id_seg = obj.data_visualization(ax[id_ax])
+                ax[id_ax].set_title(f"id = {id_seg}")
+                id_ax+=1
+        fig.suptitle(f"{label_seg}")
+        plt.show(block=True)
+        # flag_bad_ch = input('Include more bad channels? (1 (True), 0 (False)): ')
+
+    return 0
+
 
 ###########################################
 ## EEG filtering and signals pre-processing
@@ -303,7 +428,7 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system, info_p, Dx = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system, info_p, Dx, selected_segs_dict = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
@@ -387,15 +512,24 @@ def main(args):
     flag_update = int(input(f"Update bad-channels or bad-segments (0-False, 1-True)?: "))
     annotation_bad_channels_and_segments(obj_list, flag_update)
 
+    ##############################################
+    ## display PSD and time series signals of each state or label (a_closed_eyes, a_opened_eyes, ...)
+    flag_selection = int(input(f"Update segments' selection (0-False, 1-True)?: "))
+    if flag_selection:
+        ## visual selection of selected segments for each state
+        ## the selected segments are manually set in a list_participant.py, in the "selected_ids_dict"
+        display_segments(obj_list, label_seg_list)
+        return 0
+    
+    ## set a flag for each obj to identify selected segments from each state (a_ce, a_oe, b_ce, b_oe, c_ce, c_oe)
+    set_selected_segments(obj_list, selected_segs_dict)
+
     #############################################
     ## apply ICA to try to remove components of noise and artifacts
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
     # flag_update = True
-    ica_artifacts_reduction(obj_list, flag_update)
-
-    ##############################################
-    ## display PSD after artifact reduction to select the segments of good quality per each label (a_closed_eyes, a_opened_eyes, ...)
-    # display_psd_segments(obj_list, label_seg_list)
+    ## apply ICA to the selected segments, one for each state: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
+    ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update)
 
     ##################
     ## selected channels; the two lists of channels are equivalent, one in the 128 electrodes and the other in the 64 electrodes
@@ -405,14 +539,14 @@ def main(args):
     #################################################
     ## calculate time-frequency transformations for each segment
     ## bad-channels interpolation and current-source-density filter are applied before tf-analysis
-    calculate_tf(obj_list, ch_name_128,)
+    calculate_tf(obj_list, selected_segs_dict, ch_name_128,)
 
     #################################################
     print(f"Baseline normalization...")
     ## reference label for baseline normalization.
     # We chose the first segment of open eyes during resting
-    label_ref = 'a_opened_eyes'
-    baseline_normalization(obj_list, ch_name_128, label_ref)
+    label_ref = 'a_oe'
+    baseline_normalization(obj_list, selected_segs_dict, ch_name_128, label_ref)
 
     # ## save calculated the time-frequency reference for a posterior normalization of each segment
     # try:
@@ -452,6 +586,12 @@ def main(args):
     ## plot's columns [1,0,2] --> channels [Cz,C3,C4] 
     ax_ch_list = [[1,4],[0,3],[2,5]]
     labels = [f'before\ncycling',f'during\ncycling',f'after\ncycling']
+
+    #############
+    #############
+    #########
+    ##############
+    ##########
 
     for sel_ch, ax_ch in zip(ch_name_10_10, ax_ch_list):
         # for sel_band in ['beta_l',]:
