@@ -330,6 +330,7 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
             ## for every segment (obj) of each selected channel (ch_name)
             ## df_ch_bands : theta, beta, alpha activity of selected channels
             if obj.get_selected_flag():
+                ## only for selected segments of each state (a_ce, a_oe, b_ce, ...)
                 obj.channel_bands_power(ch_name, eeg_system)
     ##
     ## add bad annotations in df_ch_bands
@@ -587,12 +588,6 @@ def main(args):
     ax_ch_list = [[1,4],[0,3],[2,5]]
     labels = [f'before\ncycling',f'during\ncycling',f'after\ncycling']
 
-    #############
-    #############
-    #########
-    ##############
-    ##########
-
     for sel_ch, ax_ch in zip(ch_name_10_10, ax_ch_list):
         # for sel_band in ['beta_l',]:
         # create_fig_boxplot(obj_list, label_seg_list, sel_ch, sel_band)
@@ -789,7 +784,7 @@ def get_data_boxplot(obj_list, label_seg, sel_ch, sel_band):
     accu = []
     for obj in obj_list:
         ## includes data from all iterations of selected label_seg
-        if obj.get_label() == label_seg:
+        if obj.get_label() == label_seg and obj.get_selected_flag():
             # print(f"{label_seg}: {obj.get_id()}")
             df = obj.get_df_ch_bands()
             ## exclude data of annot. bad (e.i. mask=1)
