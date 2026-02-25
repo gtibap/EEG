@@ -198,10 +198,12 @@ def eeg_segmentation(eeg_data_dict, eeg_filt_dict, label_seg_list, path, session
 def annotation_bad_channels_and_segments(obj_list, flag_update):
     ## for each segment observe and identify bad channels and bad segments
     for obj in obj_list:
-        # interactive selection of bad segments and bad channels
-        print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
-        obj.selection_bads(flag_update)
-        print(f"bad channels: {obj.get_bad_channels()}\n")
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            # interactive selection of bad segments and bad channels
+            print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
+            obj.selection_bads(flag_update)
+            print(f"bad channels: {obj.get_bad_channels()}\n")
 
     return 0
 
@@ -508,11 +510,6 @@ def main(args):
     ## data segmentation, each segment would be an object 
     obj_list = eeg_segmentation(eeg_data_dict, eeg_filt_dict, label_seg_list, path, session)
 
-    #############################################
-    ## observe EEG signals to identify and select bad segments and bad channels from each segment
-    flag_update = int(input(f"Update bad-channels or bad-segments (0-False, 1-True)?: "))
-    annotation_bad_channels_and_segments(obj_list, flag_update)
-
     ##############################################
     ## display PSD and time series signals of each state or label (a_closed_eyes, a_opened_eyes, ...)
     flag_selection = int(input(f"Update segments' selection (0-False, 1-True)?: "))
@@ -522,9 +519,15 @@ def main(args):
         display_segments(obj_list, label_seg_list)
         return 0
     
+    #################
     ## set a flag for each obj to identify selected segments from each state (a_ce, a_oe, b_ce, b_oe, c_ce, c_oe)
     set_selected_segments(obj_list, selected_segs_dict)
-
+    
+    #############################################
+    ## observe EEG signals to identify and select bad segments and bad channels from each segment
+    flag_update = int(input(f"Update bad-channels or bad-segments (0-False, 1-True)?: "))
+    annotation_bad_channels_and_segments(obj_list, flag_update)
+    
     #############################################
     ## apply ICA to try to remove components of noise and artifacts
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))

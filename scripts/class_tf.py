@@ -403,7 +403,6 @@ class TF_components:
         #     ## read pre-caluculated ICA model
         #     read_ica_flag = self.read_ica_model()
 
-        
         ## update list of excluded ICA components or (re-)calculate ICA components
         # flag_ica = input('Re-calculate ICA components (1-true, 0-False) ?: ')
         # flag_ica = 0 if (flag_ica == '') else int(flag_ica)
