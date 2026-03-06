@@ -575,20 +575,23 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_010
     elif subject == 10:
-        info_p = 'F, '
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 41 y"
         path = path + 'a_neuroplasticity/n_010/'
         if session==0:
             ## soins intermediaire, simultaneous arterial pressure measurements, mackbook
             fn_in = 'session_'+str(session)+'/'+'abc001_20250618_104348.mff'
-            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            fn_csv = ['session_'+str(session)+'/'+'annotations_0.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'A - T3'
+            Dx = 'AIS: A - NLI: T12'
+            date = '3 w postop'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
             rows_plot = 2
         elif session==1:
-            fn_in = ''
-            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            fn_in = 'session_0/abc001_rest post bike_20250618_112812.mff'
+            fn_csv = ['session_0/annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ''
+            Dx = 'AIS: A - NLI: T12'
+            date = '3 w postop'
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -597,6 +600,7 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
 
     ############################
     # neuro_011
@@ -698,39 +702,55 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_014
     elif subject == 14:
-        info_p = 'F, 51 y'
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 51 y"
         path = path + 'a_neuroplasticity/n_014/'
         if session==0:
+            ## wheelchair in the lab with Ossama
             fn_in = 'session_'+str(session)+'/'+'neuro_014_20250725_141440.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'D - '
+            Dx = 'AIS: D - NLI: C1'
+            date = '2 w postop'
+            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
             rows_plot = 2
         elif session==1:
             ## data collected friday, Oct 17, 2025 dans le lab with iMac
             fn_in = 'session_'+str(session)+'/'+'Neuro_014-3mois_20251017_112508.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: C1'
+            date = '14 w postop'
+            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            rows_plot = 2
+        elif session==2:
+            ## data collected in the lab, static chair, macbook, patient able to walk
+            ## 12 janv. 2026, 11 am. She has been improved
+            fn_in = 'session_'+str(session)+'/'+'Neuro_14_6mois_20230124_231451.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'D - '
             rows_plot = 2
-
         else:
             print(f"Data from session {session} did not find.")
             return 0
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     ############################
     # neuro_015
     elif subject == 15:
-        info_p = 'M, 69 y'
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 69 y"
         path = path + 'a_neuroplasticity/n_015/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'neuro_15_go_20250804_114337.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'B - C7'
+            Dx = 'AIS: B - NLI: C7'
+            date = '2 w postop'
+            selected_ids_dict = {'a_ce':2, 'a_oe':3, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -738,17 +758,20 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     ############################
     # neuro_016
     elif subject == 16:
-        info_p = 'M, '
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 62 y"
         path = path + 'a_neuroplasticity/n_016/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'neuro_016_Gi_20250818_114905.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'A - '
+            Dx = 'AIS: A - NLI: T11'
+            date = '3 w postop'
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -756,6 +779,8 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
     ############################
     ############################
     # neuro_017
@@ -768,6 +793,7 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: A - NLI: C4'
             date = '2 w postop'
+            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -792,7 +818,7 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: C5'
             date = '2 w postop'
-            selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':0, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         elif session==1:
             ## lab, wheelchair, unable to walk but with legs mobility
@@ -801,7 +827,7 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: C - NLI: C6'
             date = '12 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -813,15 +839,17 @@ def participants_list(path, subject, session, abt):
     ############################
     ############################
     # neuro_019
-
     elif subject == 19:
-        info_p = ' '
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 40 y"
         path = path + 'a_neuroplasticity/n_019/'
         if session==0:
-            fn_in = 'session_'+str(session)+'/'+'Neuro_018_20250925_141202.mff'
+            ## changement of filename from Neuro_018->Neuro_019
+            fn_in = 'session_'+str(session)+'/'+'Neuro_019_20250925_141202.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: B - NLI: C5'
+            date = '2 w postop'
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':1, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -829,6 +857,7 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     ############################
     # neuro_020
@@ -862,20 +891,24 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_021
     elif subject == 21:
-        info_p = ' '
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 58 y"
         path = path + 'a_neuroplasticity/n_021/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro 21_20251006_103615.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: C - NLI: C5'
+            date = '4 w postop'
+            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         elif session==1:
             ## date: 31 Oct 2025, in the lab with the macbook. Patient in a electric wheelchair
             fn_in = 'session_'+str(session)+'/'+'neuro_021_6sem_20251031_111545.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: C - NLI: C5'
+            date = '7 w postop'
+            selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
             rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
@@ -883,6 +916,7 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     ############################
     # neuro_022
@@ -1154,7 +1188,8 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_031
     elif subject == 31:
-        info_p = 'W, 33y'
+        # info_p = 'W, 33y'
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 33 y"
         path = path + 'a_neuroplasticity/n_031/'
         ###
         if session==0:
@@ -1163,7 +1198,10 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'neuro_31_1er_session_20230126_000007.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            # Dx = ' '
+            Dx = 'AIS: A - NLI: L1'
+            date = '2 w postop'
+            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         ###
         else:
@@ -1172,6 +1210,7 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     
     ############################
     # neuro_032
@@ -1198,7 +1237,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_033
     elif subject == 33:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: ## y"
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 74 y"
         path = path + 'a_neuroplasticity/n_033/'
         ###
         if session==0:
@@ -1207,8 +1246,9 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_033_seance 1_20230214_232416.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'AIS: A - NLI: ##'
-            date = '# w postop'
+            Dx = 'AIS: A - NLI: T8'
+            date = '2 w postop'
+            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         ###
         else:   
@@ -1223,17 +1263,18 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_034
     elif subject == 34:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: ## y"
+        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 73 y"
         path = path + 'a_neuroplasticity/n_034/'
         ###
         if session==0:
             ## patient projet velo, wheel chair, soins intermediaire, before lunch, 11 Feb, 2026, macbook
             ## able to move his hands
-            fn_in = 'session_'+str(session)+'/'+''
+            fn_in = 'session_'+str(session)+'/'+'ABC_001neuro_034_1er_session_20230223_233836.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'AIS: A - NLI: ##'
-            date = '# w postop'
+            Dx = 'AIS: C - NLI: T10'
+            date = '1 w postop'
+            selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':1, 'b_oe':2,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         ###
         else:   
@@ -1255,7 +1296,7 @@ def participants_list(path, subject, session, abt):
             ## session in intermediate care, in a gediatric chair, 19 Feb. 2026, before lunch, macbook
             ## able to move their hands
             ## He had a bandage at the back of his head, occipital area; we need to identify and remove electrodes of that area for analysis
-            fn_in = 'session_'+str(session)+'/'+''
+            fn_in = 'session_'+str(session)+'/'+'Neuro_035_seance 1_20260219_123326.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: A - NLI: ##'
