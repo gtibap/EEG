@@ -712,6 +712,7 @@ class TF_components:
         # print(f"df_theta  shape: {df_theta.shape}")
         # print(f"df_alpha  shape: {df_alpha.shape}")
         # print(f"df_beta shape:   {df_beta.shape}")
+        print(f"df_beta freqs:\n{df_beta['freq']}")
 
         # print(f"df_theta:\n{df_theta}")
         # print(f"df_theta shape:\n{df_theta.shape}")
@@ -752,6 +753,48 @@ class TF_components:
 
         return 0
     
+    ###############################
+    def channel_beta_band_power(self, ch_label, eeg_system):
+        
+        ## 128-channel geodesic to 10-10 equivalent names
+        ch_name = self.get_ch_equivalent(ch_label, eeg_system)
+
+        ## separate components frequency bands theta, alpha, and beta
+        data_ch, times_ch, freqs_ch = self.tfr_seg.get_data(picks=[ch_name],return_times=True, return_freqs=True)
+
+        print(f"Channel {ch_label}/{ch_name} data shape: {data_ch.shape}")
+        # print(f"times shape: {times_ch.shape}")
+        # print(f"freqs shape: {freqs_ch.shape}")
+
+        # plot matrix selected channel (as an image)
+        # fig_tf, ax_tf = plt.subplots(nrows=3, ncols=1, figsize=(16,4), sharey=True, sharex=True)
+        # ax_tf[0].imshow(data_ch[0], aspect='auto', cmap='coolwarm', vmin=-12, vmax=12)
+
+        ## normalized tf matrix to dataframe [VREF]
+        df_tf = pd.DataFrame(data_ch[0])
+        # print(f"df_tf shape: {df_tf.shape}")
+        # rows-->freqs (from the lowest to highest freqs), columns-->times
+        df_tf['freq'] = freqs_ch
+        # print(f"df_tf:\n{df_tf}")
+        ##
+        ## beta power per intervals over time
+        f_range = np.arange(12, 31, 2) 
+        data_dict = {}
+        for f1, f2 in zip(f_range[:-1],f_range[1:]):
+            df  = df_tf.loc[(df_tf['freq'] >= f1)  & (df_tf['freq'] < f2)]
+            df  = df.loc[:,df.columns != 'freq']
+            activity_beta_band  = df.median(axis=0).to_numpy()
+            data_dict[f'{ch_label}_{str(f1)}-{str(f2)} Hz'] = activity_beta_band
+
+        df_bands = pd.DataFrame(data_dict)
+
+        ## concat freq bands activity of selected channels
+        self.df_ch_bands = pd.concat([self.df_ch_bands, df_bands], axis=1,)
+        print(f"beta band response:")
+        print(f"{self.df_ch_bands}")
+
+        return 0
+
     ###############################
     ## plot beta-low and beta-high of selected channels
     def plot_curves_beta_bands(self, ch_list):
