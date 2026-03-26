@@ -327,8 +327,15 @@ def calculate_tf(obj_list, selected_segs_dict, ch_list,):
             # print(f"plot csd data...")
             # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
             
-            # print(f"PSD selected channels: {ch_list}")
-            # obj.psd_selected_chx(ch_list)
+            ## power spetral density
+            print(f"PSD selected channels: {ch_list}")
+            obj.psd_selected_chx(ch_list)
+            # print(f"data: {data_psd}")
+            # print(f"freqs: {freqs_psd}")
+            ## dataframe 
+
+            # print(f"Plot PSD selected channels: {ch_list}")
+            # obj.plot_psd_selected_chx(ch_list)
 
             print(f"Time-frequency transformation...")
             obj.tf_calculation(ch_list)
@@ -364,6 +371,106 @@ def calculate_tf(obj_list, selected_segs_dict, ch_list,):
 
     return 0
 
+########################################################
+def plot_psd_per_channels(obj_list, ch_list):
+    ## plot curves
+    fig, ax = plt.subplots(2,3, sharex=True, sharey=True)
+    ax = ax.flatten()
+    # ax.set_title(f"PSD (EEG)")
+    # ax[0].set_xlim(4,101)
+    # ax[0].set_ylim(-60,10)
+
+    ## from each segment
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            print(f"{obj.get_label()}-{obj.get_id()}:")
+            ## get dataframe of PSD selected channels
+            df = obj.get_df_psd()
+            freqs = df['freq'].to_list()
+            # print(f"{obj.get_label_simple()}")
+            label = obj.get_label_simple()
+
+            ## plot closed-eyes first row, and open-eyes in the second row
+            if label.endswith('ce'):
+                ## plot first row C3, Cz, C4
+                ax[0].semilogx(freqs, df[ch_list[1]].to_list(), label=label[0])
+                ax[1].semilogx(freqs, df[ch_list[0]].to_list(), label=label[0])
+                ax[2].semilogx(freqs, df[ch_list[2]].to_list(), label=label[0])
+            else:
+                ## plot second row C3, Cz, C4
+                ax[3].semilogx(freqs, df[ch_list[1]].to_list(), label=label[0])
+                ax[4].semilogx(freqs, df[ch_list[0]].to_list(), label=label[0])
+                ax[5].semilogx(freqs, df[ch_list[2]].to_list(), label=label[0])
+
+    for id in np.arange(6):
+        ax[id].legend()            
+            
+            # ## power spetral density
+            # print(f"PSD selected channels: {ch_list}")
+            # obj.psd_selected_chx(ch_list)
+    return 0
+
+
+########################################################
+def plot_psd_per_channels_mne(obj_list, ch_list):
+    ## plot curves
+    fig, ax = plt.subplots(2,3, sharex=True, sharey=True)
+    ax = ax.flatten()
+
+    ## from each segment
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            print(f"{obj.get_label()}-{obj.get_id()}:")
+            ## get dataframe of PSD selected channels
+            # df = obj.get_df_psd()
+            # freqs = df['freq'].to_list()
+            # print(f"{obj.get_label_simple()}")
+            label = obj.get_label_simple()
+
+
+            if label.startswith('a'):
+                color = 'tab:blue'
+            elif label.startswith('b'):
+                color = 'tab:orange'
+            elif label.startswith('c'):
+                color = 'tab:green'
+            else:
+                color = 'black'
+
+            ## plot closed-eyes first row, and open-eyes in the second row
+            if label.endswith('ce'):
+                ## plot first row C3, Cz, C4
+                obj.plot_psd_selected_chx_mne(ch_list[1], ax[0], color)
+                obj.plot_psd_selected_chx_mne(ch_list[0], ax[1], color)
+                obj.plot_psd_selected_chx_mne(ch_list[2], ax[2], color)
+            else:
+                ## plot second row C3, Cz, C4
+                obj.plot_psd_selected_chx_mne(ch_list[1], ax[3], color)
+                obj.plot_psd_selected_chx_mne(ch_list[0], ax[4], color)
+                obj.plot_psd_selected_chx_mne(ch_list[2], ax[5], color)
+
+    # ax.set_title(f"PSD (EEG)")
+    ax[0].set_xlim(4,101)
+    ax[0].set_ylim(-60,10)
+
+    ax[0].set_title(f"C3- closed-eyes")
+    ax[1].set_title(f"Cz- closed-eyes")
+    ax[2].set_title(f"C4- closed-eyes")
+    ax[3].set_title(f"C3- open-eyes")
+    ax[4].set_title(f"Cz- open-eyes")
+    ax[5].set_title(f"C4- open-eyes")
+
+
+    for id in np.arange(6):
+        ax[id].legend(['resting','cycling'], labelcolor=['tab:blue','tab:orange'],)            
+            
+            # ## power spetral density
+            # print(f"PSD selected channels: {ch_list}")
+            # obj.psd_selected_chx(ch_list)
+    return 0
+
 ##########################################################
 def tf_freq_bands(obj_list, eeg_system, ch_name_list):
     ##
@@ -380,6 +487,7 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
             if obj.get_selected_flag():
                 ## only for selected segments of each state (a_ce, a_oe, b_ce, ...)
                 # obj.channel_bands_power(ch_name, eeg_system)
+                print (f"{obj.get_label()}_{obj.get_id()} beta band frequency components...")
                 obj.channel_beta_band_power(ch_name, eeg_system)
     ##
     ## add bad annotations in df_ch_bands
@@ -395,6 +503,17 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
     ##
 
     return 0
+
+###############################
+def tf_beta_plot(obj_list, ch_name_list):
+    ## plot curves of beta band components
+    for obj in obj_list[8:10]:
+        ## for every segment (obj) generate a fig for each selected channel (C3, Cz, C4)
+        if obj.get_selected_flag():
+            ## save figure of time-frequency analysis for each selected channel
+            obj.curves_beta_plot(ch_name_list,)
+    return 0
+
 
 ##########################################################
 def plot_tfr(obj_list, eeg_system, ch_name_list):
@@ -593,6 +712,20 @@ def main(args):
     ## bad-channels interpolation and current-source-density filter are applied before tf-analysis
     calculate_tf(obj_list, selected_segs_dict, ch_name_128,)
 
+    ##################################################
+    print(f"Plot PSD per selected channels...")
+    # plot_psd_per_channels(obj_list, ch_name_128)
+    plot_psd_per_channels_mne(obj_list, ch_name_128)
+
+    ##################################################
+    ## plot PSD using the mne function
+    
+
+    plt.show(block=True)
+
+    return 0
+
+
     #################################################
     print(f"Baseline normalization...")
     ## reference label for baseline normalization.
@@ -601,6 +734,9 @@ def main(args):
     # We chose the first segment of closed eyes during resting
     # label_ref = 'a_ce'
     # baseline_normalization(obj_list, selected_segs_dict, ch_name_128, label_ref)
+    ## normalization using two references:
+    ## ref for open-eyes: a_oe
+    ## ref for closed-eyes: a_ce
     baseline_normalization_two_ref(obj_list, selected_segs_dict,)
 
     # ## save calculated the time-frequency reference for a posterior normalization of each segment
@@ -614,10 +750,15 @@ def main(args):
     # print(f"tf_ref shape {tf_ref.shape}")
     # print(f"tf_ref:\n{tf_ref}")
 
-    # ###########################
-    ## values of frequency bands (median values) over time
-    print(f"Power per frequency bands... ")
-    tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
+    # # ###########################
+    # ## values of frequency bands (median values) over time
+    # print(f"Power per frequency bands... ")
+    # tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
+
+    # print(f"plot beta band activity...")
+    # tf_beta_plot(obj_list, ch_name_10_10)
+
+    plt.show(block=True)
 
     return 0
 

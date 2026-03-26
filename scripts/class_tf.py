@@ -30,10 +30,10 @@ class TF_components:
             self.title_fig = 'resting (before cycling) open-eyes'
         elif label_seg == 'b_closed_eyes':
             self.label = 'b_ce'
-            self.title_fig = 'ABT (cycling) closed-eyes'
+            self.title_fig = 'passive cycling closed-eyes'
         elif label_seg == 'b_opened_eyes':
             self.label = 'b_oe'
-            self.title_fig = 'ABT (cycling) open-eyes'
+            self.title_fig = 'passive cycling open-eyes'
         elif label_seg == 'c_closed_eyes':
             self.label = 'c_ce'
             self.title_fig = 'resting (after cycling) closed-eyes'
@@ -62,6 +62,7 @@ class TF_components:
 
         # pandas data frames
         self.df_ch_bands = pd.DataFrame()
+        self.df_psd = pd.DataFrame()
 
         ## create folder to save preprocesing parameters
         Path(path+'session_'+str(session)+"/prep/"+self.label_seg).mkdir(parents=True, exist_ok=True)
@@ -567,14 +568,63 @@ class TF_components:
 
         return 0
     
+    #####################################
     def psd_selected_chx(self, channels_list):
+        ## compute power spectral density
+        data, freqs = self.raw_seg.compute_psd(reject_by_annotation = True,).get_data(picks=channels_list, fmin=0.9, fmax=101, return_freqs=True)
+
+        data = 10 * np.log10(data)
+
+        self.df_psd['freq'] = freqs
+        for ch_name, ch_data in zip(channels_list, data):
+            self.df_psd[ch_name] = ch_data
+        
+        print(f"psd chx:\n{self.df_psd}")
+
+        return 0
+    
+    #####################################
+    def plot_psd_selected_chx(self, channels_list):
 
         fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-        fig_psd = mne.viz.plot_raw_psd(self.raw_seg, picks=channels_list, fmin=0.9, fmax=101, xscale='log', ax=ax_psd, show=False,)
+        # Set background color of the outer area of the figure
+        fig_psd.set_facecolor('0.65')
+        ax_psd.set_facecolor('0.65')
+        fig_psd = mne.viz.plot_raw_psd(self.raw_seg, picks=channels_list, fmin=0.9, fmax=101, reject_by_annotation = True, xscale='log', ax=ax_psd, show=False,)
+        ax_psd.set_title(f"PSD (EEG) -- {self.title_fig}")
+        ax_psd.set_xlim(4,101)
+        ax_psd.set_ylim(-60,10)
         try:
-            fig_psd.grab().save(self.psd_chx_filename)
+            # fig_psd.grab().save(self.psd_chx_filename)
+            fig_psd.savefig(self.psd_chx_filename)
+            # pass
         except:
             print(f"Error: something went wrong saving csd.")
+
+            ##
+            # ax_psd.set_title(f"PSD (EEG) -- {self.label_seg}_{self.id_seg}")
+            # Save figures
+            # fig_psd.savefig(self.psd_filename)
+
+        return 0
+    
+    #####################################
+    def plot_psd_selected_chx_mne(self, ch_name, ax, color):
+
+        # fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        # Set background color of the outer area of the figure
+        # fig_psd.set_facecolor('0.65')
+        # ax_psd.set_facecolor('0.65')
+        mne.viz.plot_raw_psd(self.raw_seg, picks=[ch_name], fmin=0.9, fmax=101, reject_by_annotation = True, xscale='log', ax=ax, color=color, spatial_colors=False, show=False,)
+        # ax_psd.set_title(f"PSD (EEG) -- {self.title_fig}")
+        # ax_psd.set_xlim(4,101)
+        # ax_psd.set_ylim(-60,10)
+        # try:
+        #     # fig_psd.grab().save(self.psd_chx_filename)
+        #     fig_psd.savefig(self.psd_chx_filename)
+        #     # pass
+        # except:
+        #     print(f"Error: something went wrong saving csd.")
 
             ##
             # ax_psd.set_title(f"PSD (EEG) -- {self.label_seg}_{self.id_seg}")
@@ -795,6 +845,32 @@ class TF_components:
 
         return 0
 
+    ###############################
+    def curves_beta_plot(self, ch_name_list,):
+        ## plot curves beta band for each selected channel
+        fig, ax = plt.subplots(3,3, figsize=(9,9), sharex=True, sharey=True)
+        ax = ax.flatten()
+        arr_time = self.df_ch_bands['time'].to_list()
+        for ch_name in ch_name_list:
+            ## select columns related to each selected channel
+            filter_col = [col for col in self.df_ch_bands if col.startswith(ch_name)]
+            # print(f"filter_col: {filter_col}")
+            # df = self.df_ch_bands.iloc[]
+            ## plot curves per channel
+            i=0
+            for col_name in filter_col:
+                arr_curve = self.df_ch_bands[col_name].to_list()
+                ax[i].plot(arr_time, arr_curve)
+                ax[i].set_title(f"{col_name[3:]}")
+                i+=1
+
+        for a in ax:
+            a.legend(ch_name_list)
+
+        fig.suptitle(f"{self.title_fig}")
+
+        return 0
+    
     ###############################
     ## plot beta-low and beta-high of selected channels
     def plot_curves_beta_bands(self, ch_list):
@@ -1172,3 +1248,9 @@ class TF_components:
 
     def get_selected_flag(self):
         return self.flag_selection
+    
+    def get_df_psd(self):
+        return self.df_psd
+    
+    
+        
