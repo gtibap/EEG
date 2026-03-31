@@ -13,6 +13,7 @@ import sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.lines as mlines
 
 from channels_tfr import selected_channels
 ## include modules from another directory
@@ -323,13 +324,13 @@ def calculate_tf(obj_list, selected_segs_dict, ch_list,):
             obj.bads_interpolation()
             
             print(f"Current source density (Laplacian surface)...")
-            obj.apply_csd()
+            obj.apply_csd(ch_list)
             # print(f"plot csd data...")
             # seg_ref.plot_time_series('csd', 'After Laplacian surface filter (current source density)')
             
             ## power spetral density
-            print(f"PSD selected channels: {ch_list}")
-            obj.psd_selected_chx(ch_list)
+            # print(f"PSD selected channels: {ch_list}")
+            # obj.psd_selected_chx(ch_list)
             # print(f"data: {data_psd}")
             # print(f"freqs: {freqs_psd}")
             ## dataframe 
@@ -413,10 +414,15 @@ def plot_psd_per_channels(obj_list, ch_list):
 
 
 ########################################################
-def plot_psd_per_channels_mne(obj_list, ch_list):
+def plot_psd_per_channels_mne(obj_list, ch_list, filename, info_p):
     ## plot curves
-    fig, ax = plt.subplots(2,3, sharex=True, sharey=True)
+    fig, ax = plt.subplots(2,3, figsize=(10,5), sharex=True, sharey=True)
     ax = ax.flatten()
+
+    flag_a = False
+    flag_b = False
+    flag_c_oe = False
+    flag_c_ce = False
 
     ## from each segment
     for obj in obj_list:
@@ -429,23 +435,35 @@ def plot_psd_per_channels_mne(obj_list, ch_list):
             # print(f"{obj.get_label_simple()}")
             label = obj.get_label_simple()
 
-
             if label.startswith('a'):
+                ## resting pre-cycling
                 color = 'tab:blue'
+                flag_a = True
             elif label.startswith('b'):
+                ## cycling
                 color = 'tab:orange'
+                flag_b = True
             elif label.startswith('c'):
+                ## resting post-cycling
                 color = 'tab:green'
+                if label.endswith('oe'):
+                    flag_c_oe = True
+                elif label.endswith('ce'):
+                    flag_c_ce = True
+                else:
+                    pass
             else:
                 color = 'black'
 
             ## plot closed-eyes first row, and open-eyes in the second row
             if label.endswith('ce'):
+                ## closed-eyes first row plot
                 ## plot first row C3, Cz, C4
                 obj.plot_psd_selected_chx_mne(ch_list[1], ax[0], color)
                 obj.plot_psd_selected_chx_mne(ch_list[0], ax[1], color)
                 obj.plot_psd_selected_chx_mne(ch_list[2], ax[2], color)
             else:
+                ## open-eyes second row plot
                 ## plot second row C3, Cz, C4
                 obj.plot_psd_selected_chx_mne(ch_list[1], ax[3], color)
                 obj.plot_psd_selected_chx_mne(ch_list[0], ax[4], color)
@@ -453,22 +471,42 @@ def plot_psd_per_channels_mne(obj_list, ch_list):
 
     # ax.set_title(f"PSD (EEG)")
     ax[0].set_xlim(4,101)
-    ax[0].set_ylim(-60,10)
+    ax[0].set_ylim(-40,10)
 
-    ax[0].set_title(f"C3- closed-eyes")
-    ax[1].set_title(f"Cz- closed-eyes")
-    ax[2].set_title(f"C4- closed-eyes")
-    ax[3].set_title(f"C3- open-eyes")
-    ax[4].set_title(f"Cz- open-eyes")
-    ax[5].set_title(f"C4- open-eyes")
+    ax[0].set_title(f"C3 - closed-eyes")
+    ax[1].set_title(f"Cz - closed-eyes")
+    ax[2].set_title(f"C4 - closed-eyes")
+    ax[3].set_title(f"C3 - open-eyes")
+    ax[4].set_title(f"Cz - open-eyes")
+    ax[5].set_title(f"C4 - open-eyes")
 
+    ax[3].set_xlabel(f"frequency [Hz]")
+    ax[4].set_xlabel(f"frequency [Hz]")
+    ax[5].set_xlabel(f"frequency [Hz]")
 
+    ax[1].set_ylabel(f"")
+    ax[2].set_ylabel(f"")
+    ax[4].set_ylabel(f"")
+    ax[5].set_ylabel(f"")
+
+    ## legend for each plot
+    label_rest_1 = mlines.Line2D([], [], color='tab:blue', label='pre_cycling')
+    label_cycling = mlines.Line2D([], [], color='tab:orange', label='cycling')
+    label_rest_2 = mlines.Line2D([], [], color='tab:green', label='post_cycling')
     for id in np.arange(6):
-        ax[id].legend(['resting','cycling'], labelcolor=['tab:blue','tab:orange'],)            
-            
-            # ## power spetral density
-            # print(f"PSD selected channels: {ch_list}")
-            # obj.psd_selected_chx(ch_list)
+        if flag_a:
+            ax[id].legend(handles=[label_rest_1])
+        if flag_a and flag_b:
+            ax[id].legend(handles=[label_rest_1, label_cycling])
+        if flag_a and flag_b and flag_c_ce and id < 3:
+            ax[id].legend(handles=[label_rest_1, label_cycling,label_rest_2])
+        if flag_a and flag_b and flag_c_oe and id >= 3:
+            ax[id].legend(handles=[label_rest_1, label_cycling,label_rest_2])
+
+    ## save fig
+    fig.suptitle(f"{info_p}")
+    fig.savefig(filename, bbox_inches ="tight")            
+
     return 0
 
 ##########################################################
@@ -486,9 +524,9 @@ def tf_freq_bands(obj_list, eeg_system, ch_name_list):
             ## df_ch_bands : theta, beta, alpha activity of selected channels
             if obj.get_selected_flag():
                 ## only for selected segments of each state (a_ce, a_oe, b_ce, ...)
-                # obj.channel_bands_power(ch_name, eeg_system)
-                print (f"{obj.get_label()}_{obj.get_id()} beta band frequency components...")
-                obj.channel_beta_band_power(ch_name, eeg_system)
+                obj.channel_bands_power(ch_name, eeg_system)
+                # print (f"{obj.get_label()}_{obj.get_id()} beta band frequency components...")
+                # obj.channel_beta_band_power(ch_name, eeg_system)
     ##
     ## add bad annotations in df_ch_bands
     for obj in obj_list:
@@ -572,7 +610,7 @@ def display_segments(obj_list, label_seg_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate
+    global sampling_rate, psd_fig_name
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -712,19 +750,14 @@ def main(args):
     ## bad-channels interpolation and current-source-density filter are applied before tf-analysis
     calculate_tf(obj_list, selected_segs_dict, ch_name_128,)
 
+    # plt.show(block=True)
+    # return 0
+
     ##################################################
     print(f"Plot PSD per selected channels...")
+    psd_plot_filename = path_fig_boxplot + 'psd_selected_chx.png'
     # plot_psd_per_channels(obj_list, ch_name_128)
-    plot_psd_per_channels_mne(obj_list, ch_name_128)
-
-    ##################################################
-    ## plot PSD using the mne function
-    
-
-    plt.show(block=True)
-
-    return 0
-
+    plot_psd_per_channels_mne(obj_list, ch_name_128, psd_plot_filename, info_p)
 
     #################################################
     print(f"Baseline normalization...")
@@ -750,24 +783,22 @@ def main(args):
     # print(f"tf_ref shape {tf_ref.shape}")
     # print(f"tf_ref:\n{tf_ref}")
 
-    # # ###########################
-    # ## values of frequency bands (median values) over time
-    # print(f"Power per frequency bands... ")
-    # tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
+    # ###########################
+    ## values of frequency bands (median values) over time
+    print(f"Power per frequency bands... ")
+    tf_freq_bands(obj_list, acquisition_system, ch_name_10_10)
 
+    ######################################
+    ## plot curves of Beta-band activity. The data is obtained by the previous function: tf_freq_bands()
     # print(f"plot beta band activity...")
     # tf_beta_plot(obj_list, ch_name_10_10)
 
-    plt.show(block=True)
-
-    return 0
-
-    # #############################################
-    # # optional
-    # print(f"Saving figures time-frequency analysis...")
-    # plot_tfr(obj_list, acquisition_system, ch_name_10_10)
-    # # optional
-    # #############################################
+    #############################################
+    # optional
+    print(f"Saving figures time-frequency analysis...")
+    plot_tfr(obj_list, acquisition_system, ch_name_10_10)
+    # optional
+    #############################################
 
     #############################
     ## boxplots: beta band

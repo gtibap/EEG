@@ -554,15 +554,18 @@ class TF_components:
         return 0
     
     ##################################
-    def apply_csd(self):
+    def apply_csd(self, ch_list):
         # self.raw_seg_csd = mne.preprocessing.compute_current_source_density(self.raw_seg_ica)
         ## in place
         self.raw_seg = mne.preprocessing.compute_current_source_density(self.raw_seg)
         
         ## save figure csd
-        fig_csd = mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
+        # fig_csd = mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
+        fig_csd = self.raw_seg.plot(picks=ch_list, start=0, duration=240, n_channels=32, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian - {self.title_fig}', show=False, block=False)
         try:
             fig_csd.grab().save(self.csd_filename)
+            # fig_csd.savefig(self.csd_filename, bbox_inches ="tight")
+            print(f"Plot of raw data after surface laplacian saved.")
         except:
             print(f"Error: something went wrong saving csd.")
 
@@ -615,7 +618,11 @@ class TF_components:
         # Set background color of the outer area of the figure
         # fig_psd.set_facecolor('0.65')
         # ax_psd.set_facecolor('0.65')
-        mne.viz.plot_raw_psd(self.raw_seg, picks=[ch_name], fmin=0.9, fmax=101, reject_by_annotation = True, xscale='log', ax=ax, color=color, spatial_colors=False, show=False,)
+        
+        # mne.viz.plot_raw_psd(self.raw_seg, picks=[ch_name], fmin=0.9, fmax=101, n_overlap=1024, reject_by_annotation = True, xscale='log', ax=ax, color=color, spatial_colors=False, show=False,)
+
+        self.raw_seg.compute_psd(fmin=0.9, fmax=101, picks=[ch_name], reject_by_annotation = True, n_overlap=1024,).plot(xscale='log', axes=ax, color=color, spatial_colors=False, show=False, )
+
         # ax_psd.set_title(f"PSD (EEG) -- {self.title_fig}")
         # ax_psd.set_xlim(4,101)
         # ax_psd.set_ylim(-60,10)
@@ -1156,7 +1163,7 @@ class TF_components:
         #         ax_tf.fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:pink', alpha=0.5, transform=ax_tf.get_xaxis_transform())
         #         ##
 
-        fig_tf.savefig(f"{self.tf_ch_filename}_{ch_name}.png")
+        fig_tf.savefig(f"{self.tf_ch_filename}_{ch_name}_csd.png")
         plt.close(fig_tf)
 
         return 0
