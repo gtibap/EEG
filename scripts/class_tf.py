@@ -15,12 +15,13 @@ from scipy.interpolate import make_splrep
 
 class TF_components:
 
-    def __init__(self, path, session, raw_seg, filt_seg, label_seg, id_seg):
+    def __init__(self, path, session, raw_seg, filt_seg, label_seg, id_seg, pt_info):
         ## EEG data per segment
         self.raw_seg = raw_seg
         self.filt_seg = filt_seg
         self.id_seg = id_seg
         self.label_seg = label_seg
+        self.pt_info = pt_info
 
         if label_seg == 'a_closed_eyes':
             self.label = 'a_ce'
@@ -390,7 +391,7 @@ class TF_components:
     ##############################
     def display_psd_rawdata(self):
         fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd, show=False,)
+        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd, show=False, exclude=['VREF'],)
         ax_psd.set_title(f"PSD(EEG) before ICA")
         return 0
     ##################################################
@@ -531,8 +532,8 @@ class TF_components:
         # print(f"EEG signals display after ICA...")
         fig_psd_ica, ax_psd_ica = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
 
-        mne.viz.plot_raw_psd(raw_before_ica, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[0], show=False,)
-        mne.viz.plot_raw_psd(raw_after_ica, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[1], show=False,)
+        mne.viz.plot_raw_psd(raw_before_ica, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[0], show=False, exclude=['VREF'],)
+        mne.viz.plot_raw_psd(raw_after_ica, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[1], show=False, exclude=['VREF'],)
 
         ax_psd_ica[0].set_title(f"PSD(EEG) before ICA")
         ax_psd_ica[1].set_title(f"PSD(EEG) after ICA")
@@ -644,9 +645,12 @@ class TF_components:
     def tf_calculation(self, ch_list):
         ## Time-frequency (tf) decomposition from each EEG channel
         ## logarithmic scale frequencies
-        start= 0.60 # 10^start,  
-        stop = 1.50 # 10^stop
-        num  = 75 # samplesq
+        # start= 0.60 # 10^start,  
+        # stop = 1.50 # 10^stop
+        # num  = 75 # samplesq
+        start= 0.01 # 10^start, 0.01 -> ~  1 Hz  
+        stop = 1.60 # 10^stop,  1.60 -> ~ 40 Hz
+        num  = 200 # samplesq
         freqs = np.logspace(start, stop, num=num,)
         # print(f'log freqs: {freqs}')
 
@@ -702,6 +706,38 @@ class TF_components:
         return self.baseline_tf.data, freqs_tf
     
     ###############################
+    def get_tf_mean(self):
+
+        data_tf, times_tf, freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
+        ## create a mask to avoid data of bad segments
+        mask_data_tf = np.zeros(data_tf.shape)
+        # self.mask_ann = np.zeros(len(self.times_tf))
+        ## annotations bad segments
+        for ann in self.bad_annot_list:
+            if ann['description'].startswith('bad'):
+                onset = ann['onset']
+                duration = ann['duration']
+                print(f"bad segment:\nonset: {onset}\nduration: {duration}")
+                ## identify samples inside the bad segment
+                idx_times = np.nonzero((times_tf>=onset) & (times_tf<(onset+duration)))
+                ## initial (t0) and final (t1) samples of the bad segment
+                t0 = idx_times[0][0]
+                t1 = idx_times[0][-1]
+                # print(f"samples bad segment (t0, t1): ({t0,t1})")
+                ## a mask for all channels, all frequencies, and same range in time (between t0 and t1)
+                mask_data_tf[:,:,t0:t1]=1
+                # self.mask_ann[t0:t1]=1
+        ## including a mask to avoid bad segments in the mean calculation
+        data_tf_masked = np.ma.array(data_tf, mask=mask_data_tf)
+        ## mean values per frequency per channel (ref for baseline normalization)
+        tf_mean = data_tf_masked.mean(axis=2)
+        # self.baseline_tf = self.baseline_tf.data
+
+        # print(f"ref baseline data shape: {self.baseline_tf.shape}")
+        # print(f"ref baseline data:\n{self.baseline_tf}")
+        return tf_mean.data, freqs_tf
+    
+    ###############################
     def tf_normalization(self, tf_ref):
 
         data_tf, times_tf, freqs_tf = self.tfr_seg.get_data(return_times=True, return_freqs=True)
@@ -714,15 +750,22 @@ class TF_components:
 
         id_ch=0
         # print(f"normalization ch:")
-        for mean_ch, arr_num in zip(tf_ref, data_tf):
+        for mean_tf, arr_tf in zip(tf_ref, data_tf):
             # mean for each frequency per channel
             ## mean_ch is an array with a number of elements equal to the number of evaluated frequencies
             ## each element of the array represents the mean value of time samples per each frequency
-            arr_den = np.repeat(mean_ch, dim_t, axis=0).reshape(len(mean_ch),-1)
-            arr_dB = 10*np.log10(arr_num / arr_den)
+            arr_baseline = np.repeat(mean_tf, dim_t, axis=0).reshape(len(mean_tf),-1)
+            
+            ## Decibel Conversion
+            # arr_dB = 10*np.log10(arr_tf / arr_baseline)
+
+            ## Percentage Change 
+            print(f"percentage change normalization...")
+            arr_PC = 100*((arr_tf - arr_baseline) / arr_baseline)
+
             # print(f"mean_ch ch arr_res:{mean_ch.shape} {id_ch}, {arr_dB.shape}")
-            # data_bl[id_ch] = arr_dB
-            data_tf_norm[id_ch] = arr_dB
+            # data_tf_norm[id_ch] = arr_dB
+            data_tf_norm[id_ch] = arr_PC
             # print(f"{id_ch}", end=", ")
             id_ch+=1
         # print(f"")
@@ -1150,7 +1193,7 @@ class TF_components:
         arr_mask = np.repeat(arr_mask, len(freqs_tf),axis=0)
 
         range = (-12,12)
-        self.tfr_seg.plot(picks=[ch_label], mask=arr_mask, mask_alpha=0.5, title=f"Time-frequency power, channel: {ch_name}, {self.title_fig} {self.id_seg}\ndB change from baseline", yscale='auto', vlim=range, axes=ax_tf, show=False)
+        self.tfr_seg.plot(picks=[ch_label], mask=arr_mask, mask_alpha=0.5, title=f"{self.pt_info[:6]}, Time-frequency power, channel: {ch_name}, {self.title_fig} {self.id_seg}\ndB change from baseline", yscale='auto', vlim=range, axes=ax_tf, show=False)
 
             # self.tfr_seg.plot(picks=[ch_label], title=f"Power ({ch_name})", yscale='auto', axes=ax_tf, show=False)
 
@@ -1163,7 +1206,7 @@ class TF_components:
         #         ax_tf.fill_between(self.times_tf, 0, 1, where=((self.times_tf >= onset)&(self.times_tf < (onset+duration))), color='tab:pink', alpha=0.5, transform=ax_tf.get_xaxis_transform())
         #         ##
 
-        fig_tf.savefig(f"{self.tf_ch_filename}_{ch_name}_csd.png")
+        fig_tf.savefig(f"{self.tf_ch_filename}_{ch_name}.png")
         plt.close(fig_tf)
 
         return 0

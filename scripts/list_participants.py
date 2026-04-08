@@ -6,6 +6,7 @@ selected_ids_dict = {'a_ce':np.nan, 'a_oe':np.nan, 'b_ce':np.nan, 'b_oe':np.nan,
 
 def participants_list(path, subject, session, abt):
     global selected_ids_dict
+    ref_num = 203
 
         # Mme Chen
     if subject == 100:
@@ -218,7 +219,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # Mr Gerardo
     elif subject == 203:
-        info_p = f" ID: C_{str(subject-200).zfill(2)}, Sex: M, Age: 44 y"
+        info_p = f"ID:C{str(subject-ref_num).zfill(2)}, Sex: M, Age: 44 y"
         Dx = 'Neuro-intact (control)'
         if session==0:
             date = ''
@@ -238,7 +239,7 @@ def participants_list(path, subject, session, abt):
     elif subject == 204:
         # info_p = 'H, ~20 y'
         Dx = 'Neuro-intact (control)'
-        info_p = f" ID: C_{str(subject-200).zfill(2)}, Sex: M, Age: ~20 y"
+        info_p = f"ID:C{str(subject-ref_num).zfill(2)}, Sex: M, Age: ~20 y"
         path = path + 'a_neuroplasticity/control_01/'
         fn_in = 'neuro_C01_ha_20230107_192613.mff'
         fn_csv = ['annotations.fif','']
@@ -254,7 +255,7 @@ def participants_list(path, subject, session, abt):
     # Mr Phillipe
     elif subject == 205:
         # info_p = 'H, ~20 y'
-        info_p = f" ID: C_{str(subject-200).zfill(2)}, Sex: M, Age: ~20 y"
+        info_p = f"ID:C{str(subject-ref_num).zfill(2)}, Sex: M, Age: ~20 y"
         Dx = 'Neuro-intact (control)'
         path = path + 'a_neuroplasticity/control_02/'
         fn_in = 'neuro_control_02_phi_20230115_213158.mff'
@@ -271,7 +272,7 @@ def participants_list(path, subject, session, abt):
     # Mr Oussama
     elif subject == 206:
         # info_p = 'H, 20 - 30 y'
-        info_p = f" ID: C_{str(subject-200).zfill(2)}, Sex: M, Age: ~ 20-30 y"
+        info_p = f"ID:C{str(subject-ref_num).zfill(2)}, Sex: M, Age: ~ 20-30 y"
         Dx = 'Neuro-intact (control)'
         path = path + 'a_neuroplasticity/control_03/'
         fn_in = 'neuro_control_003_Ou_20230115_233355.mff'
@@ -288,7 +289,7 @@ def participants_list(path, subject, session, abt):
     # Mr Karim
     elif subject == 207:
         # info_p = 'H, ~20 y'
-        info_p = f" ID: C_{str(subject-200).zfill(2)}, Sex: M, Age: ~ 20 y"
+        info_p = f"ID:C{str(subject-ref_num).zfill(2)}, Sex: M, Age: ~ 20 y"
         Dx = 'Neuro-intact (control)'
         path = path + 'a_neuroplasticity/control_04/'
         fn_in = 'neuro_control_04_ka_20250724_171515.mff'
@@ -305,7 +306,7 @@ def participants_list(path, subject, session, abt):
     # Mr Luis Alejandro
     elif subject == 208:
         # info_p = 'H, ~20 y'
-        info_p = f" ID: C_{str(subject-200).zfill(2)}, Sex: M, Age: ~ 20 y"
+        info_p = f"ID:C{str(subject-ref_num).zfill(2)}, Sex: M, Age: ~ 20 y"
         Dx = 'Neuro-intact (control)'
         path = path + 'a_neuroplasticity/control_05/'
         fn_in = 'neuro_control_05_luis_20250730_152919.mff'
@@ -324,7 +325,7 @@ def participants_list(path, subject, session, abt):
 
     # neuro_001
     elif subject == 1:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 58 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 58 y"
         path = path + 'a_neuroplasticity/n_001/'
         if session==0:
             ## acquisition date: January 13, 2025, imac, probably in the stage
@@ -366,7 +367,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_002
     elif subject == 2:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 64 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 64 y"
         path = path + 'a_neuroplasticity/n_002/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro_002_20250117_110033.mff'
@@ -458,7 +459,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_005
     elif subject == 5:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 18 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 18 y"
         if session==0:
             path = path + 'a_neuroplasticity/n_005/'
             fn_in = 'session_'+str(session)+'/'+'Neuro_005_20250106_111519.mff'
@@ -519,7 +520,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_007
     elif subject == 7:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 59 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 59 y"
         path = path + 'a_neuroplasticity/n_007/'
         if session==0:
             ## 25 Feb, 2025
@@ -573,7 +574,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_009
     elif subject == 9:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 63 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 63 y"
         path = path + 'a_neuroplasticity/n_009/'
         if session==0:
             ## date of data acquisition: May 09, 2025
@@ -613,7 +614,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_010
     elif subject == 10:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 41 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: F, Age: 41 y"
         path = path + 'a_neuroplasticity/n_010/'
         if session==0:
             ## soins intermediaire, simultaneous arterial pressure measurements, mackbook
@@ -643,7 +644,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_011
     elif subject == 11:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 20 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 20 y"
         path = path + 'a_neuroplasticity/n_011/'
         if session==0:
             ## hospital room, macbook
@@ -669,7 +670,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_012
     elif subject == 12:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 56 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 56 y"
         path = path + 'a_neuroplasticity/n_012/'
         if session==0:
             ## 10 Jul 2025
@@ -752,7 +753,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_014
     elif subject == 14:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 51 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: F, Age: 51 y"
         path = path + 'a_neuroplasticity/n_014/'
         if session==0:
             ## wheelchair in the lab with Ossama, macbook, during hospitalization
@@ -796,7 +797,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_015
     elif subject == 15:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 69 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 69 y"
         path = path + 'a_neuroplasticity/n_015/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'neuro_15_go_20250804_114337.mff'
@@ -818,7 +819,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_016
     elif subject == 16:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 62 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 62 y"
         path = path + 'a_neuroplasticity/n_016/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'neuro_016_Gi_20250818_114905.mff'
@@ -840,7 +841,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_017
     elif subject == 17:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 42 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 42 y"
         path = path + 'a_neuroplasticity/n_017/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro_0017_2sem_20250912_103330.mff'
@@ -863,7 +864,7 @@ def participants_list(path, subject, session, abt):
     # neuro_018
     ## F, 
     elif subject == 18:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 52 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: F, Age: 52 y"
         path = path + 'a_neuroplasticity/n_018/'
         if session==0:
             ## initial name: 'Neuro_019_20250923_115932.mff' 
@@ -895,7 +896,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_019
     elif subject == 19:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 40 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 40 y"
         path = path + 'a_neuroplasticity/n_019/'
         if session==0:
             ## changement of filename from Neuro_018->Neuro_019
@@ -946,7 +947,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_021
     elif subject == 21:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 58 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 58 y"
         path = path + 'a_neuroplasticity/n_021/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro 21_20251006_103615.mff'
@@ -1083,7 +1084,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_026
     elif subject == 26:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 47 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 47 y"
         path = path + 'a_neuroplasticity/n_026/'
         ###
         if session==0:
@@ -1208,7 +1209,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_030
     elif subject == 30:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 68 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: F, Age: 68 y"
         path = path + 'a_neuroplasticity/n_030/'
         ###
         if session==0:
@@ -1244,7 +1245,7 @@ def participants_list(path, subject, session, abt):
     # neuro_031
     elif subject == 31:
         # info_p = 'W, 33y'
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: F, Age: 33 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: F, Age: 33 y"
         path = path + 'a_neuroplasticity/n_031/'
         ###
         if session==0:
@@ -1282,7 +1283,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_032
     elif subject == 32:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 53 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 53 y"
         path = path + 'a_neuroplasticity/n_032/'
         ###
         if session==0:
@@ -1318,7 +1319,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_033
     elif subject == 33:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 74 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 74 y"
         path = path + 'a_neuroplasticity/n_033/'
         ###
         if session==0:
@@ -1344,7 +1345,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_034
     elif subject == 34:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 73 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 73 y"
         path = path + 'a_neuroplasticity/n_034/'
         ###
         if session==0:
@@ -1370,7 +1371,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_035
     elif subject == 35:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: ## y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: ## y"
         path = path + 'a_neuroplasticity/n_035/'
         ##
         if session==0:
@@ -1396,7 +1397,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_036
     elif subject == 36:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 45 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 45 y"
         path = path + 'a_neuroplasticity/n_036/'
         ##
         if session==0:
@@ -1422,7 +1423,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_037
     elif subject == 37:
-        info_p = f" ID: {str(subject).zfill(2)}, Sex: M, Age: 61 y"
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 61 y"
         path = path + 'a_neuroplasticity/n_037/'
         ##
         if session==0:
