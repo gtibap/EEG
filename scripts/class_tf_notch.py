@@ -15,10 +15,9 @@ from scipy.interpolate import make_splrep
 
 class TF_components:
 
-    def __init__(self, path, session, raw_seg, filt_seg, label_seg, id_seg, pt_info):
+    def __init__(self, path, session, raw_seg, label_seg, id_seg, pt_info):
         ## EEG data per segment
         self.raw_seg = raw_seg
-        self.filt_seg = filt_seg
         self.id_seg = id_seg
         self.label_seg = label_seg
         self.pt_info = pt_info
@@ -55,8 +54,10 @@ class TF_components:
         self.baseline_tf = []
         self.data_tf = []
         self.df_bands = []
+        self.epochs = []
         self.freqs_tf = []
         self.mask_data_tf = []
+        self.new_events = []
         self.tfr_seg = []
         self.tfr_seg_norm = []
         self.times_tf = []
@@ -138,6 +139,11 @@ class TF_components:
         ## display PSD from time-series signals
         mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_plot, fmin=0.9, fmax=101, xscale='log',)
         return ax_plot, self.id_seg
+    
+    def plot_raw_data(self):
+        ## time-series data visualization
+        mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], events=self.new_events, start=0, duration=240, n_channels=32, scalings=self.scale_dict, highpass=None, lowpass=None, title=f'EEG time-series {self.title_fig}', block=False)
+        return 0
 
     ######################################
     def selection_bads(self, flag_update):
@@ -779,6 +785,30 @@ class TF_components:
         # self.tfr_seg_norm = self.tfr_seg.copy()
         self.tfr_seg._data = data_tf_norm
 
+        return 0
+    
+    ###############################
+    # create events equally spaced
+    def create_events(self):
+        self.new_events = mne.make_fixed_length_events(self.raw_seg, start=1.0, stop=None, duration=10.0)
+        # print(f"events:\n{self.events}")
+        self.raw_seg.add_events(self.new_events, replace=True)
+        return 0
+    
+    ###########################
+    # ## resampling a 250 Hz (half of the sampling frequency, i.e. 500 Hz)
+    # def resampling(self):
+    #     self.raw_seg.resample(sfreq=250, method="polyphase",)
+    #     return 0
+    
+    ##########################
+    ## create epochs from events
+    def create_epochs(self):
+        # print(f"events:\n{self.events}")
+        self.epochs = mne.Epochs(self.raw_seg, self.new_events, tmin=0.0, tmax=10.0, baseline=None, preload=True, reject=None)
+        print(f"epochs:\n{self.epochs}")
+        print(f"drop log:\n{self.epochs.drop_log}")
+        self.epochs.plot(n_epochs=20, events=True, block=True, n_channels=32, scalings=self.scale_dict,)
         return 0
     
     ###############################
