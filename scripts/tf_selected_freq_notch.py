@@ -532,7 +532,21 @@ def annotation_bad_channels_and_segments(obj_list, flag_update):
     return 0
 
 #################################################
-def set_selected_segments(obj_list, selected_segs_dict):
+def annotation_bad_channels(obj_list, flag_update):
+    ## for each segment observe and identify bad channels and bad segments
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            # interactive selection of bad segments and bad channels
+            print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
+            # obj.selection_bads(flag_update)
+            obj.selection_bad_channels(flag_update)
+            print(f"bad channels: {obj.get_bad_channels()}\n")
+
+    return 0
+
+#################################################
+def set_selected_segments(obj_list, selected_segs_dict, dt):
     ## for each segment of each state
     for sel_label in selected_segs_dict:
         ## label segment and segment id
@@ -548,12 +562,18 @@ def set_selected_segments(obj_list, selected_segs_dict):
             if (label_seg == sel_label) and (id_seg == sel_id):
                 ## selected segment
                 obj.set_selected_flag()
+                ## include bad segments
+                obj.bad_segments()
                 ## making equal-spaced events for the selected segment, which is required to make epochs
-                obj.create_events()
+                obj.create_events(dt)
                 ## visualize raw data with events
-                obj.plot_raw_data()
+                # obj.plot_raw_data()
                 ## create epochs based on events
-                obj.create_epochs()
+                obj.create_epochs(dt)
+                ## epochs cleaning
+                obj.artifacts_removal()
+                ## include bad channels
+                obj.bad_channels()
 
 
     return 0
@@ -571,12 +591,13 @@ def ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update):
             ##
             print("ICA components...")
             # obj.ica_components(flag_update)
-            obj.ica_components_interactive(flag_update)
+            # obj.ica_components_interactive(flag_update)
+            obj.ica_epochs(flag_update)
             # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
 
-            # re-referencing appli. average after ICA
-            print(f"re-referencing after ICA...")
-            obj.re_referencing()
+            # # re-referencing appli. average after ICA
+            # print(f"re-referencing after ICA...")
+            # obj.re_referencing()
 
     return 0
 
@@ -959,8 +980,9 @@ def main(args):
         # then create it.
         os.makedirs(path_fig_boxplot)
 
-    ############################
+    ################################################
     ## read annotations (.csv file)
+    ## annotations of events during recording session that includes: resting, cycling, closed-eyes, open eyes
     my_annot = mne.read_annotations(path + fn_csv[0])
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
@@ -986,51 +1008,26 @@ def main(args):
     plt.ion()
     ############################
 
+    ########################################################################
+    ## Preprocessing Starts
+    ########################################################################
+
     ################################
-    ## Stage 1: passband and notch filters and resampling
-    #################################
+    ## Stage 1: passband and notch filters, and resampling
     low_cut =    1.0
     hi_cut  =   55.0
-    freqs_notch = 60
-    freq_resampling = 250.0 
-    print(f"resampling freq: {raw_data.info['sfreq'] / 2.0}")
+    freqs_notch = [60,]
+    freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
+    print(f"resampling freq: {freq_resampling}")
 
+    print(f"Passband filter...")
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
-    ## filter 1 Hz high pass for ICA
-    # raw_filt = raw_data.copy().filter(l_freq=1.0, h_freq=hi_cut, picks=['eeg'])
 
-    raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit", filter_length="10s")
+    print(f"Notch filter...")
+    raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
 
+    print(f"Resampling...")
     raw_data.resample(sfreq=freq_resampling, method="polyphase",)
-
-    ##################
-
-    ## resampling
-    # raw_downsampled_poly = raw_data.copy().resample(sfreq=250, method="polyphase",verbose=True,)
-    ## resampling
-                # obj.resampling()
-    # raw_data.resample(sfreq=250, method="polyphase",)
-
-    # print(f"new sampling freq: {raw_data.info['sfreq']}")
-
-    # n_ffts = [4096, 2048]  # factor of 2 smaller n_fft
-    # fig, axes = plt.subplots(2, 1, sharey=True, layout="constrained", figsize=(10, 6))
-    # for ax, data, title, n_fft in zip(axes, [raw_data, raw_downsampled_poly], ["Original", "Downsampled (polyphase)"], n_ffts):
-    #     data.compute_psd(n_fft=n_fft).plot(average=True, amplitude=False, picks="data", exclude=['VREF'], axes=ax)
-    #     ax.set(title=title, xlim=(0, 300))
-
-    # for title, data in zip(["Un", "Notch "], [raw_data, raw_notch]):
-    #     fig = data.compute_psd(fmax=250).plot(average=True, amplitude=False, picks="data", exclude=['VREF'])
-    #     fig.suptitle(f"{title}filtered", size="xx-large", weight="bold")
-
-    ## time-series data visualization
-    # mne.viz.plot_raw(raw_data, picks=['eeg','ecg'], start=0, duration=240, n_channels=32,scalings=scale_dict, highpass=None, lowpass=None, title=f'EEG after filtering and resampling', block=True)
-    ## time-series data visualization
-    # mne.viz.plot_raw(raw_filt, picks=['eeg','ecg'], start=0, duration=240, scalings=scale_dict, highpass=None, lowpass=None, title=f'EEG after 1.0-45 Hz pass band filtering ({acquisition_system})', block=True)
-
-    # plt.show(block=True)
-    # return 0
-
 
     ###########################################
     ## cropping data according to every section (annotations), namely 'baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes', and 'b_opened_eyes'
@@ -1058,18 +1055,26 @@ def main(args):
         return 0
     
     #################
-    ## set a flag for each obj to identify selected segments from each state (a_ce, a_oe, b_ce, b_oe, c_ce, c_oe)
-    set_selected_segments(obj_list, selected_segs_dict)
+    ## set a flag for each obj to identify selected EEG recording section from each state (a_ce, a_oe, b_ce, b_oe, c_ce, c_oe)
+    ## in the selected sections include bad segments manually by visual inspection
+    ## create events equally spaced by dt seconds
+    ## from the events create epochs without overlap and with a duration of dt seconds
+    ## from the epochs, apply an automatic noise reduction method (Ransac, from the PREP pipeline)
+    dt = 5 ## seconds
+    nobj = 3 ## limit of number of sections for testing purposes
+    set_selected_segments(obj_list[:nobj], selected_segs_dict, dt)
 
+    #####################
     plt.show(block=True)
     return 0
 
-    
+
     #############################################
-    ## observe EEG signals to identify and select bad segments and bad channels from each segment
-    flag_update = int(input(f"Update bad-channels or bad-segments (0-False, 1-True)?: "))
-    annotation_bad_channels_and_segments(obj_list, flag_update)
-    
+    ## observe EEG signals to identify and select bad channels from each remained section
+    flag_update = int(input(f"Update bad-channels (0-False, 1-True)?: "))
+    # annotation_bad_channels_and_segments(obj_list[:nobj], flag_update)
+    annotation_bad_channels(obj_list[:nobj], flag_update)
+
     #############################################
     ## apply ICA to try to remove components of noise and artifacts
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
@@ -1077,6 +1082,11 @@ def main(args):
     ## apply ICA to the selected segments, one for each state: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
     ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update)
 
+    #######################################################################
+    ## Preprocessing ends
+    #######################################################################
+
+   
     ##################
     ## selected channels; the two lists of channels are equivalent, one in the 128 electrodes and the other in the 64 electrodes
     ch_name_128 = ['VREF','E36','E104']
@@ -1086,6 +1096,11 @@ def main(args):
     ## calculate time-frequency transformations for each segment
     ## bad-channels interpolation and current-source-density filter are applied before tf-analysis
     calculate_tf(obj_list, selected_segs_dict, ch_name_128,)
+
+    
+
+   
+
 
     # ##################################################
     # ## optional
