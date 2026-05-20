@@ -4,7 +4,9 @@ bad_channels_dict = {
     ## channels to exclude from the analysis... those channels are suceptible to artifacts
     'biosemi':[],
 
-    'geodesic':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E68','E73','E81','E88','E94','E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128',],
+    # 'geodesic':['E38', 'E39', 'E43', 'E44', 'E45', 'E48', 'E49', 'E56', 'E57', 'E63', 'E68','E73','E81','E88','E94','E99', 'E100', 'E107', 'E108', 'E113', 'E114', 'E115', 'E119', 'E120', 'E121', 'E125', 'E126', 'E127', 'E128',],
+
+    'geodesic':['E8','E14','E15','E17','E21','E25','E38','E39','E43','E44','E45','E48','E49','E56','E57','E63','E68','E73','E81','E88','E94','E99','E100','E107','E108','E113','E114','E115','E119','E120','E121','E125','E126','E127','E128'],
 
     ###################
     100:{
@@ -94,12 +96,13 @@ bad_channels_dict = {
         },
     },
     203:{
+        ## bad channels Aug 28, 2025
         'session_0':{
-            'baseline':[[]],
-            'a_closed_eyes':[[]]*3,
-            'a_opened_eyes':[[]]*3,
-            'b_closed_eyes':[[]]*3,
-            'b_opened_eyes':[[]]*3,
+            'baseline':[['E82','E83']]*2,
+            'a_closed_eyes':[['E82','E83']]*3,
+            'a_opened_eyes':[['E82','E83']]*3,
+            'b_closed_eyes':[['E82','E83']]*3,
+            'b_opened_eyes':[['E82','E83']]*3,
         },
     },
     204:{
@@ -396,6 +399,16 @@ bad_channels_dict = {
     16:{
         'session_0':{
             'baseline':[['E8']]*2,
+            'a_closed_eyes':[[],['E33'],['E122']],
+            'a_opened_eyes':[['E8'],['E8','E33'],['E8','E122']],
+            'b_closed_eyes':[['E79','E80'],['E79','E80'],['E33','E79','E80']],
+            'b_opened_eyes':[['E8','E79','E80'],['E79','E80'],['E33','E79','E80']],
+        },
+    },
+
+    22:{
+        'session_0':{
+            'baseline':[['E34','E122'],[]],
             'a_closed_eyes':[[],['E33'],['E122']],
             'a_opened_eyes':[['E8'],['E8','E33'],['E8','E122']],
             'b_closed_eyes':[['E79','E80'],['E79','E80'],['E33','E79','E80']],

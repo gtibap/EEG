@@ -30,6 +30,27 @@ y_limits = [-8,8]
 ## scale selection for visualization raw data with annotations
 scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
+##############################
+## channels lists per regions
+central_left_channels = ['E7','E13','E29','E30','E31','E35','E36','E37','E41','E42','E47','E53','E54'] ## blue
+central_right_channels = ['E79','E80','E86','E87','E93','E98','E103','E104','E105','E106','E110','E111','E112'] ## orange
+
+frontal_left_channels = ['E12','E18','E19','E20','E22','E23','E24','E26','E27','E28','E32','E33','E34'] ## green
+frontal_right_channels = ['E1','E2','E3','E4','E5','E9','E10','E116','E117','E118','E122','E123','E124'] ## pink
+
+parietal_left_channels = ['E51','E52','E58','E59','E60','E61','E66','E67','E71']
+parietal_right_channels = ['E76','E77','E78','E84','E85','E91','E92','E96','E97'] ## marine blue
+
+occipital_left_channels = ['E64','E65','E69','E70','E74']
+occipital_right_channels = ['E82','E83','E89','E90','E95']
+
+temporal_left_channels = ['E40','E46','E50']
+temporal_right_channels = ['E101','E102','E109']
+
+midline_channels = ['VREF','E6','E11','E16','E55','E62','E72','E75']
+
+excluded_channels = ['E8','E14','E15','E17','E21','E25','E38','E39','E43','E44','E45','E48','E49','E56','E57','E63','E68','E73','E81','E88','E94','E99','E100','E107','E108','E113','E114','E115','E119','E120','E121','E125','E126','E127','E128']
+
 
 #############################
 #############################
@@ -575,11 +596,10 @@ def set_selected_segments(obj_list, selected_segs_dict, dt):
                 ## include bad channels
                 obj.bad_channels()
 
-
     return 0
 
 ###################################################
-def ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update):
+def ica_artifacts_reduction(obj_list, flag_update):
     ## ica only for selected segments     
     for obj in obj_list:
         ## find the selected segment for each label
@@ -592,12 +612,55 @@ def ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update):
             print("ICA components...")
             # obj.ica_components(flag_update)
             # obj.ica_components_interactive(flag_update)
-            obj.ica_epochs(flag_update)
-            # print(f"excluded ica components: {obj.get_ica_exclude()}\n")
+            # obj.ica_epochs(flag_update)
+            obj.ica_epochs_interactive(flag_update)
 
+    return 0
+
+######################################################
+def re_referencing(obj_list):
+    ## average re-referencing, bad-channels interpolation, and spatial filtering
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            # interactive selection of bad segments and bad channels
+            print(f"{obj.get_label(), obj.get_id()}")
+            #average re-referencing, bad-channels interpolation, and spatial filtering...
+            
             # # re-referencing appli. average after ICA
-            # print(f"re-referencing after ICA...")
-            # obj.re_referencing()
+            print(f"re-referencing...")
+            obj.re_referencing()
+
+            # print("Bad channels interpolation...")
+            # obj.bads_interpolation()
+            
+            # print(f"Current source density (Laplacian surface)...")
+            # obj.apply_csd()
+
+            # print(f"PSD from EEG epochs after ICA...")
+            # obj.display_psd_eeg()
+            # plt.show(block=True)
+
+    return 0
+
+##############################
+def average_psd_regions(obj_list):
+    ## 
+    freq_range = [1,55]
+    
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            # interactive selection of bad segments and bad channels
+            print(f"{obj.get_label(), obj.get_id()}")
+            ## PSD average per regions
+            psd_central_left, freqs = obj.get_average_psd(central_left_channels)
+
+            obj.calculate_fooof(freqs, psd_central_left, freq_range)
+
+            # print (f"psd and freqs:\n{psd_central_left}\n{freqs}")
+
+            # psd_central_right, freqs = obj.get_average_psd(central_right_channels)
 
     return 0
 
@@ -932,7 +995,7 @@ def display_segments(obj_list, label_seg_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name
+    global sampling_rate, psd_fig_name, excluded_channels
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -991,7 +1054,10 @@ def main(args):
 
     ## exclude channels of the net boundaries that usually bring noise or artifacts
     ## geodesic system we remove channels in the boundaries
-    raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    ## list of excluded channels 
+    print(f"excluded channels:\n{excluded_channels}")
+    raw_data.info["bads"] = excluded_channels
     raw_data.drop_channels(raw_data.info['bads'])
     
     ##########################
@@ -1017,16 +1083,16 @@ def main(args):
     low_cut =    1.0
     hi_cut  =   55.0
     freqs_notch = [60,]
-    freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
-    print(f"resampling freq: {freq_resampling}")
 
     print(f"Passband filter...")
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
 
     print(f"Notch filter...")
-    raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
+    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
+    raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
 
-    print(f"Resampling...")
+    freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
+    print(f"Resampling (freq: {freq_resampling} Hz)...")
     raw_data.resample(sfreq=freq_resampling, method="polyphase",)
 
     ###########################################
@@ -1062,29 +1128,38 @@ def main(args):
     ## from the epochs, apply an automatic noise reduction method (Ransac, from the PREP pipeline)
     dt = 5 ## seconds
     nobj = 3 ## limit of number of sections for testing purposes
-    set_selected_segments(obj_list[:nobj], selected_segs_dict, dt)
+    sel_objs = obj_list[:nobj]
+    set_selected_segments(sel_objs, selected_segs_dict, dt)
 
-    #####################
-    plt.show(block=True)
-    return 0
+    # #############################################
+    # ## observe EEG signals to identify and select bad channels from each remained section
+    # flag_update = int(input(f"Update bad-channels (0-False, 1-True)?: "))
+    # # annotation_bad_channels_and_segments(obj_list[:nobj], flag_update)
+    # annotation_bad_channels(obj_list[:nobj], flag_update)
 
-
-    #############################################
-    ## observe EEG signals to identify and select bad channels from each remained section
-    flag_update = int(input(f"Update bad-channels (0-False, 1-True)?: "))
-    # annotation_bad_channels_and_segments(obj_list[:nobj], flag_update)
-    annotation_bad_channels(obj_list[:nobj], flag_update)
-
-    #############################################
+    # #############################################
     ## apply ICA to try to remove components of noise and artifacts
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
     # flag_update = True
     ## apply ICA to the selected segments, one for each state: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
-    ica_artifacts_reduction(obj_list, selected_segs_dict, flag_update)
+    ica_artifacts_reduction(sel_objs, flag_update)
 
+    ###############################################
+    ## re-refrencing
+    re_referencing(sel_objs)
+
+    ## bad channels interpolation, and spatial filtering (Laplacian surface)
     #######################################################################
     ## Preprocessing ends
     #######################################################################
+    ## PSD average per regions
+    ## central left and right
+    average_psd_regions(sel_objs)
+
+    
+    #####################
+    plt.show(block=True)
+    return 0
 
    
     ##################

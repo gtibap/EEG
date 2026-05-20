@@ -15,6 +15,12 @@ from autoreject import AutoReject
 from autoreject import get_rejection_threshold
 from autoreject import Ransac
 
+# Import the FOOOF object
+from fooof import FOOOF
+from fooof.sim.gen import gen_aperiodic
+from fooof.plts.spectra import plot_spectra
+from fooof.plts.annotate import plot_annotated_peak_search
+
 class TF_components:
 
     def __init__(self, path, session, raw_seg, label_seg, id_seg, pt_info):
@@ -392,8 +398,70 @@ class TF_components:
     ##################################
     def re_referencing(self):
         ## this function excludes bad channels
-        self.raw_seg.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=True,)
-        self.filt_seg.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=True,)
+        # self.raw_seg.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=True,)
+        # self.filt_seg.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=True,)
+        self.epochs.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=False,)
+
+        return 0
+    
+    ########################################
+    def get_average_psd(self, channels):
+        ## power spectral density (PSD) from epochs of selected channels
+        psd_epochs = self.epochs.compute_psd(picks=channels, 
+        exclude='bads')
+
+        fig, ax = plt.subplots(2,1, sharex=True)
+        psd_epochs.plot(axes=ax[0])
+
+        ## mean values of PSD from epochs
+        psd_epochs_mean, freqs = psd_epochs.average().get_data(return_freqs=True)
+        ## mean values of PSD from channels
+        psd_channels_mean = np.mean(psd_epochs_mean, axis=0)
+        ax[1].plot(freqs, np.log10(psd_channels_mean))
+
+        return psd_channels_mean, freqs
+    
+    #########################################
+    def calculate_fooof(self, freqs, spectrum, freq_range):
+
+        plt_log = False
+        fm = FOOOF(peak_width_limits=[1, 8], max_n_peaks=6, min_peak_height=0.15)
+        fm.add_data(freqs, spectrum, freq_range)
+        # fm.plot(plt_log)
+        fm.fit()
+        # Check if the object has model results
+        print('Has model results: ', fm.has_model)
+        # Print out model fit results
+        print('aperiodic params: \t', fm.aperiodic_params_)
+        print('peak params: \t', fm.peak_params_)
+        print('r-squared: \t', fm.r_squared_)
+        print('fit error: \t', fm.error_)
+        print('fooofed spectrum: \t', fm.fooofed_spectrum_[0:5])
+
+        # Do an initial aperiodic fit - a robust fit, that excludes outliers
+        #   This recreates an initial fit that isn't ultimately stored in the FOOOF object
+        init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+
+        # Plot the initial aperiodic fit
+        _, ax = plt.subplots(figsize=(8, 6))
+        plot_spectra(fm.freqs, fm.power_spectrum, plt_log,
+                    label='Original Power Spectrum', color='black', ax=ax)
+        plot_spectra(fm.freqs, init_ap_fit, plt_log, label='Initial Aperiodic Fit',
+                    color='blue', alpha=0.5, linestyle='dashed', ax=ax)
+        
+        ##########
+        # Recompute the flattened spectrum using the initial aperiodic fit
+        init_flat_spec = fm.power_spectrum - init_ap_fit
+
+        # Plot the flattened the power spectrum
+        plot_spectra(fm.freqs, init_flat_spec, plt_log,
+                    label='Flattened Spectrum', color='black')
+        
+        # Plot the iterative approach to finding peaks from the flattened spectrum
+        plot_annotated_peak_search(fm)
+        
+
+
         return 0
     
     ##################################
@@ -540,6 +608,18 @@ class TF_components:
             print(f"Error: something went wrong saving ICA sources.")
 
         return 0
+    
+    #################################
+    def save_plot_ica_sources_epochs(self):
+        ## save figure ICA sources
+        fig_ica_sources = self.ica.plot_sources(self.epochs, start=0, stop=240, show_scrollbars=False, show=False, block=False)
+        try:
+            ## save ICA plot sources
+            fig_ica_sources.grab().save(self.ica_s_filename)
+        except:
+            print(f"Error: something went wrong saving ICA sources.")
+
+        return 0
 
     ##############################
     def display_psd_rawdata(self):
@@ -677,6 +757,151 @@ class TF_components:
         return 0
     ## ica components_interactive()
 
+
+#############################################
+    def display_psd_eeg(self,):
+        
+        ## psd raw_seg before ICA
+        # epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} EEG time series",)
+
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+
+        # mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0, fmax=80, exclude=['VREF'], reject_by_annotation = True, ax=ax[0], xscale='linear') ## xscale='log', 
+        # self.raw_seg.plot_psd(picks=['eeg'], fmin=0, fmax=80, exclude=['VREF'], reject_by_annotation = False, ax=ax, xscale='linear', method='multitaper')
+
+        # # ## we exclude VREF because it is the reference (0 volts all the time)
+        self.epochs.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax, fmin=0, fmax=80, xscale='linear',)
+        # self.epochs.plot_psd(picks=['eeg'], ax=ax, fmin=0, fmax=80, xscale='linear', amplitude=False, dB=True)
+        
+        
+        return 0
+
+    #############################################
+    def display_psd_epochs(self, epochs,):
+        
+        ## original epochs
+        # epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} EEG time series",)
+
+        # # ## we exclude VREF because it is the reference (0 volts all the time)
+        fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        epochs.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0, fmax=80, xscale='log',)
+        
+        
+        return 0
+
+
+##################################################
+    def ica_epochs_interactive(self, flag_update_ica):
+
+        recal_ica_flag = int(input(f"Do you want to recalculate an ICA model (yes 1, no 0) ?: "))
+
+        if flag_update_ica:
+            flag_ica = 1
+            ## re-calculate ICA components    
+            while flag_ica==1 :
+                ## display psd eeg raw data
+                self.display_psd_epochs(self.epochs)
+                ## copy of raw data
+                copy_epochs = self.epochs.copy()
+                
+                if recal_ica_flag==False:
+                    print(f"reading the previous ICA model...")
+                    self.read_ica_model()
+                    self.read_ica_excluded_comp()
+                else:
+                    ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+                    ## ICA fitting model to the filtered raw data
+                    print(f"creating an ICA model...")
+                    self.ica.fit(self.epochs, reject_by_annotation=True)
+                    self.ica.exclude = []
+                    ## save ICA model and excluded components
+                    self.save_ica_model()
+                
+                print(f"Ploting ICA components...")
+                ## plot_components shows 2D-topomaps of the ICA components
+                fig_ica_comp = self.ica.plot_components(inst=self.epochs, contours=0, show=True, title=f"epochs {self.label_seg}-{self.id_seg} -- ICA components")
+                self.save_fig_ica_comp(fig_ica_comp)
+
+                # interactive selection of ICA components to exclude
+                self.ica.plot_sources(inst=self.epochs, start=None, stop=None, show_scrollbars=False, show=True, title=f"{self.label_seg}-{self.id_seg} -- ICA components", block=True)
+                print(f"ica excluded components: {self.ica.exclude}")
+                ## save selected ICA components to exclude
+                self.save_ica_excluded_comp()
+
+                ############
+                ## visual comparison before and after ICA
+                ## data visualization EEG         
+                ## original epochs
+                self.epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) Before ICA",)
+                ## apply ICA to a copy of the original epochs
+                self.ica.apply(copy_epochs)
+                ## results of ICA after components exclusion
+                copy_epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) After ICA",)
+                
+                ## visual comparison before and after ICA
+                ############
+
+                ## update ica calculation flag
+                option_ica = int(input(f"0: Save the current model\n1: Re-calculate ICA components\n2: Redefine list of exclusion ICA components\n ?: "))
+                # option_ica = 0 if (flag_ica == '') else int(flag_ica)
+                if option_ica==1:
+                    ## update bad channels interactively
+                    fig_raw = self.epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) Before ICA",)
+                    self.update_channels_bads()
+                    ## save on disk bad channels
+                    self.save_channels_bads()
+                    ## activate flag to recalculate ICA components
+                    recal_ica_flag=True
+                    ## keep in the loop
+                    flag_ica = 1
+                elif option_ica==2:
+                    ## same ICA model but choosing other components to exclude
+                    ## does not recalculate ICA components
+                    recal_ica_flag=False
+                    ## keep in the loop
+                    flag_ica = 1
+                else:
+                    ## choosing zero le loop is finished to apply the ICA model to the epochs in place
+                    ## break the loop
+                    flag_ica = 0
+
+                print(f"continuous loop: {flag_ica}")
+        else:
+            print(f"reading the previous ICA model...")
+            self.read_ica_model()
+            self.read_ica_excluded_comp()
+            ## selected ICA components to exclude
+            self.ica_exclude = self.ica.exclude
+            print(f"ica excluded components: {self.ica_exclude}")
+
+        ## Applying ICA to epochs in place
+        self.ica.apply(self.epochs)
+
+        ## save plot ica sources
+        self.save_plot_ica_sources_epochs()
+
+        # optional ############
+        # display EEG after ICA
+        # print(f"EEG signals display after ICA...")
+        # fig_psd_ica, ax_psd_ica = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+
+        # mne.viz.plot_raw_psd(copy_raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[0], show=False,)
+        # mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmin=0.9, fmax=101, xscale='log', ax=ax_psd_ica[1], show=False,)
+
+        # ax_psd_ica[0].set_title(f"PSD(EEG) before ICA")
+        # ax_psd_ica[1].set_title(f"PSD(EEG) after ICA")
+
+        ## display eeg signals before ICA
+        # mne.viz.plot_raw(copy_raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n Before ICA", block=False)
+        ## display eeg signals after ICA
+        # mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG)\n After ICA", block=True)
+        # optional ############
+
+        ## save figure psd before and after ICA
+        # fig_psd_ica.savefig(self.psd_ica_filename)
+    
+        return 0
+    ## ica epochs components_interactive()
 
 ##################################################
     def ica_epochs(self, flag_update_ica):
@@ -874,24 +1099,26 @@ class TF_components:
     def bads_interpolation(self):
         # print("Bad channels interpolation")
         # self.raw_seg_ica.interpolate_bads()
-        self.raw_seg.interpolate_bads()
+        # self.raw_seg.interpolate_bads()
+        self.epochs.interpolate_bads()
         return 0
     
     ##################################
-    def apply_csd(self, ch_list):
+    def apply_csd(self,):
         # self.raw_seg_csd = mne.preprocessing.compute_current_source_density(self.raw_seg_ica)
         ## in place
-        self.raw_seg = mne.preprocessing.compute_current_source_density(self.raw_seg)
+        # self.raw_seg = mne.preprocessing.compute_current_source_density(self.raw_seg)
+        self.epochs = mne.preprocessing.compute_current_source_density(self.epochs)
         
-        ## save figure csd
-        # fig_csd = mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
-        fig_csd = self.raw_seg.plot(picks=ch_list, start=0, duration=240, n_channels=32, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian - {self.title_fig}', show=False, block=False)
-        try:
-            fig_csd.grab().save(self.csd_filename)
-            # fig_csd.savefig(self.csd_filename, bbox_inches ="tight")
-            print(f"Plot of raw data after surface laplacian saved.")
-        except:
-            print(f"Error: something went wrong saving csd.")
+        # ## save figure csd
+        # # fig_csd = mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
+        # fig_csd = self.raw_seg.plot(picks=ch_list, start=0, duration=240, n_channels=32, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian - {self.title_fig}', show=False, block=False)
+        # try:
+        #     fig_csd.grab().save(self.csd_filename)
+        #     # fig_csd.savefig(self.csd_filename, bbox_inches ="tight")
+        #     print(f"Plot of raw data after surface laplacian saved.")
+        # except:
+        #     print(f"Error: something went wrong saving csd.")
 
         return 0
     
@@ -1107,8 +1334,11 @@ class TF_components:
         ## load previous annotations of bad segments
         self.load_annot_bads()
 
+        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        self.raw_seg.compute_psd(fmax=80, picks=['eeg'], reject_by_annotation = True,).plot(xscale='log', axes=ax, exclude=['VREF'], show=True, )
+
         print(f"Raw data inspection to identify bad segments:\n{self.title_fig}")
-        mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, title=f'Interactive selection of bad segments, {self.title_fig}', show=True, block=True)
+        mne.viz.plot_raw(self.raw_seg, start=0, duration=240, n_channels=36, scalings=self.scale_dict, title=f'Interactive selection of bad segments, {self.title_fig}', show=True, block=True)
 
         ## save annotations of bad segments
         self.update_annot_bads()
@@ -1142,32 +1372,32 @@ class TF_components:
         self.epochs = mne.Epochs(self.raw_seg, self.new_events, tmin=0.0, tmax=dt, baseline=None, preload=True, reject=None, reject_by_annotation=True)
         print(f"epochs:\n{self.epochs}")
         print(f"drop log:\n{self.epochs.drop_log}")
-        self.epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Epochs from EEG time series {self.title_fig}",)
+        # self.epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Epochs from EEG time series {self.title_fig}",)
         return 0
     
 
     ############################
     def artifacts_removal(self):
         # epochs visualization
-        fig, ax = plt.subplots(3,1,sharex=True, sharey=True)
+        # fig, ax = plt.subplots(3,1,sharex=True, sharey=True)
         # self.epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"EEG time series {self.title_fig}",)
 
-        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmax=80, exclude=['VREF'], reject_by_annotation = False, ax=ax[0], xscale='log') ## xscale='log', 
+        # mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], fmax=80, exclude=['VREF'], reject_by_annotation = False, ax=ax[0], xscale='log') ## xscale='log', 
 
-        self.epochs.copy().plot_psd(fmax=80, exclude=['VREF'], ax=ax[1], xscale='log')
-        ax[1].set_title = f"Before Ransac filtering"
+        # self.epochs.copy().plot_psd(fmax=80, exclude=['VREF'], ax=ax[1], xscale='log')
+        # ax[1].set_title = f"Before Ransac filtering"
 
         ## cleaning epochs
         print(f"Ransac...")
         rsc = Ransac(verbose=False,)
-        self.epochs = rsc.fit_transform(self.epochs,)  
+        self.epochs = rsc.fit_transform(self.epochs,)
 
-        self.epochs.plot_psd(fmax=80, exclude=['VREF'], ax=ax[2], xscale='log')
+        # self.epochs.plot_psd(fmax=80, exclude=['VREF'], ax=ax[2], xscale='log')
         # epochs_clean_rsc.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"EEG time series {self.title_fig} after Ransac",)
 
-        ax[0].set_title = f"PSD EEG before bad annotations"
-        ax[1].set_title = f"PSD EEG from epochs"
-        ax[2].set_title = f"PSD EEG After Ransac filtering"
+        # ax[0].set_title = f"PSD EEG before bad annotations"
+        # ax[1].set_title = f"PSD EEG from epochs"
+        # ax[2].set_title = f"PSD EEG After Ransac filtering"
         
         return 0
     
@@ -1691,6 +1921,9 @@ class TF_components:
     ##################################
     def get_raw_seg(self):
         return self.raw_seg
+    
+    def get_epochs(self):
+        return self.epochs
     
     def get_sfreq(self):
         return self.sampling_rate
