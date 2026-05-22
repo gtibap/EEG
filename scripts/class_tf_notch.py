@@ -101,6 +101,9 @@ class TF_components:
         ## ica parameters to calculate ICA components
         self.ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
 
+        ## dict aperiodic models
+        self.fm_models_dict = {}
+
         ## bad channels and bad annotations lists
         self.bad_annot_list = []
         self.bad_ch_list = []
@@ -405,63 +408,102 @@ class TF_components:
         return 0
     
     ########################################
-    def get_average_psd(self, channels):
+    def get_average_psd_model(self, channels, freq_range, label):
         ## power spectral density (PSD) from epochs of selected channels
-        psd_epochs = self.epochs.compute_psd(picks=channels, 
-        exclude='bads')
+        psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads')
 
-        fig, ax = plt.subplots(2,1, sharex=True)
-        psd_epochs.plot(axes=ax[0])
+        # fig, ax = plt.subplots(2,1, sharex=True)
+        # psd_epochs.plot(axes=ax[0])
 
         ## mean values of PSD from epochs
         psd_epochs_mean, freqs = psd_epochs.average().get_data(return_freqs=True)
         ## mean values of PSD from channels
         psd_channels_mean = np.mean(psd_epochs_mean, axis=0)
-        ax[1].plot(freqs, np.log10(psd_channels_mean))
+        # ax[1].plot(freqs, np.log10(psd_channels_mean))
 
-        return psd_channels_mean, freqs
+        ## aperiodic component model
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1, 12], max_n_peaks=6, min_peak_height=0.1)
+        fm.add_data(freqs, psd_channels_mean, freq_range)
+        fm.fit()
+        self.fm_models_dict[label] = fm 
+
+        return 0
+    
+    ####################################
+    def get_plot_psd_model(self, ax1, ax2, ax3, label,):
+
+        plt_log = False
+        fm = self.fm_models_dict[label]
+        # ax.plot(fm.freqs, fm._ap_fit, label='ap_fit')
+        # ax.plot(fm.freqs, fm._spectrum_peak_rm, label='peak_rm')
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax) ## color=color,
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax) ## color=color,
+
+        plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1) ## color=color,
+        plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax2) ## color=color,
+        plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax3) ## color=color,
+
+        return 0
     
     #########################################
     def calculate_fooof(self, freqs, spectrum, freq_range):
-
-        plt_log = False
-        fm = FOOOF(peak_width_limits=[1, 8], max_n_peaks=6, min_peak_height=0.15)
-        fm.add_data(freqs, spectrum, freq_range)
+        ## following tutorial
+        # plt_log = False
+        self.fm.add_data(freqs, spectrum, freq_range)
         # fm.plot(plt_log)
-        fm.fit()
-        # Check if the object has model results
-        print('Has model results: ', fm.has_model)
-        # Print out model fit results
-        print('aperiodic params: \t', fm.aperiodic_params_)
-        print('peak params: \t', fm.peak_params_)
-        print('r-squared: \t', fm.r_squared_)
-        print('fit error: \t', fm.error_)
-        print('fooofed spectrum: \t', fm.fooofed_spectrum_[0:5])
+        self.fm.fit()
 
-        # Do an initial aperiodic fit - a robust fit, that excludes outliers
-        #   This recreates an initial fit that isn't ultimately stored in the FOOOF object
-        init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+        # # Check if the object has model results
+        # print('Has model results: ', fm.has_model)
+        # # Print out model fit results
+        # print('aperiodic params: \t', fm.aperiodic_params_)
+        # print('peak params: \t', fm.peak_params_)
+        # print('r-squared: \t', fm.r_squared_)
+        # print('fit error: \t', fm.error_)
+        # print('fooofed spectrum: \t', fm.fooofed_spectrum_[0:5])
 
-        # Plot the initial aperiodic fit
-        _, ax = plt.subplots(figsize=(8, 6))
-        plot_spectra(fm.freqs, fm.power_spectrum, plt_log,
-                    label='Original Power Spectrum', color='black', ax=ax)
-        plot_spectra(fm.freqs, init_ap_fit, plt_log, label='Initial Aperiodic Fit',
-                    color='blue', alpha=0.5, linestyle='dashed', ax=ax)
+        # # Do an initial aperiodic fit - a robust fit, that excludes outliers
+        # #   This recreates an initial fit that isn't ultimately stored in the FOOOF object
+        # init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+
+        # # Plot the initial aperiodic fit
+        # _, ax = plt.subplots(figsize=(8, 6))
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log,
+        #             label='Original Power Spectrum', color='black', ax=ax)
+        # plot_spectra(fm.freqs, init_ap_fit, plt_log, label='Initial Aperiodic Fit',
+        #             color='blue', alpha=0.5, linestyle='dashed', ax=ax)
         
-        ##########
-        # Recompute the flattened spectrum using the initial aperiodic fit
-        init_flat_spec = fm.power_spectrum - init_ap_fit
+        # ##########
+        # # Recompute the flattened spectrum using the initial aperiodic fit
+        # init_flat_spec = fm.power_spectrum - init_ap_fit
 
-        # Plot the flattened the power spectrum
-        plot_spectra(fm.freqs, init_flat_spec, plt_log,
-                    label='Flattened Spectrum', color='black')
+        # # Plot the flattened the power spectrum
+        # plot_spectra(fm.freqs, init_flat_spec, plt_log,
+        #             label='Flattened Spectrum', color='black')
         
-        # Plot the iterative approach to finding peaks from the flattened spectrum
-        plot_annotated_peak_search(fm)
+        # # Plot the iterative approach to finding peaks from the flattened spectrum
+        # # plot_annotated_peak_search(fm)
+        # # Plot the peak fit: created by re-fitting all of the candidate peaks together
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, color='green', label='Final Periodic Fit')
+
+        # # Plot the peak removed power spectrum, created by removing peak fit from original spectrum
+        # plot_spectra(fm.freqs, fm._spectrum_peak_rm, plt_log, label='Peak Removed Spectrum', color='black')
+
+        # # Plot the final aperiodic fit, calculated on the peak removed power spectrum
+        # _, ax = plt.subplots(figsize=(12, 10))
+        # plot_spectra(fm.freqs, fm._spectrum_peak_rm, plt_log, label='Peak Removed Spectrum', color='black', ax=ax)
+        # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label='Final Aperiodic Fit', color='blue', alpha=0.5, linestyle='dashed', ax=ax)
+
+        # # Plot full model, created by combining the peak and aperiodic fits
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='Full Model', color='red')
+        # Print out the model results
+        # self.fm.print_results()
+
+        # Plot the full model fit of the power spectrum
+        #  The final fit (red), and aperiodic fit (blue), are the same as we plotted above
+        # self.fm.plot(plt_log)
+
         
-
-
         return 0
     
     ##################################
@@ -1330,28 +1372,30 @@ class TF_components:
 
     ###############################
     # visual inspection to include bad segments
-    def bad_segments(self):
+    def bad_segments_update(self, label_update):
         ## load previous annotations of bad segments
         self.load_annot_bads()
 
-        fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-        self.raw_seg.compute_psd(fmax=80, picks=['eeg'], reject_by_annotation = True,).plot(xscale='log', axes=ax, exclude=['VREF'], show=True, )
+        if label_update:
+            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+            self.raw_seg.compute_psd(fmax=80, picks=['eeg'], reject_by_annotation = True,).plot(xscale='log', axes=ax, exclude=['VREF'], show=True, )
 
-        print(f"Raw data inspection to identify bad segments:\n{self.title_fig}")
-        mne.viz.plot_raw(self.raw_seg, start=0, duration=240, n_channels=36, scalings=self.scale_dict, title=f'Interactive selection of bad segments, {self.title_fig}', show=True, block=True)
+            print(f"Raw data inspection to identify bad segments:\n{self.title_fig}")
+            mne.viz.plot_raw(self.raw_seg, start=0, duration=240, n_channels=36, scalings=self.scale_dict, title=f'Interactive selection of bad segments, {self.title_fig}', show=True, block=True)
 
-        ## save annotations of bad segments
-        self.update_annot_bads()
-        self.save_annot_bads()
+            ## save annotations of bad segments
+            self.update_annot_bads()
+            self.save_annot_bads()
 
         return 0
     
     ##########################
-    def bad_channels(self):
+    def bad_channels_update(self, flag_update):
         ## load bad channels
         self.load_channels_bads()
 
-        self.epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Interactive bad channels selection on EEG time series {self.title_fig}",)
+        if flag_update:
+            self.epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Interactive bad channels selection on EEG time series {self.title_fig}",)
 
         self.update_channels_bads()
         self.save_channels_bads()

@@ -567,7 +567,7 @@ def annotation_bad_channels(obj_list, flag_update):
     return 0
 
 #################################################
-def set_selected_segments(obj_list, selected_segs_dict, dt):
+def set_selected_segments(obj_list, selected_segs_dict, dt, flag_update):
     ## for each segment of each state
     for sel_label in selected_segs_dict:
         ## label segment and segment id
@@ -584,7 +584,7 @@ def set_selected_segments(obj_list, selected_segs_dict, dt):
                 ## selected segment
                 obj.set_selected_flag()
                 ## include bad segments
-                obj.bad_segments()
+                obj.bad_segments_update(flag_update)
                 ## making equal-spaced events for the selected segment, which is required to make epochs
                 obj.create_events(dt)
                 ## visualize raw data with events
@@ -594,75 +594,116 @@ def set_selected_segments(obj_list, selected_segs_dict, dt):
                 ## epochs cleaning
                 obj.artifacts_removal()
                 ## include bad channels
-                obj.bad_channels()
+                obj.bad_channels_update(flag_update)
 
     return 0
 
 ###################################################
-def ica_artifacts_reduction(obj_list, flag_update):
-    ## ica only for selected segments     
+def ica_artifacts_reduction(obj_list, flag_update, event_list):
+    ## ica only for selected segments
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
-            # interactive selection of bad segments and bad channels
-            print(f"{obj.get_label(), obj.get_id()}: interactive selection of ICA components to exclude...")
-            ## applying re-referencing before ICA could propagate artifacts to all electrodes
-            ## hence, first we will remove artefacts uisng ICA and after we apply re-referencing
-            ##
-            print("ICA components...")
-            # obj.ica_components(flag_update)
-            # obj.ica_components_interactive(flag_update)
-            # obj.ica_epochs(flag_update)
-            obj.ica_epochs_interactive(flag_update)
+            ## selected events (closed eyes, open eyes)
+            if obj.get_label_simple() in event_list:
+                # interactive selection of bad segments and bad channels
+                print(f"{obj.get_label(), obj.get_id()}: interactive selection of ICA components to exclude...")
+                ## applying re-referencing before ICA could propagate artifacts to all electrodes
+                ## hence, first we will remove artefacts uisng ICA and after we apply re-referencing
+                ##
+                print("ICA components...")
+                # obj.ica_components(flag_update)
+                # obj.ica_components_interactive(flag_update)
+                # obj.ica_epochs(flag_update)
+                obj.ica_epochs_interactive(flag_update)
 
     return 0
 
 ######################################################
-def re_referencing(obj_list):
+def re_referencing(obj_list, event_list):
     ## average re-referencing, bad-channels interpolation, and spatial filtering
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
-            # interactive selection of bad segments and bad channels
-            print(f"{obj.get_label(), obj.get_id()}")
-            #average re-referencing, bad-channels interpolation, and spatial filtering...
-            
-            # # re-referencing appli. average after ICA
-            print(f"re-referencing...")
-            obj.re_referencing()
+            ## selected events (closed eyes, open eyes)
+            if obj.get_label_simple() in event_list:
+                # interactive selection of bad segments and bad channels
+                print(f"{obj.get_label(), obj.get_id()}")
+                #average re-referencing, bad-channels interpolation, and spatial filtering...
+                
+                # # re-referencing appli. average after ICA
+                print(f"re-referencing...")
+                obj.re_referencing()
 
-            # print("Bad channels interpolation...")
-            # obj.bads_interpolation()
-            
-            # print(f"Current source density (Laplacian surface)...")
-            # obj.apply_csd()
+                # print("Bad channels interpolation...")
+                # obj.bads_interpolation()
+                
+                # print(f"Current source density (Laplacian surface)...")
+                # obj.apply_csd()
 
-            # print(f"PSD from EEG epochs after ICA...")
-            # obj.display_psd_eeg()
-            # plt.show(block=True)
+                # print(f"PSD from EEG epochs after ICA...")
+                # obj.display_psd_eeg()
+                # plt.show(block=True)
 
     return 0
 
 ##############################
-def average_psd_regions(obj_list):
+def average_psd_regions(obj_list, event_list):
     ## 
-    freq_range = [1,55]
+    freq_range = [1,45]
     
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
             # interactive selection of bad segments and bad channels
-            print(f"{obj.get_label(), obj.get_id()}")
-            ## PSD average per regions
-            psd_central_left, freqs = obj.get_average_psd(central_left_channels)
+            # print(f"{obj.get_label(), obj.get_id()}")
 
-            obj.calculate_fooof(freqs, psd_central_left, freq_range)
+            if obj.get_label_simple() in event_list:
+                print(f"{obj.get_label(), obj.get_id()}")
+                ## PSD average per regions and
+                ## aperiodic modeling using FOOOF
+                region ='central_left'
+                obj.get_average_psd_model(central_left_channels, freq_range, region)
+
+                region ='central_right'
+                obj.get_average_psd_model(central_right_channels, freq_range, region)
+
+            
 
             # print (f"psd and freqs:\n{psd_central_left}\n{freqs}")
-
             # psd_central_right, freqs = obj.get_average_psd(central_right_channels)
 
     return 0
+
+##############################################
+def plot_psd_responses(obj_list, event_list):
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    fig_mo, ax_mo = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
+    fig_ap, ax_ap = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
+    fig_os, ax_os = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
+    ax_mo = ax_mo.flatten()
+    ax_ap = ax_ap.flatten()
+    ax_os = ax_os.flatten()
+    
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            if obj.get_label_simple() in event_list:
+
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                obj.get_plot_psd_model(ax_ap[0], ax_os[0], ax_mo[0], region,)
+                ax_ap[0].legend()
+                ax_ap[0].set_title(f"{region}")
+
+                region ='central_right'
+                obj.get_plot_psd_model(ax_ap[1], ax_os[1], ax_mo[1], region,)
+                ax_ap[1].legend()
+                ax_ap[1].set_title(f"{region}")
+
+    return 0
+
 
 #############################################################    
 def calculate_tf(obj_list, selected_segs_dict, ch_list,):
@@ -1121,15 +1162,17 @@ def main(args):
         return 0
     
     #################
+    flag_update_bads = int(input(f"Update bad segments and/or bad channels (0-False, 1-True)?: "))
     ## set a flag for each obj to identify selected EEG recording section from each state (a_ce, a_oe, b_ce, b_oe, c_ce, c_oe)
     ## in the selected sections include bad segments manually by visual inspection
     ## create events equally spaced by dt seconds
     ## from the events create epochs without overlap and with a duration of dt seconds
     ## from the epochs, apply an automatic noise reduction method (Ransac, from the PREP pipeline)
     dt = 5 ## seconds
-    nobj = 3 ## limit of number of sections for testing purposes
-    sel_objs = obj_list[:nobj]
-    set_selected_segments(sel_objs, selected_segs_dict, dt)
+    # nobj = 3 ## limit of number of sections for testing purposes
+    # sel_objs = obj_list[:nobj]
+    sel_objs = obj_list
+    set_selected_segments(sel_objs, selected_segs_dict, dt, flag_update_bads)
 
     # #############################################
     # ## observe EEG signals to identify and select bad channels from each remained section
@@ -1137,16 +1180,18 @@ def main(args):
     # # annotation_bad_channels_and_segments(obj_list[:nobj], flag_update)
     # annotation_bad_channels(obj_list[:nobj], flag_update)
 
+    ###############################################
+    event_list = ['a_ce','b_ce','c_ce']
     # #############################################
     ## apply ICA to try to remove components of noise and artifacts
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
     # flag_update = True
     ## apply ICA to the selected segments, one for each state: a_oe, a_ce, b_oe, b_ce, c_oe, c_ce
-    ica_artifacts_reduction(sel_objs, flag_update)
+    ica_artifacts_reduction(sel_objs, flag_update, event_list)
 
     ###############################################
     ## re-refrencing
-    re_referencing(sel_objs)
+    re_referencing(sel_objs, event_list)
 
     ## bad channels interpolation, and spatial filtering (Laplacian surface)
     #######################################################################
@@ -1154,8 +1199,8 @@ def main(args):
     #######################################################################
     ## PSD average per regions
     ## central left and right
-    average_psd_regions(sel_objs)
-
+    average_psd_regions(sel_objs, event_list)
+    plot_psd_responses(sel_objs, event_list)
     
     #####################
     plt.show(block=True)
