@@ -422,26 +422,36 @@ class TF_components:
         # ax[1].plot(freqs, np.log10(psd_channels_mean))
 
         ## aperiodic component model
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1, 12], max_n_peaks=6, min_peak_height=0.1)
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
         fm.add_data(freqs, psd_channels_mean, freq_range)
         fm.fit()
-        self.fm_models_dict[label] = fm 
+        self.fm_models_dict[label] = fm
+
+        print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
 
         return 0
     
     ####################################
-    def get_plot_psd_model(self, ax1, ax2, ax3, label,):
+    def get_plot_psd_model(self, ax1, label,):
 
         plt_log = False
         fm = self.fm_models_dict[label]
-        # ax.plot(fm.freqs, fm._ap_fit, label='ap_fit')
-        # ax.plot(fm.freqs, fm._spectrum_peak_rm, label='peak_rm')
-        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax) ## color=color,
-        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax) ## color=color,
 
-        plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1) ## color=color,
-        plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax2) ## color=color,
-        plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax3) ## color=color,
+        plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1[0]) ## color=color,
+        plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
+        plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax1[2])
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax1[3]) ## color=color,
+
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax3[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax3[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax2[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax2[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax4) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax4) ## color=color,
 
         return 0
     
@@ -502,7 +512,6 @@ class TF_components:
         # Plot the full model fit of the power spectrum
         #  The final fit (red), and aperiodic fit (blue), are the same as we plotted above
         # self.fm.plot(plt_log)
-
         
         return 0
     
@@ -835,7 +844,7 @@ class TF_components:
 ##################################################
     def ica_epochs_interactive(self, flag_update_ica):
 
-        recal_ica_flag = int(input(f"Do you want to recalculate an ICA model (yes 1, no 0) ?: "))
+        recal_ica_flag = int(input(f"Do you want to (re)calculate an ICA model (yes 1, no 0) ?: "))
 
         if flag_update_ica:
             flag_ica = 1

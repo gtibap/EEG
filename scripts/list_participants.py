@@ -333,27 +333,27 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: C - NLI: T11'
-            date = '2 w postop'
+            date = '13 days after trauma'
             selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            flag_notch = 0
         elif session==1:
             ## acquisition date: April 08, 2025
             fn_in = 'session_'+str(session)+'/'+'Neuro_001_3M_20230101_082244.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: L2'
-            date = '14 w postop'
+            date = '98 days after trauma'
             selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            flag_notch = 0
         elif session==2:
             ## acquisition date: July 15, 2025
             fn_in = 'session_'+str(session)+'/'+'neuro_001_6m_20230108_192933.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: T11'
-            date = '28 w postop'
+            date = '196 days after trauma'
             selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            flag_notch = 0
         else:
             pass
         # fn_out = 'neuro_001_ann'
@@ -374,17 +374,21 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'
             Dx = 'AIS: A - NLI: L4'
-            date = '5 w postop'
-            rows_plot = 1
-            # fn_out = 'neuro_002_ann'
+            date = '48 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':np.nan, 'b_oe':np.nan,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 1
+            # fn_out = 'neuro_002_ann'1
             ## read raw data
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'neuro_002_suivi_3m_20250522_160123.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'
             Dx = 'AIS: A - NLI: L4'
-            date = '23 w postop'
-            rows_plot = 1
+            date = '173 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':np.nan, 'b_oe':np.nan,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 1
             # fn_out = 'neuro_002_ann'
             ## read raw data
         elif session==2:
@@ -394,8 +398,10 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif', '']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'
             Dx = 'AIS: A - NLI: L4'
-            date = '35 w postop'
-            rows_plot = 1
+            date = '254 days after trauma'
+            selected_ids_dict = {'a_ce':2, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
+            flag_notch = 0
+            # rows_plot = 1
             # fn_out = 'neuro_002_ann'
             ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -410,24 +416,34 @@ def participants_list(path, subject, session, abt):
         info_p = 'F, 61 y'
         path = path + 'a_neuroplasticity/n_003/'
         if session==0:
+            ## hospital regular room. Patient on bed. We had difficulties placing the patient in the bike. Data highly affected by artefacts.
             fn_in = 'session_'+str(session)+'/'+'neuro_003_20221231_080823.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'C - C5'
-            rows_plot = 2
+            Dx = 'AIS: C - NLI: C5'
+            date = '33 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 1
+            # rows_plot = 2
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'Neuro_003_3M_20221231_090044.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'+' session_'+str(session)
-            Dx = ''
-            rows_plot = 1
+            Dx = 'AIS: C - NLI: C6'
+            date = '103 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':np.nan, 'b_oe':np.nan,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 1
+            # rows_plot = 1
         elif session==2:
             ## date: Oct 22, 2025, 13h30, in the lab. We tried cycling but not possible... patient was not feeling well during cycling... too heavy legs for the bike
             fn_in = 'session_'+str(session)+'/'+'neuro_003_6mois_20251022_020453.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'+' session_'+str(session)
-            Dx = ''
-            rows_plot = 1
+            Dx = 'AIS: C - NLI: C6'
+            date = '301 days after trauma'
+            selected_ids_dict = {'a_ce':2, 'a_oe':2, 'b_ce':np.nan, 'b_oe':np.nan,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 1
+            # rows_plot = 1
         else:
             pass
         # fn_out = 'neuro_003_ann'
@@ -466,18 +482,20 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
             Dx = 'AIS: C - NLI: C5'
-            date = '3 w postop'
-            selected_ids_dict = {'a_ce':2, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            date = '27 days after trauma'
+            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 2
         elif session==1:
             path = path + 'a_neuroplasticity/n_005/'
             fn_in = 'session_'+str(session)+'/'+'neuro_5_suivi_3m_20250602_111411.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
-            Dx = 'AIS: D - NLI: C6'
-            date = '21 w postop'
+            Dx = 'AIS: D - NLI: C7'
+            date = '143 days after trauma'
             selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            flag_notch = 0
+            # rows_plot = 2
         elif session==2:
             ## session on Feb. 4th, 2026, in the lab, macbook
             ## participant able to walk
@@ -485,10 +503,11 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_005_6mo_20230217_013113.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'
-            Dx = 'AIS: D - NLI: C6'
-            date = '55 w postop'
-            selected_ids_dict = {'a_ce':2, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C7'
+            date = '390 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            flag_notch = 0
+            # rows_plot = 2
         # fn_out = 'neuro_005_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -498,23 +517,31 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_006
     elif subject == 6:
-        info_p = 'M, 55 y'
+        # info_p = 'M, 55 y'
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 55 y"
         path = path + 'a_neuroplasticity/n_006/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'NEURO_006_20250111_113255.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'D - C5'
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C5'
+            date = '26 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 2
         elif session==1:
             fn_in = 'session_'+str(session)+'/'+'neuro006_3m_20230107_082740.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_geodesic_net_128'+' session_'+str(session)
-            Dx = ''
-            rows_plot = 1
+            Dx = 'AIS: D - NLI: C6'
+            date = '88 days after trauma'
+            selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':np.nan, 'b_oe':np.nan,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 1
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
         
     ############################
     ############################
@@ -528,18 +555,19 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: C6'
-            date = '2 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            date = '17 days after trauma'
+            # selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
+            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':1, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
         elif session==1:
             ## 15 Apr, 2025
             fn_in = 'session_'+str(session)+'/'+'neuro_007_3m_20230108_081936.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: T1'
-            date = '9 w postop'
+            date = '66 days after trauma'
             selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            flag_notch = 0
         # fn_out = 'neuro_007_ann'
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
@@ -551,24 +579,31 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_008
     elif subject == 8:
-        info_p = 'M, 40 y'
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 40 y"
         path = path + 'a_neuroplasticity/n_008/'
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'neuro_008_session_0_20250507_115913.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'D - C5'
-            rows_plot = 2
-        elif session==1:
+            Dx = 'AIS: D - NLI: C4'
+            date = '20 days after trauma'
+            selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 2
+        else:
             fn_in = ''
-            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
-            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            fn_csv = ['','']
+            title = ''
             Dx = ''
-            rows_plot = 2
-        # fn_out = 'neuro_007_ann'
+            date = ''
+            flag_notch = 0
+            selected_ids_dict = {}
+            # rows_plot = 2
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     
     ############################
     ############################
@@ -581,31 +616,31 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_009_20250509_142653.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            date = '2 w postop'
+            date = '16 days after trauma'
             Dx = 'AIS: D - NLI: T1'
             selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
             # Dx = 'D - C1'
-            rows_plot = 2
+            flag_notch = 0
         elif session==1:
             ## date of data acquisition: Aug 13, 2025
             fn_in = 'session_'+str(session)+'/'+'neuro_009_suivi_3m_20250813_102909.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            date = '16 w postop'
+            date = '112 days after trauma'
             Dx = 'AIS: E - NLI: T1'
             selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
             # Dx = 'D - C1'
-            rows_plot = 2
+            flag_notch = 0
         elif session==2:
             ## date of data acquisition: Oct 20, 2025
             ## in the lab with the iMac
             fn_in = 'session_'+str(session)+'/'+'Neuro-009- session suivi 6 mois _20251020_101357.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            date = '26 w postop'
+            date = '180 days after trauma'
             Dx = 'AIS: E - NLI: T1'
             selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            flag_notch = 0
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
@@ -621,17 +656,18 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'abc001_20250618_104348.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations_0.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'AIS: A - NLI: T12'
-            date = '3 w postop'
+            Dx = 'AIS: A - NLI: T5'
+            date = '11 days after trauma'
             selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
-        elif session==1:
-            fn_in = 'session_0/abc001_rest post bike_20250618_112812.mff'
-            fn_csv = ['session_0/annotations.fif','']
-            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'AIS: A - NLI: T12'
-            date = '3 w postop'
-            rows_plot = 2
+            flag_notch = 0
+            # rows_plot = 2
+        # elif session==1:
+        #     fn_in = 'session_0/abc001_rest post bike_20250618_112812.mff'
+        #     fn_csv = ['session_0/annotations.fif','']
+        #     title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+        #     Dx = 'AIS: A - NLI: T12'
+        #     date = '3 w postop'
+        #     rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -653,9 +689,10 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: A - NLI: T5'
-            date = '2 w postop'
-            rows_plot = 2
-            selected_ids_dict = {'a_ce':2, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            date = '15 days after trauma'
+            flag_notch = 0
+            # rows_plot = 2
+            selected_ids_dict = {'a_ce':2, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -677,21 +714,22 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_012_20230103_225313.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            # Dx = 'C - C1'
             Dx = 'AIS: D - NLI: C5'
-            date = '4 w postop'
-            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            date = '17 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 2
         elif session==1:
             ## 27 Feb. 2026, 11am in the lab, with the iMac, 
-            ## patient able to move his legs, however, he came in an electric wheel chair 
+            ## patient able to move his legs, however, he came in an wheel chair (electric)
             fn_in = 'session_'+str(session)+'/'+'Neuro_012_sesssion_6m_20260227_110552.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: C5'
-            date = '36 w postop'
-            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
-            rows_plot = 2
+            date = '249 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            flag_notch = 0
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -704,7 +742,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_013
     elif subject == 13:
-        info_p = 'M, 64 y'
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 64 y"
         path = path + 'a_neuroplasticity/n_013/'
         ####
         if session==0:
@@ -713,22 +751,23 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'neuro_013_20230114_193005.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            # Dx = 'D - C5'
             Dx = 'AIS: D - NLI: C5'
-            date = '3 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':1, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            date = '7 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
+            flag_notch = 0
+            # rows_plot = 2
         ####
         elif session==1:
             ## M Oct 29, 2025, 10am, in the lab with the macbook
             fn_in = 'session_'+str(session)+'/'+'Neuro_013_3mois_20251029_102413.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            # Dx = 'D - C5'
-            Dx = 'AIS: E'
-            date = '17 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            # Dx = 'AIS: E'
+            Dx = 'AIS: D - NLI: C5'
+            date = '107 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            flag_notch = 0
+            # rows_plot = 2
         ####
         elif session==2:
             ## Tue, January 20, 2026, 12h30, in the lab with the macbook (geodesic)
@@ -736,11 +775,11 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_013_6mois_20230202_003935.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            # Dx = 'D - C5'
             Dx = 'AIS: D - NLI: C8'
-            date = '29 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
-            rows_plot = 2
+            date = '190 days after trauma'
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            flag_notch = 1
+            # rows_plot = 2
         ####
         else:
             print(f"Data from session {session} did not find.")
@@ -762,30 +801,32 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: C1'
-            date = '2 w postop'
-            # selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':0, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
-            rows_plot = 2
+            date = '12 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            # rows_plot = 2
         elif session==1:
             ## data collected friday, Oct 17, 2025 dans le lab with iMac
             fn_in = 'session_'+str(session)+'/'+'Neuro_014-3mois_20251017_112508.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: C1'
-            date = '14 w postop'
-            # selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            selected_ids_dict = {'a_ce':1, 'a_oe':3, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            date = '96 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':1, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         elif session==2:
             ## data collected in the lab, static chair, macbook, patient able to walk
             ## 12 janv. 2026, 11 am. She has been improved
             fn_in = 'session_'+str(session)+'/'+'Neuro_14_6mois_20230124_231451.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'E - C3'
-            date = '26 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
-            rows_plot = 2
+            # Dx = 'E - C3'
+            Dx = 'AIS: E - NLI: (C1)'
+            date = '183 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -803,11 +844,11 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'neuro_15_go_20250804_114337.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'B - C7'
             Dx = 'AIS: B - NLI: C7'
-            date = '2 w postop'
-            selected_ids_dict = {'a_ce':2, 'a_oe':3, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            date = '17 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -826,9 +867,10 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: A - NLI: T11'
-            date = '3 w postop'
+            date = '14 days after trauma'
+            flag_notch = 0
             selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -848,9 +890,10 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: A - NLI: C4'
-            date = '2 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            date = '14 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -873,18 +916,20 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: C5'
-            date = '2 w postop'
+            date = '10 days after trauma'
+            flag_notch = 0
             selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            # rows_plot = 2
         elif session==1:
             ## lab, wheelchair, unable to walk but with legs mobility
             fn_in = 'session_'+str(session)+'/'+'Neuro_018_3mois _20251203_112336.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: C - NLI: C6'
-            date = '12 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
-            rows_plot = 2
+            date = '81 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -904,9 +949,10 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: C5'
-            date = '2 w postop'
-            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':1, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            date = '14 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':0, 'b_oe':1,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -918,15 +964,18 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_020
     elif subject == 20:
-        info_p = 'M, 80y'
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 80 y"
         path = path + 'a_neuroplasticity/n_020/'
         ####
         if session==0:
             fn_in = 'session_'+str(session)+'/'+'Neuro_020_20251002_122042.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C3'
+            date = '25 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':np.nan}
+            # rows_plot = 2
         ####
         elif session==1:
             ## Tue, January 20, 2026, in the lab with the macbook (geodesic)
@@ -934,8 +983,23 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_020_3mois_20230201_225711.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C4'
+            date = '135 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
+        ####
+        elif session==2:
+            ## Thu, April 16, 2026, in the lab with the macbook (geodesic)
+            ## participant able to walk, but with limited mobility of his right arm
+            fn_in = 'session_'+str(session)+'/'+'Neuro_020_6mois_20260416_113626.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif',''] 
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: C4'
+            date = '221 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         ####
         else:
             print(f"Data from session {session} did not find.")
@@ -943,6 +1007,7 @@ def participants_list(path, subject, session, abt):
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     ############################
     # neuro_021
@@ -954,18 +1019,20 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: C - NLI: C5'
-            date = '4 w postop'
-            selected_ids_dict = {'a_ce':1, 'a_oe':2, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            date = '25 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         elif session==1:
             ## date: 31 Oct 2025, in the lab with the macbook. Patient in a electric wheelchair
             fn_in = 'session_'+str(session)+'/'+'neuro_021_6sem_20251031_111545.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: C - NLI: C5'
-            date = '7 w postop'
-            selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
-            rows_plot = 2
+            date = '50 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':1, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -986,8 +1053,10 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: C5'
-            date = '2 w postop'
-            rows_plot = 2
+            date = '14 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':np.nan, 'c_oe':0}
+            # rows_plot = 2
         elif session==1:
             ## session Nov 17, 2025, in the lab, with the macbook
             ## patient M, 61y, on a wheelchair before his follows up in the clinic
@@ -995,17 +1064,21 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: C4'
-            date = '6 w postop'
-            rows_plot = 2
+            date = '46 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':1, 'a_oe':0, 'b_ce':1, 'b_oe':0,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         elif session==2:
             ## session Jan 28, 2026, in the lab, with the macbook
             ## patient able to walk. Data acquisition before his follows up in the clinic
             fn_in = 'session_'+str(session)+'/'+'Neuro_022_3mois_20230209_232842.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ''
-            date = '16 w postop'
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C6'
+            date = '118 days after trauma'
+            flag_notch = 1
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
@@ -1018,7 +1091,7 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_023
     elif subject == 23:
-        info_p = ' '
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 73 y"
         path = path + 'a_neuroplasticity/n_023/'
         if session==0:
             ## session Oct 30, 2025, 11am in lab, macbook
@@ -1026,8 +1099,11 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'neuro_023_20251030_113501.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C5'
+            date = '20 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':2, 'b_oe':1,'c_ce':np.nan, 'c_oe':np.nan}
+            # rows_plot = 2
         ####
         elif session==1:
             ## session Wed. Jan. 14th, 2026, 9am in lab, macbook
@@ -1035,18 +1111,23 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_023_3mois_20230126_205753.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C6'
+            date = '96 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     # neuro_024
     elif subject == 24:
-        info_p = ' '
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 61 y"
         path = path + 'a_neuroplasticity/n_024/'
         if session==0:
             ## session Nov 6, 2025, 11am in soins intermediaire, macbook
@@ -1054,14 +1135,19 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro- 024_20251106_110855.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
-            rows_plot = 2
+            Dx = 'AIS: D - NLI: C3'
+            date = '10 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # rows_plot = 2
         else:
             print(f"Data from session {session} did not find.")
             return 0
         ## read raw data
         raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
         acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     ############################
     # neuro_025
     elif subject == 25:
@@ -1094,9 +1180,9 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: T12'
-            date = '2 w postop'
+            date = '21 days after trauma'
             selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
-            rows_plot = 2
+            flag_notch = 0
         ###
         elif session==1:
             ## session Thu, January 15, 2025, in the lab CIT, macbook
@@ -1106,9 +1192,9 @@ def participants_list(path, subject, session, abt):
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: C - NLI: T12'
-            date = '11 w postop'
-            rows_plot = 2
-            selected_ids_dict = {'a_ce':2, 'a_oe':0, 'b_ce':1, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            date = '83 days after trauma'
+            flag_notch = 0
+            selected_ids_dict = {'a_ce':2, 'a_oe':1, 'b_ce':1, 'b_oe':2,'c_ce':0, 'c_oe':0}
         ###
         else:
             print(f"Data from session {session} did not find.")
@@ -1120,7 +1206,8 @@ def participants_list(path, subject, session, abt):
     ############################
     # neuro_027
     elif subject == 27:
-        info_p = 'M, 70y'
+        # info_p = 'M, 70y'
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 70 y"
         path = path + 'a_neuroplasticity/n_027/'
         ###
         if session==0:
@@ -1129,7 +1216,9 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_027_20251124_122633.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: D - NLI: C5'
+            date = '3 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         ###
         elif session==1:
@@ -1138,7 +1227,21 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_027_6sem_20230128_233739.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = ' '
+            Dx = 'AIS: D - NLI: C6'
+            date = '11 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        elif session==2:
+            ## session 3 mois, Monday, May 4, 2026, 15h00 in CIT lab, in a e-wheelchair, iMac (big screen)
+            ## patient able to move his legs, he could make pressure to push the bike but it was adviced that be relax and do not push during all the session
+            ## E123 not working
+            fn_in = 'session_'+str(session)+'/'+'Neuro_027_StD_seance_03_20260504_041331.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: C6'
+            date = '26 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':2, 'b_oe':2,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         ###
         else:
@@ -1220,6 +1323,7 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: D - NLI: T4'
             date = '2 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         elif session==1:
             ## session Tu, Jan 27, 2026, lab, blue chair
@@ -1227,8 +1331,20 @@ def participants_list(path, subject, session, abt):
             fn_in = 'session_'+str(session)+'/'+'Neuro_30_visit_2_20230209_014114.mff'
             fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
-            Dx = 'AIS: D - NLI: T5'
+            Dx = 'AIS: D - NLI: T12'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
             date = '7 w postop'
+            rows_plot = 2
+        elif session==2:
+            ## session Monday, April 27, 2026, lab, blue chair
+            ## patient able to walk; hair voluminous, which has restrain some scalp-electrodes' contact
+            ## afternoon after a long clinic day
+            fn_in = 'session_'+str(session)+'/'+'Neuro_030_seance_3_20260427_043637.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: L4'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            date = '20 w postop'
             rows_plot = 2
         
         ###
@@ -1408,7 +1524,8 @@ def participants_list(path, subject, session, abt):
             title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
             Dx = 'AIS: B - NLI: C3'
             date = '3 w postop'
-            selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':1, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            # selected_ids_dict = {'a_ce':0, 'a_oe':2, 'b_ce':1, 'b_oe':2,'c_ce':0, 'c_oe':0}
+            selected_ids_dict = {'a_ce':0, 'a_oe':1, 'b_ce':0, 'b_oe':0,'c_ce':0, 'c_oe':0}
             rows_plot = 2
         ###
         else:   
@@ -1447,12 +1564,234 @@ def participants_list(path, subject, session, abt):
 
         info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
 
+    ############################
+    ############################
+    # neuro_038
+    elif subject == 38:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 83 y"
+        path = path + 'a_neuroplasticity/n_038/'
+        ##
+        if session==0:
+            ## hospitalized patient stable, wheelchair, right arm and right leg with more power than those of the left side.
+            ## session in the CIT lab, afternoon 3pm, with macbook
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'Neuro_38_Ro_session_1_20260410_042036.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: D - NLI: C5'
+            date = '2 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':3, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
+    ############################
+    # neuro_039
+    elif subject == 39:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 75 y"
+        path = path + 'a_neuroplasticity/n_039/'
+        ##
+        if session==0:
+            ## hospitalized patient soins intermediaires (a machine helps him to breating and with a catether that probably was used to give him food), in bed, with some strenght in his legs.
+            ## session in the morning, patient in a wheelchair, with macbook, April 21, 2026
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'Neuro_039_premiere_seance_20260421_130110.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: A - NLI: C3'
+            date = '1 w postop'
+            selected_ids_dict = {'a_ce':2, 'a_oe':3, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
+    ############################
+    # neuro_040
+    elif subject == 40:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 63 y"
+        path = path + 'a_neuroplasticity/n_040/'
+        ##
+        if session==0:
+            ## hospitalized soins intensives (patient stable), in bed, with some strenght in his legs.
+            ## session in the afternoon 2pm, with macbook, April 17, 2026
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'neuro_40_session_1_2026.04.17_20260417_144105.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: C - NLI: C4'
+            date = '1 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':1, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ##
+        elif session==1:
+            ## patient hospitalized but stable and with some strenght in his legs.
+            ## session in the afternoon 3pm, in the  CIT lab, in a wheelchair, after session velo with iMac, April 30, 2026. 
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'neuro_040_seance_02_20260430_152835.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: C - NLI: C4'
+            date = '2 w postop'
+            ## selected segments may 7, 2026
+            selected_ids_dict = {'a_ce':2, 'a_oe':0, 'b_ce':2, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
+############################
+    # neuro_041
+    elif subject == 41:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 82 y"
+        path = path + 'a_neuroplasticity/n_041/'
+        ##
+        if session==0:
+            ## hospitalized in soins intensives (patient with traqueotomy and ventilatory assistance), in wheelchair.
+            ## session in the afternoon 2pm, with macbook, April 17, 2026
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'neuro041_20260428_010258.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: A - NLI: C5'
+            date = '1 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':1, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
+############################
+    # neuro_042
+    elif subject == 42:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 82 y"
+        path = path + 'a_neuroplasticity/n_042/'
+        ##
+        if session==0:
+            ## hospitalized in a regular room (patient stable), in bed because his wheelchair was not working properly.
+            ## session at 10 am, with macbook, friday june 05, 2026.
+            ## His initial diagnosis was AIS A or B, NLI C3. 
+            ## At the moment of first session of EEG, he has gained strength to move his hands and his legs.
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'Neuro_042_Br_seance_1_20260605_095106.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: A - NLI: C5'
+            date = '1 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':1, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
+
+    #####################################
+    # neuro_043
+    elif subject == 43:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 69 y"
+        path = path + 'a_neuroplasticity/n_043/'
+        ##
+        if session==0:
+            ## soins intermediaire, fauteuil roulant
+            ## may 06, 2026
+            fn_in = 'session_'+str(session)+'/'+'Neuro_043_Led_premiere_seance_20260506_123748.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: C - NLI: C4'
+            date = '25 days after trauma'
+            selected_ids_dict = {'a_ce':1, 'a_oe':1, 'b_ce':1, 'b_oe':3,'c_ce':0, 'c_oe':0}
+            flag_notch = True
+        ###
+        elif session==1:
+            ## lab CIT, fauteuil roulant
+            ## may 28, 2026, 3pm
+            fn_in = 'session_'+str(session)+'/'+'neuro_043_session_2_20260528_145500.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: C - NLI: C4'
+            date = '47 days after trauma'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':1, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            flag_notch = True
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
+
+############################
+    # neuro_044
+    elif subject == 44:
+        info_p = f"ID: {str(subject).zfill(2)}, Sex: M, Age: 22 y"
+        path = path + 'a_neuroplasticity/n_044/'
+        ##
+        if session==0:
+            ## hospitalized in soins intensives (patient stable), in bed.
+            ## session in the afternoon 3pm, with iMac (big screen), May 13, 2026
+            ## patient had difficulties to keep eyes open due to an injury to his eyes
+            ## 
+            fn_in = 'session_'+str(session)+'/'+'neuro041_20260428_010258.mff'
+            fn_csv = ['session_'+str(session)+'/'+'annotations.fif','']
+            title = 'P_'+str(subject)+'_rest_and_ABT_geodesic_net_128'+' session_'+str(session)
+            Dx = 'AIS: A - NLI: C6'
+            date = '1 w postop'
+            # selected_ids_dict = {'a_ce':0, 'a_oe':0, 'b_ce':1, 'b_oe':1,'c_ce':0, 'c_oe':0}
+            rows_plot = 2
+        ###
+        else:   
+            print(f"Data from session {session} did not find.")
+            return 0
+        ## read raw data
+        raw_data = mne.io.read_raw_egi(path + fn_in, preload=True)
+        acquisition_system = 'geodesic'
+
+        info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
 
 
     else:
         fn_in = ''
         fn_csv = ''
         raw_data = np.NaN
+        info_p = 'NaN'
+        Dx = 'NaN'
+        date = 'NaN'
+        session = -2
+
+    # info_p = f"{info_p} --- {Dx} --- {date}, (session:{session+1})"
     
 
-    return path, fn_in, fn_csv, raw_data, title, rows_plot, acquisition_system, info_p, Dx, selected_ids_dict,
+    return path, fn_in, fn_csv, raw_data, title, flag_notch, acquisition_system, info_p, Dx, selected_ids_dict,

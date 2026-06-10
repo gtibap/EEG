@@ -632,14 +632,14 @@ def re_referencing(obj_list, event_list):
                 #average re-referencing, bad-channels interpolation, and spatial filtering...
                 
                 # # re-referencing appli. average after ICA
-                print(f"re-referencing...")
-                obj.re_referencing()
+                # print(f"re-referencing...")
+                # obj.re_referencing()
 
-                # print("Bad channels interpolation...")
-                # obj.bads_interpolation()
+                print("Bad channels interpolation...")
+                obj.bads_interpolation()
                 
-                # print(f"Current source density (Laplacian surface)...")
-                # obj.apply_csd()
+                print(f"Current source density (Laplacian surface)...")
+                obj.apply_csd()
 
                 # print(f"PSD from EEG epochs after ICA...")
                 # obj.display_psd_eeg()
@@ -676,16 +676,16 @@ def average_psd_regions(obj_list, event_list):
     return 0
 
 ##############################################
-def plot_psd_responses(obj_list, event_list):
+def plot_psd_responses(obj_list, event_list, path_fig):
     ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
-    fig_mo, ax_mo = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
-    fig_ap, ax_ap = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
-    fig_os, ax_os = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
-    ax_mo = ax_mo.flatten()
-    ax_ap = ax_ap.flatten()
-    ax_os = ax_os.flatten()
+    fig_a, ax_a = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
+    fig_b, ax_b = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
+    fig_c, ax_c = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
+    fig_d, ax_d = plt.subplots(nrows=3, ncols=2, sharex=True, sharey=True, figsize=(9,6))
     
-
+    ax_d = ax_d.flatten()
+    
+    id_d = 0
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
@@ -693,17 +693,319 @@ def plot_psd_responses(obj_list, event_list):
 
                 print(f"{obj.get_label(), obj.get_id()}")
                 region ='central_left'
-                obj.get_plot_psd_model(ax_ap[0], ax_os[0], ax_mo[0], region,)
-                ax_ap[0].legend()
-                ax_ap[0].set_title(f"{region}")
+                obj.get_plot_psd_model(ax_a[:,0], ax_b[:,0], ax_c[:,0], ax_d[id_d], region,)
+                id_d += 1
+                # ax_ap[0].legend()
+                # ax_ap[0].set_title(f"{region}")
 
                 region ='central_right'
-                obj.get_plot_psd_model(ax_ap[1], ax_os[1], ax_mo[1], region,)
-                ax_ap[1].legend()
-                ax_ap[1].set_title(f"{region}")
+                obj.get_plot_psd_model(ax_a[:,1], ax_b[:,1], ax_c[:,1], ax_d[id_d], region,)
+                id_d += 1
+                # ax_ap[1].legend()
+                # ax_ap[1].set_title(f"{region}")
+
+    ax_a[0][0].set_title(f"central left channels")
+    ax_a[0][1].set_title(f"central right channels")
+
+    ax_b[0][0].set_title(f"central left channels")
+    ax_b[0][1].set_title(f"central right channels")
+
+    ax_c[0][0].set_title(f"central left channels")
+    ax_c[0][1].set_title(f"central right channels")
+
+    ax_d[0].set_title(f"central left channels")
+    ax_d[1].set_title(f"central right channels")
+
+    ## save figures
+    # fig.suptitle(f"{info_p}")
+    fig_a.savefig(path_fig+'fooof_a.png', bbox_inches ="tight")
+    fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
+    fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
+    fig_d.savefig(path_fig+'fooof_d.png', bbox_inches ="tight")
 
     return 0
 
+##############################################
+def plot_psd_responses_all(obj_list, event_list_ce, event_list_oe, path_fig, info_p):
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    fig_a, ax_a = plt.subplots(nrows=3, ncols=4, sharex=False, sharey=False, figsize=(12,6), layout='constrained')
+    # fig_b, ax_b = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True, figsize=(10,7))
+    # fig_c, ax_c = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True, figsize=(10,7))
+    # fig_d, ax_d = plt.subplots(nrows=3, ncols=4, sharex=True, sharey=True, figsize=(9,6))
+    # fig_e, ax_e = plt.subplots(nrows=3, ncols=4, sharex=True, sharey=True, figsize=(10,7))
+
+    ## colored regions frequency bands [theta, alpha, beta]
+    ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+    # ax_a[0].axvspan(mu-2*sigma, mu-sigma, color='0.95')
+    ##theta (4-8 Hz)
+    set_bands_ax(ax_a)
+    
+    flags = [0,0,0]
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+
+            if obj.get_label_simple() in event_list_ce:
+                ## closed eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                obj.get_plot_psd_model(ax_a[:,0], region,)
+                flags = label_flags(obj, flags)
+
+                region ='central_right'
+                obj.get_plot_psd_model(ax_a[:,2], region,)
+                flags = label_flags(obj, flags)
+                
+
+            elif obj.get_label_simple() in event_list_oe:
+                ## open eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                obj.get_plot_psd_model(ax_a[:,1], region,)
+                flags = label_flags(obj, flags)
+                
+                region ='central_right'
+                obj.get_plot_psd_model(ax_a[:,3], region,)
+                flags = label_flags(obj, flags)
+
+    set_xy_lim(ax_a)
+    # ax_b[0][0].set_ylim(-0.2, 1.0)
+    # ax_c[0][0].set_ylim(-6.25, -2.00)
+
+    set_labels_ax_a(ax_a)
+    ## legend
+    fig_a = set_legend(fig_a, flags)
+
+    # set_labels_ax(ax_b)
+    # set_labels_ax(ax_c)
+
+    set_title_ax(ax_a[0])
+    # set_title_ax(ax_b[0])
+    # set_title_ax(ax_c[0])
+    
+    # set_subtitle_fig(fig_a)
+    # set_subtitle_fig(fig_b)
+    # set_subtitle_fig(fig_c)
+
+    set_annotation_ax (ax_a[0,:], '(PSD)')
+    set_annotation_ax (ax_a[1,:], '(APERIODIC COMP.)')
+    set_annotation_ax (ax_a[2,:], '(PSD) - (APERIODIC COMP.)')
+
+    # fig_a.text(0.32, 0.925, "central left channels", ha='center', fontsize=12,)
+    # fig_a.text(0.72, 0.925, "central right channels", ha='center', fontsize=12,)
+
+    set_grid_ax(ax_a)
+    # set_grid_ax(ax_b)
+    # set_grid_ax(ax_c)
+
+    ## save figures
+    # text_subtitle = "\ncentral left channels \t \t \t central right channels\n".replace("\t", "    ")
+    fig_a.suptitle(f"{info_p}\n",)
+    # fig_b.suptitle(f"{info_p}")
+    # fig_c.suptitle(f"{info_p}")
+
+
+    fig_a.savefig(path_fig+'fooof_a.png', bbox_inches ="tight")
+    # fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
+    # fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
+
+    return 0
+
+###################
+def set_legend(fig, flags):
+    # blue_line = mlines.Line2D([], [], color='tab:blue', label="\nresting\nbefore\nbiking\n")
+    # orange_line = mlines.Line2D([], [], color='tab:orange', label="biking")
+    # green_line = mlines.Line2D([], [], color='tab:green', label="\nresting\nafter\nbiking\n")
+    blue_line = mlines.Line2D([], [], color='tab:blue', label="rest start")
+    orange_line = mlines.Line2D([], [], color='tab:orange', label="biking")
+    green_line = mlines.Line2D([], [], color='tab:green', label="rest end")
+
+    print(f"sum flags = {sum(flags)}")
+    if sum(flags) == 3:
+        handles_list=[blue_line, orange_line, green_line]
+    elif sum(flags) == 2:
+        handles_list=[blue_line, orange_line,]
+    else:
+        handles_list=[blue_line,]
+
+    fig.legend(handles=handles_list, loc="outside right upper")
+
+    return fig
+
+###################
+def label_flags(obj, flags):
+    label = obj.get_label_simple()
+    if label in ['a_ce','a_oe']:
+        flags[0] = 1
+    elif label in ['b_ce','b_oe']:
+        flags[1] = 1
+    elif label in ['c_ce','c_oe']:
+        flags[2] = 1
+    return flags
+
+
+###################
+def set_xy_lim(ax):
+    for id in np.arange(4):
+        ax[0][id].set_ylim(-6.25, -1.75)
+        ax[1][id].set_ylim(-6.25, -1.75)
+        ax[2][id].set_ylim(-0.75, 1.75)
+
+    for id in np.arange(4):
+        ax[0][id].set_xlim(-1, 47.0)
+        ax[1][id].set_xlim(-1, 47.0)
+        ax[2][id].set_xlim(-1, 47.0)      
+            
+    return ax
+
+def set_bands_ax(ax):
+
+    ## create particular grid
+    for id in np.arange(4):
+        ## include annotations
+        ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+        ## dash lines
+        ax[0][id].axvline(x=4, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[1][id].axvline(x=4, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[2][id].axvline(x=4, linestyle='--', linewidth=0.75, color='tab:gray')
+
+        ax[0][id].axvline(x=8, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[1][id].axvline(x=8, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[2][id].axvline(x=8, linestyle='--', linewidth=0.75, color='tab:gray')
+
+        ax[0][id].axvline(x=12, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[1][id].axvline(x=12, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[2][id].axvline(x=12, linestyle='--', linewidth=0.75, color='tab:gray')
+
+        ax[0][id].axvline(x=30, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[1][id].axvline(x=30, linestyle='--', linewidth=0.75, color='tab:gray')
+        ax[2][id].axvline(x=30, linestyle='--', linewidth=0.75, color='tab:gray')
+        ## include annotations
+        ## theta (4-8 Hz)
+        ax[0][id].annotate('$\\theta$', xy=(5,-2.3), xytext=(5,-2.3), fontsize=10)
+        ax[1][id].annotate('$\\theta$', xy=(5,-2.3), xytext=(5,-2.3), fontsize=10)
+        ax[2][id].annotate('$\\theta$', xy=(5, 1.4), xytext=(5, 1.4), fontsize=10)
+        ## alpha (8-12 Hz)
+        ax[0][id].annotate('$\\alpha$', xy=(9,-2.3), xytext=(9,-2.3), fontsize=10)
+        ax[1][id].annotate('$\\alpha$', xy=(9,-2.3), xytext=(9,-2.3), fontsize=10)
+        ax[2][id].annotate('$\\alpha$', xy=(9, 1.4), xytext=(9, 1.4), fontsize=10)
+        ## beta (12-30 Hz)
+        ax[0][id].annotate('$\\beta$', xy=(20,-2.3), xytext=(20,-2.3), fontsize=10)
+        ax[1][id].annotate('$\\beta$', xy=(20,-2.3), xytext=(20,-2.3), fontsize=10)
+        ax[2][id].annotate('$\\beta$', xy=(20, 1.4), xytext=(20, 1.4), fontsize=10)
+
+        xticks_list = [0,4,8,12,30]
+        xticks_labels = ['0','4','8','12','30']
+        ax[0][id].set_xticks(xticks_list, labels= xticks_labels, fontsize=10)
+        ax[1][id].set_xticks(xticks_list, labels= xticks_labels, fontsize=10)
+        ax[2][id].set_xticks(xticks_list, labels= xticks_labels, fontsize=10)
+
+    # for ax in ax_list.flatten():
+        # ax.grid(linestyle='--', alpha=0.5, lw=1.0)
+    return 0
+
+def set_grid_ax(ax):
+    ## hide grid
+    for id in np.arange(4):
+        ax[0][id].grid(visible=False)
+        ax[1][id].grid(visible=False)
+        ax[2][id].grid(visible=False)
+
+
+def set_annotation_ax (ax_list, text):
+    for ax in ax_list:
+        ax.text(0.01, 0.01, text, transform=ax.transAxes, size=11, bbox=dict(facecolor='white', edgecolor='white', alpha=0.5,))
+    return 0
+
+def set_subtitle_fig(fig):
+    fig.text(0.32, 0.925, "central left channels", ha='center', fontsize=12,)
+    fig.text(0.72, 0.925, "central right channels", ha='center', fontsize=12,)
+    return 0
+    
+def set_labels_ax(ax,):
+    ax[0][0].set_ylabel(f"log10(power)", fontsize=12)
+    ax[1][0].set_ylabel(f"log10(power)", fontsize=12)
+    ax[0][1].set_ylabel(f"")
+    ax[1][1].set_ylabel(f"")
+    ax[0][2].set_ylabel(f"")
+    ax[1][2].set_ylabel(f"")
+    ax[0][3].set_ylabel(f"")
+    ax[1][3].set_ylabel(f"")
+
+
+    ax[1][0].set_xlabel(f"frequency (Hz)", fontsize=12)
+    ax[1][1].set_xlabel(f"frequency (Hz)", fontsize=12)
+    ax[1][2].set_xlabel(f"frequency (Hz)", fontsize=12)
+    ax[1][3].set_xlabel(f"frequency (Hz)", fontsize=12)
+    
+    ax[0][0].set_xlabel(f"",)
+    ax[0][1].set_xlabel(f"",)
+    ax[0][2].set_xlabel(f"",)
+    ax[0][3].set_xlabel(f"",)
+
+    ax[0][0].tick_params(axis='x',reset=True, labelsize=12)
+    ax[0][1].tick_params(axis='x',reset=True, labelsize=12)
+    ax[0][2].tick_params(axis='x',reset=True, labelsize=12)
+    ax[0][3].tick_params(axis='x',reset=True, labelsize=12)
+
+    return 0
+
+def set_labels_ax_a(ax,):
+
+    ## remove legends
+    for id in np.arange(3):
+        ax[id][0].get_legend().set_visible(False)
+        ax[id][1].get_legend().set_visible(False)
+        ax[id][2].get_legend().set_visible(False)
+        ax[id][3].get_legend().set_visible(False)
+        
+    ## y axis labels
+
+    ax[0][0].set_ylabel(f"log10(power)", fontsize=11)
+    ax[1][0].set_ylabel(f"log10(power)", fontsize=11)
+    ax[2][0].set_ylabel(f"log10(power)", fontsize=11)
+    # ax[3][0].set_ylabel(f"log10(power)", fontsize=11)
+
+    for id in np.arange(1,4):
+        ax[0][id].set_ylabel(f"")
+        ax[1][id].set_ylabel(f"")
+        ax[2][id].set_ylabel(f"")
+        # ax[3][id].set_ylabel(f"")
+
+    ## x axis labels
+
+    for id in np.arange(2):
+        ax[id][0].set_xlabel(f"")
+        ax[id][1].set_xlabel(f"")
+        ax[id][2].set_xlabel(f"")
+        ax[id][3].set_xlabel(f"")
+
+    ax[2][0].set_xlabel(f"frequency (Hz)", fontsize=11)
+    ax[2][1].set_xlabel(f"frequency (Hz)", fontsize=11)
+    ax[2][2].set_xlabel(f"frequency (Hz)", fontsize=11)
+    ax[2][3].set_xlabel(f"frequency (Hz)", fontsize=11)
+
+    # ax[0][0].tick_params(axis='x',reset=True, labelsize=12)
+    # ax[0][1].tick_params(axis='x',reset=True, labelsize=12)
+    # ax[0][2].tick_params(axis='x',reset=True, labelsize=12)
+    # ax[0][3].tick_params(axis='x',reset=True, labelsize=12)
+
+    return 0
+
+def set_title_ax(ax,):
+    ##
+    ax[0].set_title(f"central left channels\nclosed eyes", loc='left')
+    ax[1].set_title(f"central left channels\nopen eyes", loc='left')
+    ax[2].set_title(f"central right channels\nclosed eyes", loc='left')
+    ax[3].set_title(f"central right channels\nopen eyes", loc='left')
+
+    ##
+    # ax[0].set_title(f"central left channels")
+    # ax[1].set_title(f"central right channels")
+    # ax[2].set_title(f"central left channels")
+    # ax[3].set_title(f"central right channels")
+    return 0
 
 #############################################################    
 def calculate_tf(obj_list, selected_segs_dict, ch_list,):
@@ -1062,7 +1364,7 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, rows_plot, acquisition_system, info_p, Dx, selected_segs_dict = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
@@ -1077,12 +1379,18 @@ def main(args):
 
     ## path filename boxplots
     path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
+    path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
     # checking if the directory figures
     # exist or not.
     if not os.path.exists(path_fig_boxplot):
         # if the figures directory is not present 
         # then create it.
         os.makedirs(path_fig_boxplot)
+    
+    if not os.path.exists(path_fig_fooof):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_fig_fooof)
 
     ################################################
     ## read annotations (.csv file)
@@ -1122,15 +1430,16 @@ def main(args):
     ################################
     ## Stage 1: passband and notch filters, and resampling
     low_cut =    1.0
-    hi_cut  =   55.0
-    freqs_notch = [60,]
+    hi_cut  =   45.0
 
-    print(f"Passband filter...")
+    print(f"Passband filter {low_cut, hi_cut} Hz...")
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
 
-    print(f"Notch filter...")
-    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
-    raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
+    if flag_notch:
+        print(f"Notch filter...")
+        freqs_notch = [60,]
+        raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
+    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
 
     freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
     print(f"Resampling (freq: {freq_resampling} Hz)...")
@@ -1181,7 +1490,9 @@ def main(args):
     # annotation_bad_channels(obj_list[:nobj], flag_update)
 
     ###############################################
-    event_list = ['a_ce','b_ce','c_ce']
+    event_list_ce = ['a_ce','b_ce','c_ce']
+    event_list_oe = ['a_oe','b_oe','c_oe']
+    event_list = event_list_ce + event_list_oe
     # #############################################
     ## apply ICA to try to remove components of noise and artifacts
     flag_update = int(input(f"Update ICA components or ICA components selection (0-False, 1-True)?: "))
@@ -1200,7 +1511,7 @@ def main(args):
     ## PSD average per regions
     ## central left and right
     average_psd_regions(sel_objs, event_list)
-    plot_psd_responses(sel_objs, event_list)
+    plot_psd_responses_all(sel_objs, event_list_ce, event_list_oe, path_fig_fooof, info_p)
     
     #####################
     plt.show(block=True)
