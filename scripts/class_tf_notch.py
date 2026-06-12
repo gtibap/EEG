@@ -187,11 +187,12 @@ class TF_components:
 
     
     ######################################
-    def data_visualization(self, ax_plot):
+    def data_visualization(self, ax_plot, ch_excl_list):
         # display time-series signals
         fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
         ## display PSD from time-series signals
-        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=['VREF'], ax=ax_plot, fmin=0.9, fmax=101, xscale='log',)
+        # print(f"channels exclusion: {ch_excl_list}")
+        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=ch_excl_list, ax=ax_plot, fmin=0.9, fmax=101, xscale='log',)
         return ax_plot, self.id_seg
     
     def plot_raw_data(self):

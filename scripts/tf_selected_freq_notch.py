@@ -1313,7 +1313,7 @@ def plot_tfr(obj_list, eeg_system, ch_name_list):
 
 #     return 0
 #################################################
-def display_segments(obj_list, label_seg_list):
+def display_segments(obj_list, label_seg_list, ch_excl_list):
     ## for each segment observe and identify bad channels and bad segments
     for label_seg in label_seg_list:
         fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(9,4), sharey=True, sharex=True)
@@ -1324,7 +1324,7 @@ def display_segments(obj_list, label_seg_list):
             print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
             if obj.get_label() == label_seg:
                 ## load bad channels and bad annotations
-                ax[id_ax], id_seg = obj.data_visualization(ax[id_ax])
+                ax[id_ax], id_seg = obj.data_visualization(ax[id_ax], ch_excl_list)
                 ax[id_ax].set_title(f"id = {id_seg}")
                 id_ax+=1
         fig.suptitle(f"{label_seg}")
@@ -1364,7 +1364,7 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
@@ -1408,6 +1408,8 @@ def main(args):
     print(f"excluded channels:\n{excluded_channels}")
     raw_data.info["bads"] = excluded_channels
     raw_data.drop_channels(raw_data.info['bads'])
+
+    raw_data.info["bads"] = ch_excl_list
     
     ##########################
     # printing basic information from data
@@ -1467,7 +1469,8 @@ def main(args):
     if flag_selection:
         ## visual selection of selected segments for each state
         ## the selected segments are manually set in a list_participant.py, in the "selected_ids_dict"
-        display_segments(obj_list, label_seg_list)
+        ch_excl_list.append('VREF')
+        display_segments(obj_list, label_seg_list, ch_excl_list)
         return 0
     
     #################
