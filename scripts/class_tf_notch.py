@@ -184,8 +184,6 @@ class TF_components:
 
         return 0
 
-
-    
     ######################################
     def data_visualization(self, ax_plot, ch_excl_list):
         # display time-series signals
@@ -456,6 +454,51 @@ class TF_components:
 
         return 0
     
+    ####################################
+    def get_plot_psd_model(self, ax1, label,):
+
+        plt_log = False
+        fm = self.fm_models_dict[label]
+
+        plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1[0]) ## color=color,
+        plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
+        plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax1[2])
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax1[3]) ## color=color,
+
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax3[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax3[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax2[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax2[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax4) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax4) ## color=color,
+
+        return 0
+    
+    ####################################
+    def get_plot_psd(self, ax1, label,):
+
+        plt_log = False
+        fm = self.fm_models_dict[label]
+
+        plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1) ## color=color,
+        # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
+        # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax1[2])
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax1[3]) ## color=color,
+
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax3[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax3[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax2[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax2[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax4) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax4) ## color=color,
+
+        return 0
     #########################################
     def calculate_fooof(self, freqs, spectrum, freq_range):
         ## following tutorial
