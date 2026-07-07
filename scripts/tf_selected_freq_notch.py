@@ -654,23 +654,39 @@ def average_psd_regions(obj_list, event_list):
     ## 
     freq_range = [1,45]
     
+    fig, ax = plt.subplots(2,2, sharex=True, sharey=True, figsize=(12,6))
+    ax = ax.flatten()
+    id=0
+    acc_obj = 0
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
             # interactive selection of bad segments and bad channels
             # print(f"{obj.get_label(), obj.get_id()}")
+            if acc_obj == 2:
+                ## save fig and create a new one
+                fig, ax = plt.subplots(2,2, sharex=True, sharey=True, figsize=(12,6))
+                ax = ax.flatten()
+                id=0
+                acc_obj = 0
+            else:
+                pass
 
             if obj.get_label_simple() in event_list:
                 print(f"{obj.get_label(), obj.get_id()}")
                 ## PSD average per regions and
                 ## aperiodic modeling using FOOOF
                 region ='central_left'
-                obj.get_average_psd_model(central_left_channels, freq_range, region)
-
+                print(f"average; {obj.get_label()}; {region}")
+                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax[id])
+                id+=1
+                
                 region ='central_right'
-                obj.get_average_psd_model(central_right_channels, freq_range, region)
+                print(f"average; {obj.get_label()}; {region}")
+                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax[id])
+                id+=1
+                acc_obj+=1
 
-            
 
             # print (f"psd and freqs:\n{psd_central_left}\n{freqs}")
             # psd_central_right, freqs = obj.get_average_psd(central_right_channels)
@@ -869,7 +885,109 @@ def plot_psd_responses_only4(obj_list, event_list_ce, event_list_oe, path_fig, i
 
     ## x and y limits
     ax_a[0].set_xlim(-1, 47.0)
-    ax_a[0].set_ylim(-6.25, -1.75)
+    # ax_a[0].set_ylim(-6.25, -1.75)
+
+
+    set_labels_ax_4only(ax_a)
+    ## legend
+    fig_a = set_legend(fig_a, flags)
+
+    # set_labels_ax(ax_b)
+    # set_labels_ax(ax_c)
+
+    # set_title_ax(ax_a[0])
+    set_title_ax4only(ax_a)
+    # set_title_ax(ax_b[0])
+    # set_title_ax(ax_c[0])
+
+    # set_subtitle_fig(fig_a)
+    # set_subtitle_fig(fig_b)
+    # set_subtitle_fig(fig_c)
+
+    # set_annotation_ax (ax_a[0,:], '(PSD)')
+    # set_annotation_ax (ax_a[1,:], '(APERIODIC COMP.)')
+    # set_annotation_ax (ax_a[2,:], '(PSD) - (APERIODIC COMP.)')
+
+    # fig_a.text(0.32, 0.925, "central left channels", ha='center', fontsize=12,)
+    # fig_a.text(0.72, 0.925, "central right channels", ha='center', fontsize=12,)
+
+    set_grid_ax4only(ax_a)
+    
+    # set_grid_ax(ax_b)
+    # set_grid_ax(ax_c)
+
+    ## save figures
+    # text_subtitle = "\ncentral left channels \t \t \t central right channels\n".replace("\t", "    ")
+    fig_a.suptitle(f"{info_p}\n",)
+    # fig_b.suptitle(f"{info_p}")
+    # fig_c.suptitle(f"{info_p}")
+
+
+    fig_a.savefig(path_fig+'fooof_psd_a.png', bbox_inches ="tight")
+    # fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
+    # fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
+
+    return 0
+
+##################
+def plot_psd_responses_median(obj_list, event_list_ce, event_list_oe, path_fig, info_p):
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    fig_a, ax_a = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(12,6), layout='constrained')
+    # fig_b, ax_b = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True, figsize=(10,7))
+    # fig_c, ax_c = plt.subplots(nrows=2, ncols=4, sharex=True, sharey=True, figsize=(10,7))
+    # fig_d, ax_d = plt.subplots(nrows=3, ncols=4, sharex=True, sharey=True, figsize=(9,6))
+    # fig_e, ax_e = plt.subplots(nrows=3, ncols=4, sharex=True, sharey=True, figsize=(10,7))
+
+    ## colored regions frequency bands [theta, alpha, beta]
+    ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+    # ax_a[0].axvspan(mu-2*sigma, mu-sigma, color='0.95')
+    ##theta (4-8 Hz)
+    ax_a = ax_a.flatten()
+    
+    ymin = 5
+    ymax = 35
+    set_bands_ax4plot(ax_a, ymax)
+
+    flags = [0,0,0]
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+        if obj.get_selected_flag():
+
+            ## a_ce, b_ce, c_ce
+            if obj.get_label_simple() in event_list_ce:
+                ## closed eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                # obj.get_plot_psd_model(ax_a[:,0], region,)
+                obj.get_plot_psd(ax_a[0], region,)
+                flags = label_flags(obj, flags)
+
+                region ='central_right'
+                # obj.get_plot_psd_model(ax_a[:,2], region,)
+                obj.get_plot_psd(ax_a[1], region,)
+                flags = label_flags(obj, flags)
+                
+            ## a_oe, b_oe, c_oe
+            elif obj.get_label_simple() in event_list_oe:
+                ## open eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                # obj.get_plot_psd_model(ax_a[:,1], region,)
+                obj.get_plot_psd(ax_a[2], region,)
+                flags = label_flags(obj, flags)
+                
+                region ='central_right'
+                # obj.get_plot_psd_model(ax_a[:,3], region,)
+                obj.get_plot_psd(ax_a[3], region,)
+                flags = label_flags(obj, flags)
+
+
+    ## x and y limits
+    ax_a[0].set_xlim(-1, 47.0)
+    # ax_a[0].set_ylim(-6.25, -1.75)
+    ax_a[0].set_ylim(ymin,ymax)
 
 
     set_labels_ax_4only(ax_a)
@@ -1009,7 +1127,7 @@ def set_bands_ax(ax):
     return 0
 
 ##########################
-def set_bands_ax4plot(ax_list):
+def set_bands_ax4plot(ax_list, ymax):
 
     ## create particular grid
     for ax in ax_list:
@@ -1023,9 +1141,9 @@ def set_bands_ax4plot(ax_list):
        
         ## include annotations
         ## theta (4-8 Hz)
-        ax.annotate('$\\theta$', xy=(5,-2.3), xytext=(5,-2.3), fontsize=10)
-        ax.annotate('$\\alpha$', xy=(9,-2.3), xytext=(9,-2.3), fontsize=10)
-        ax.annotate('$\\beta$', xy=(20,-2.3), xytext=(20,-2.3), fontsize=10)
+        ax.annotate('$\\theta$', xy=(5, 0.8*ymax), xytext=(5, 0.8*ymax), fontsize=10)
+        ax.annotate('$\\alpha$', xy=(9, 0.8*ymax), xytext=(9, 0.8*ymax), fontsize=10)
+        ax.annotate('$\\beta$', xy=(20, 0.8*ymax), xytext=(20,0.8*ymax), fontsize=10)
 
         xticks_list = [0,4,8,12,30]
         xticks_labels = ['0','4','8','12','30']
@@ -1044,7 +1162,7 @@ def set_grid_ax(ax):
 def set_grid_ax4only(ax_list):
     ## hide grid
     for ax in ax_list:
-        ax.grid(visible=False)
+        ax.grid(lw=0.5, ls='--', alpha=0.5)
 
     return 0
 
@@ -1134,12 +1252,15 @@ def set_labels_ax_4only(ax_list,):
 
     ## remove legends
     for ax in ax_list:
-        ax.get_legend().set_visible(False)
+        try:
+            ax.get_legend().set_visible(False)
+        except:
+            print("legend not found")
         
     ## y axis labels
-    ax_list[0].set_ylabel(f"log10(power)", fontsize=11)
+    ax_list[0].set_ylabel(f"Power\n[$dB(mV/m^2)^2/Hz$]", fontsize=11)
     ax_list[1].set_ylabel(f"")
-    ax_list[2].set_ylabel(f"log10(power)", fontsize=11)
+    ax_list[2].set_ylabel(f"Power\n[$dB(mV/m^2)^2/Hz$]", fontsize=11)
     ax_list[3].set_ylabel(f"")
     
 
@@ -1169,10 +1290,10 @@ def set_title_ax(ax,):
 ###########
 def set_title_ax4only(ax,):
     ##
-    ax[0].set_title(f"central left channels\nclosed eyes", loc='center')
-    ax[1].set_title(f"central right channels\nclosed eyes",loc='center')
-    ax[2].set_title(f"central left channels\nopen eyes",   loc='center')
-    ax[3].set_title(f"central right channels\nopen eyes",  loc='center')
+    ax[0].set_title(f"average central left region\nclosed eyes", loc='center')
+    ax[1].set_title(f"average central right region\nclosed eyes",loc='center')
+    ax[2].set_title(f"open eyes",   loc='center')
+    ax[3].set_title(f"open eyes",  loc='center')
 
     ##
     # ax[0].set_title(f"central left channels")
@@ -1688,7 +1809,8 @@ def main(args):
     ## PSD average per regions
     ## central left and right
     average_psd_regions(sel_objs, event_list)
-    plot_psd_responses_only4(sel_objs, event_list_ce, event_list_oe, path_fig_fooof, info_p)
+    plot_psd_responses_median(sel_objs, event_list_ce, event_list_oe, path_fig_fooof, info_p)
+
     # plot_psd_responses_all(sel_objs, event_list_ce, event_list_oe, path_fig_fooof, info_p)
     
     #####################

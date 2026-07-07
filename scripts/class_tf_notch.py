@@ -71,6 +71,7 @@ class TF_components:
         self.times_tf = []
         self.tf_means = []
         self.tf_freqs = []
+        self.psd_dict = {}
 
         # pandas data frames
         self.df_ch_bands = pd.DataFrame()
@@ -407,29 +408,59 @@ class TF_components:
         return 0
     
     ########################################
-    def get_average_psd_model(self, channels, freq_range, label):
+    def calculate_average_psd_model(self, channels, freq_range, label, ax):
         ## power spectral density (PSD) from epochs of selected channels
-        psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads')
+        psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=1.0, fmax=45.0)
 
-        # fig, ax = plt.subplots(2,1, sharex=True)
-        # psd_epochs.plot(axes=ax[0])
+        # fig, ax = plt.subplots(3,1, sharex=True,)
+        # psd_epochs.plot(axes=ax)
+        # ax[0].set_ylim(5,45)
+        # ax[0].set_title('epochs')
+        
+        ## median values of PSD from epochs
+        # psd_epochs.average(method='mean').plot(axes=ax[1])
+        psd_epochs.average(method='median').plot(axes=ax)
+        # ax[1].set_ylim(5,45)
+        # ax[1].set_title('epochs average [median]')
 
-        ## mean values of PSD from epochs
-        psd_epochs_mean, freqs = psd_epochs.average().get_data(return_freqs=True)
+        # ## mean values of PSD from epochs
+        # psd_epochs_mean, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
+        psd_epochs_median, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
+        # print(f"psd_epochs_mean.shape: {psd_epochs_mean.shape}")
+        # for ch_data in psd_epochs_mean:
+        #     ax[1].plot(freqs, np.log10(ch_data), lw=0.5)
+        #     # ax[1].plot(freqs, ch_data, lw=0.5)
+        # ax[1].set_title('epochs average')
+
         ## mean values of PSD from channels
-        psd_channels_mean = np.mean(psd_epochs_mean, axis=0)
+        # psd_channels_mean = np.median(1e6*psd_epochs_mean, axis=0)
+        psd_channels_median = np.median(1e6*psd_epochs_median, axis=0)
         # ax[1].plot(freqs, np.log10(psd_channels_mean))
+        
+        psd_d = {'freqs':freqs, 'psd':psd_channels_median}
+        self.psd_dict[label] = psd_d
+        print(f"psd freqs: {self.psd_dict[label]}")
+        # print(f"psd psd: {self.psd_dict['psd']}")
+        print()
+
+        # delta_freq = freqs[1]-freqs[0]
+        # print(f"10*log10({delta_freq})={10*np.log10(delta_freq)}")
+        # ax[2].plot(freqs, 10*np.log10(psd_channels_mean))
+        # ax[2].plot(freqs, 10*np.log10(psd_channels_median))
+        # ax[2].set_ylim(5,45)
+        # ax[2].set_title('channels mean')
+        # return 0
 
         ## aperiodic component model
         # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)
         fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
-        fm.add_data(freqs, psd_channels_mean, freq_range)
+        fm.add_data(freqs, psd_channels_median, freq_range)
         fm.fit()
         self.fm_models_dict[label] = fm
 
         print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
 
-        return 0
+        return psd_channels_median, freqs
     
     ####################################
     def get_plot_psd_model(self, ax1, label,):
@@ -480,10 +511,21 @@ class TF_components:
     ####################################
     def get_plot_psd(self, ax1, label,):
 
-        plt_log = False
-        fm = self.fm_models_dict[label]
+        # plt_log = False
+        try:
+            # fm = self.fm_models_dict[label]
+            # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1) ## color=color,
+            ax1.plot(self.psd_dict[label]['freqs'], 10*np.log10(self.psd_dict[label]['psd']), label=self.label)
+            print(f"plotting {self.label}, {label}")
+            print(f"freqs:\{self.psd_dict[label]['freqs']}")
+            print(f"psd:\{self.psd_dict[label]['psd']}")
+            print(f'')
 
-        plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1) ## color=color,
+        except:
+            print(f"data not found for {label}")
+
+        
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1) ## color=color,
         # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
         # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax1[2])
         # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax1[3]) ## color=color,
@@ -883,6 +925,20 @@ class TF_components:
         
         
         return 0
+    ##############
+    def display_psd_epochs2x(self, epochs_before, epochs_after):
+        
+        ## original epochs
+        # epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} EEG time series",)
+
+        # # ## we exclude VREF because it is the reference (0 volts all the time)
+        fig_psd, ax_psd = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
+        epochs_before.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax_psd[0], fmin=0, fmax=80, xscale='log',)
+        epochs_after.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax_psd[1], fmin=0, fmax=80, xscale='log',)
+        ax_psd[0].set_title(f"PSD before ICA")
+        ax_psd[1].set_title(f"PSD after ICA")
+        
+        return 0
 
 
 ##################################################
@@ -931,7 +987,9 @@ class TF_components:
                 ## apply ICA to a copy of the original epochs
                 self.ica.apply(copy_epochs)
                 ## results of ICA after components exclusion
-                copy_epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) After ICA",)
+                copy_epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) After ICA",)
+                ## psd
+                self.display_psd_epochs2x(self.epochs, copy_epochs)
                 
                 ## visual comparison before and after ICA
                 ############
