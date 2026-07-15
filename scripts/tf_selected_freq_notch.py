@@ -14,6 +14,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.lines as mlines
+import matplotlib.patches as mpatches
+import matplotlib.widgets as mwidgets
+from matplotlib.backend_bases import MouseButton
 
 from channels_tfr import selected_channels
 ## include modules from another directory
@@ -51,6 +54,13 @@ midline_channels = ['VREF','E6','E11','E16','E55','E62','E72','E75']
 
 excluded_channels = ['E8','E14','E15','E17','E21','E25','E38','E39','E43','E44','E45','E48','E49','E56','E57','E63','E68','E73','E81','E88','E94','E99','E100','E107','E108','E113','E114','E115','E119','E120','E121','E125','E126','E127','E128']
 
+## interactive plots
+ax_ce_global = []
+fig_ce_global = []
+fig_mea = []
+ax_mea = []
+obj_list = []
+selectors=[]
 
 #############################
 #############################
@@ -622,7 +632,7 @@ def ica_artifacts_reduction(obj_list, flag_update, event_list):
     return 0
 
 ######################################################
-def re_referencing(obj_list, event_list):
+def redefine_reference(obj_list, event_list):
     ## average re-referencing, bad-channels interpolation, and spatial filtering
     for obj in obj_list:
         ## find the selected segment for each label
@@ -633,7 +643,7 @@ def re_referencing(obj_list, event_list):
                 print(f"{obj.get_label(), obj.get_id()}")
                 #average re-referencing, bad-channels interpolation, and spatial filtering...
                 
-                # # re-referencing appli. average after ICA
+                # re-referencing appli. average after ICA
                 # print(f"re-referencing...")
                 # obj.re_referencing()
 
@@ -694,6 +704,270 @@ def average_psd_regions(obj_list, event_list):
     return 0
 
 ##############################################
+##############################
+def plot_psd_quantiles(obj_list, event_list, info_p, ylim, path, flag_save):
+    global ax_ce_global, fig_ce_global
+    ##
+    print(f"event list: {event_list}")
+    ##
+    freq_range = [1,45]
+    ## ids to define a subplot order for ax_ce and ax_oe
+    ax_ce_dict = {'a_ce':0, 'b_ce':2, 'c_ce':4}
+    ax_oe_dict = {'a_oe':0, 'b_oe':2, 'c_oe':4}
+
+    ## how many rows in the figures depends of how many segments were recorded
+    ## for closed and open eyes
+    sum_ce=0
+    sum_oe=0
+    ## count number of selected segments [a_ce, a_oe, ...]
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag() and ('ce' in obj.get_label_simple()):
+            sum_ce+=1
+        elif obj.get_selected_flag() and ('oe' in obj.get_label_simple()):
+            sum_oe+=1
+        else:
+            pass
+    
+    fig_ce, ax_ce = plt.subplots(sum_ce, 2, sharex=True, sharey=True, figsize=(12,6))
+    fig_oe, ax_oe = plt.subplots(sum_oe, 2, sharex=True, sharey=True, figsize=(12,6))
+    ax_ce = ax_ce.flatten()
+    ax_oe = ax_oe.flatten()
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            ## get the label of the selected object [a_ce, a_oe, ...]
+            label_eyes = obj.get_label_simple()
+            ## separate closed eyes and open eyes
+            if 'ce' in label_eyes:
+                ## closed eyes [a_ce, b_ce, c_ce]
+                id_ax = ax_ce_dict[label_eyes]
+                region ='central_left'
+                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_ce[id_ax])
+                region ='central_right'
+                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax_ce[id_ax+1])
+            else:
+                ## open eyes [a_oe, b_oe, c_oe]
+                id_ax = ax_oe_dict[label_eyes]
+                region ='central_left'
+                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_oe[id_ax])
+                region ='central_right'
+                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax_oe[id_ax+1])
+
+    
+    ## ax limits, closed eyes, open eyes
+    ax_ce[0].set_ylim(ylim[0], ylim[1])
+    ax_oe[0].set_ylim(ylim[0], ylim[1])
+
+    ax_ce[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
+    ax_oe[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
+
+    # ## ax titles closed-eyes
+    # ax_ce[0].set_title(f'left central region\nresting (before cycling)')
+    # ax_ce[1].set_title(f'right central region\nresting (before cycling)')
+    # ## ax titles open eyes
+    # ax_oe[0].set_title(f'left central region\nresting (before cycling)')
+    # ax_oe[1].set_title(f'right central region\nresting (before cycling)')
+
+    ## labels x axes
+    ax_ce[-2].set_xlabel(f'frequency [Hz]')
+    ax_ce[-1].set_xlabel(f'frequency [Hz]')
+    ax_oe[-2].set_xlabel(f'frequency [Hz]')
+    ax_oe[-1].set_xlabel(f'frequency [Hz]')
+
+
+    fig_ce.suptitle(f'{info_p}\nEYES CLOSED')
+    fig_oe.suptitle(f'{info_p}\nEYES OPEN')
+
+    # Creating legend with color box
+    gray_patch = mpatches.Patch(color='tab:gray', alpha=0.5, label=f'Q3-Q1\ninterquantil\nrange')
+
+    fig_ce.legend(handles=[gray_patch], loc="upper right") ## loc="outside right upper"
+    fig_oe.legend(handles=[gray_patch], loc="upper right")
+
+    if flag_save:
+        fig_ce.savefig(path+'psd_ce.png',bbox_inches='tight')
+        fig_oe.savefig(path+'psd_oe.png',bbox_inches='tight')
+    else:
+        pass
+
+    ################
+    ## interactions plots, mouse, and keyboard
+    ax_ce_global = ax_ce
+    fig_ce_global = fig_ce
+    fig_ce_global.canvas.mpl_connect('button_press_event', on_click)
+
+    # span = mwidgets.SpanSelector(ax_ce[0], onselect, 'horizontal', interactive=True, useblit=True, props=dict(facecolor='blue', alpha=0.2))
+    # span = mwidgets.SpanSelector(ax_oe, onselect, 'horizontal', interactive=True, useblit=True, props=dict(facecolor='blue', alpha=0.2))
+
+
+            # ## subplot id selection
+            # id_ax = ax_ids_dict[obj.get_label_simple()]
+            # region ='central_left'
+            # print(f"average; {obj.get_label()}; {region}")
+
+            # obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_left[id_ax])
+
+            # if acc_obj == 2:
+            #     ## save fig and create a new one
+            #     fig, ax = plt.subplots(2,2, sharex=True, sharey=True, figsize=(12,6))
+            #     ax = ax.flatten()
+            #     id=0
+            #     acc_obj = 0
+            # else:
+            #     pass
+
+            # if obj.get_label_simple() in event_list:
+            #     print(f"{obj.get_label(), obj.get_id()}")
+            #     ## PSD average per regions and
+            #     ## aperiodic modeling using FOOOF
+            #     region ='central_left'
+            #     print(f"average; {obj.get_label()}; {region}")
+            #     obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax[id])
+            #     id+=1
+                
+            #     region ='central_right'
+            #     print(f"average; {obj.get_label()}; {region}")
+            #     obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax[id])
+            #     id+=1
+            #     acc_obj+=1
+
+
+            # print (f"psd and freqs:\n{psd_central_left}\n{freqs}")
+            # psd_central_right, freqs = obj.get_average_psd(central_right_channels)
+
+    return 0
+
+##############################################
+def onselect(vmin, vmax):
+    global tmin, tmax
+    print(vmin, vmax)
+
+    tmin = vmin
+    tmax = vmax
+
+    return 0
+
+######################################
+def on_click(event):
+    global ax_index
+
+    ax_copy = np.copy(ax_ce_global)
+
+    # print(f"onclick event.inaxes: {event.inaxes}")
+    if event.button is MouseButton.LEFT:
+        print(f"button right")
+        print(f"event.inaxes: {event.inaxes}")
+        ## is the mouse over any subplot?
+        if event.inaxes in ax_copy:
+            ## which subplot?
+            ax_index = np.argwhere(event.inaxes == ax_copy)[0][0]
+            ## subplot index
+            print(f"selected ax: {ax_index}")
+            ## open a new window with the signals of the selected subplot
+            signal_measurements(ax_index)
+        else:
+            pass
+            # print(f"event.inaxes out of ax")
+    else:
+        pass
+        # print(f"other button")
+
+    return 0
+
+####################################
+def signal_measurements(ax_index):
+    global fig_mea, ax_mea, emg_list, selectors
+
+    freq_range = [1,45]
+    ax_ce_dict_global = {0:'a_ce', 1:'a_ce', 2:'b_ce', 3:'b_ce', 4:'c_ce', 5:'c_ce'}
+    ## odd or even
+    if ax_index % 2 == 0:
+        # even
+        region ='central_left'
+        sel_channels = central_left_channels
+    else:
+        # odd
+        region ='central_right'
+        sel_channels = central_right_channels
+
+    sel_label = ax_ce_dict_global[ax_index]
+
+    ## close previous figure
+    if type(fig_mea) != type([]):
+        plt.close(fig_mea)
+    else:
+        pass
+    
+    ## creates a figure to plot the selected stimulation responses 
+    n_rows = 1
+    n_cols = 1
+    fig, ax = plt.subplots(n_rows, n_cols, sharex=True, figsize=(10*n_cols, 5*n_rows))
+    
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            ## get the label of the selected object [a_ce, a_oe, ...]
+            label_eyes = obj.get_label_simple()
+            ## separate closed eyes and open eyes
+            if sel_label in label_eyes:
+                ## closed eyes [a_ce, b_ce, c_ce]
+                obj.calculate_average_psd_model(sel_channels, freq_range, region, ax)
+                break
+
+    span = mwidgets.SpanSelector(ax, onselect, 'horizontal', interactive=True, useblit=True, props=dict(facecolor='blue', alpha=0.2))
+    selectors.append(span)
+
+
+
+
+
+
+    # ch_emg = ch_emg_list[0]
+
+    # emg_list = []
+    # ## segment signal from (t0 - 0.02 s) to (t0 + 0.08 s) 
+    # ## iterate using time (column 0)
+    # idx=0
+
+    # for i, t0 in enumerate(df_sel.iloc[:,ch_time]):
+    #     if i == ax_index:
+    #         df_seg = df[(df.iloc[:,ch_time]>=(t0-0.02)) & (df.iloc[:,ch_time]<=(t0+0.08))]
+    #         ## time, emg, and sync data from selected stimulations
+    #         df_seg.iloc[:,ch_time] = df_seg.iloc[:,ch_time].to_numpy() - t0
+    #         ## list of emg segments
+    #         emg_list.append(df_seg)
+    #         ## time axis
+    #         t = df_seg.iloc[:,ch_time].to_numpy()
+    #         ## plot emg segment at each subplot
+    #         ax.plot(t, df_seg.iloc[:,ch_emg])
+    #         ax.grid(color = 'green', linestyle = '--', linewidth = 0.2)
+    #         ax.set_title(f"stim: {i}")
+    #         ax.set_xlabel("time [s]")
+    #         ax.set_ylabel("amplitude [uV]")
+
+    #         span = mwidgets.SpanSelector(ax, onselect, 'horizontal', interactive=True, useblit=True, props=dict(facecolor='blue', alpha=0.2))
+    #         selectors.append(span)
+
+    #         # print (f"ax: {ax}, {type(ax)}")
+    #         idx+=1
+
+    fig_mea = fig
+    ax_mea = ax
+        
+    # fig_mea.suptitle(f"{channelsNames[ch_emg]}")
+    # fig_mea.suptitle(f"{selected_file}")
+    
+    plt.show()
+
+    # fig_mea.canvas.mpl_connect('button_press_event', on_click)
+    # fig_mea.canvas.mpl_connect('key_press_event', on_press)
+
+    return 0
+
+######################################################
 def plot_psd_responses(obj_list, event_list, path_fig):
     ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
     fig_a, ax_a = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(9,6))
@@ -987,7 +1261,7 @@ def plot_psd_responses_median(obj_list, event_list_ce, event_list_oe, path_fig, 
     ## x and y limits
     ax_a[0].set_xlim(-1, 47.0)
     # ax_a[0].set_ylim(-6.25, -1.75)
-    ax_a[0].set_ylim(ymin,ymax)
+    # ax_a[0].set_ylim(ymin,ymax)
 
 
     set_labels_ax_4only(ax_a)
@@ -1615,8 +1889,10 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
         ax = ax.flatten()
         id_ax = 0
         for obj in obj_list:
-            # interactive selection of bad segments and bad channels
-            print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
+            ### (interactive selection of bad segments and bad channels)
+            ## visualization for the selection of the less noisy and more representative segment for each state, i.e. a_ce, a_oe, b_ce, b_oe
+            # print(f"{obj.get_label()}-{obj.get_id()}: interactive selection of bad segments and bad channels...")
+            print(f"{obj.get_label()}-{obj.get_id()}: segments' visualization...")
             if obj.get_label() == label_seg:
                 ## load bad channels and bad annotations
                 ax[id_ax], id_seg = obj.data_visualization(ax[id_ax], ch_excl_list)
@@ -1633,7 +1909,7 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name, excluded_channels
+    global sampling_rate, psd_fig_name, excluded_channels, obj_list
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -1659,7 +1935,7 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0
@@ -1674,6 +1950,7 @@ def main(args):
 
     ## path filename boxplots
     path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
+    path_fig_psd = path+'session_'+str(session)+f'/figures/psd/'
     path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
     # checking if the directory figures
     # exist or not.
@@ -1686,6 +1963,11 @@ def main(args):
         # if the figures directory is not present 
         # then create it.
         os.makedirs(path_fig_fooof)
+
+    if not os.path.exists(path_fig_psd):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_fig_psd)
 
     ################################################
     ## read annotations (.csv file)
@@ -1704,6 +1986,7 @@ def main(args):
     raw_data.info["bads"] = excluded_channels
     raw_data.drop_channels(raw_data.info['bads'])
 
+    ## additonal channels to exclude and interpolate because of problems in their signals
     raw_data.info["bads"] = ch_excl_list
     
     ##########################
@@ -1800,12 +2083,21 @@ def main(args):
 
     ###############################################
     ## re-refrencing
-    re_referencing(sel_objs, event_list)
+    redefine_reference(sel_objs, event_list)
 
     ## bad channels interpolation, and spatial filtering (Laplacian surface)
     #######################################################################
     ## Preprocessing ends
     #######################################################################
+    ## psd visualization
+    print(f"plot quantiles")
+    save_psd_plots = True
+    plot_psd_quantiles(obj_list, event_list, info_p, ylims, path_fig_psd, save_psd_plots)
+
+    #####################
+    plt.show(block=True)
+    return 0
+
     ## PSD average per regions
     ## central left and right
     average_psd_regions(sel_objs, event_list)
