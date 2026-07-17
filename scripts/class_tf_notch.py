@@ -32,21 +32,27 @@ class TF_components:
 
         if label_seg == 'a_closed_eyes':
             self.label = 'a_ce'
+            self.title_ax =  'resting (before cycling)'
             self.title_fig = 'resting (before cycling) closed-eyes'
         elif label_seg == 'a_opened_eyes':
             self.label = 'a_oe'
+            self.title_ax = 'resting (before cycling)'
             self.title_fig = 'resting (before cycling) open-eyes'
         elif label_seg == 'b_closed_eyes':
             self.label = 'b_ce'
+            self.title_ax = 'cycling (passive)'
             self.title_fig = 'passive cycling closed-eyes'
         elif label_seg == 'b_opened_eyes':
             self.label = 'b_oe'
+            self.title_ax  = 'cycling (passive)'
             self.title_fig = 'passive cycling open-eyes'
         elif label_seg == 'c_closed_eyes':
             self.label = 'c_ce'
+            self.title_ax  = 'resting (after cycling)'
             self.title_fig = 'resting (after cycling) closed-eyes'
         elif label_seg == 'c_opened_eyes':
             self.label = 'c_oe'
+            self.title_ax  = 'resting (after cycling)'
             self.title_fig = 'resting (after cycling) open-eyes'
         else:
             self.label = ''
@@ -72,10 +78,12 @@ class TF_components:
         self.tf_means = []
         self.tf_freqs = []
         self.psd_dict = {}
+        self.psd_epochs = []
 
         # pandas data frames
         self.df_ch_bands = pd.DataFrame()
         self.df_psd = pd.DataFrame()
+        self.df_psd_quantiles = pd.DataFrame()
 
         ## create folder to save preprocesing parameters
         Path(path+'session_'+str(session)+"/prep/"+self.label_seg).mkdir(parents=True, exist_ok=True)
@@ -116,6 +124,7 @@ class TF_components:
         self.scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
         ## flag to identify selected segment
         self.flag_selection = False
+        self.flag_csd = False
 
     ###################################
     def load_channels_annot_bads(self):
@@ -188,10 +197,10 @@ class TF_components:
     ######################################
     def data_visualization(self, ax_plot, ch_excl_list):
         # display time-series signals
-        fig_raw = mne.viz.plot_raw(self.raw_seg, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
+        fig_raw = mne.viz.plot_raw(self.raw_seg.copy(), picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=self.scale_dict, highpass=1.0, lowpass=45.0, title=f"{self.label_seg}_{self.id_seg} (EEG) -- Please select bad segments and bad channels interactively", block=False)
         ## display PSD from time-series signals
         # print(f"channels exclusion: {ch_excl_list}")
-        mne.viz.plot_raw_psd(self.raw_seg, picks=['eeg'], exclude=ch_excl_list, ax=ax_plot, fmin=0.9, fmax=101, xscale='log',)
+        mne.viz.plot_raw_psd(self.raw_seg.copy(), picks=['eeg'], exclude=ch_excl_list, ax=ax_plot, fmin=0.9, fmax=101, xscale='log',)
         return ax_plot, self.id_seg
     
     def plot_raw_data(self):
@@ -410,22 +419,23 @@ class TF_components:
     ########################################
     def calculate_average_psd_model(self, channels, freq_range, label, ax):
         ## power spectral density (PSD) from epochs of selected channels
-        psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=1.0, fmax=45.0)
+        self.psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
 
         # fig, ax = plt.subplots(3,1, sharex=True,)
         # psd_epochs.plot(axes=ax)
         # ax[0].set_ylim(5,45)
         # ax[0].set_title('epochs')
         
+        # ## mean values of PSD from epochs
+        # psd_epochs.average(method='mean').plot(axes=ax)
         ## median values of PSD from epochs
-        # psd_epochs.average(method='mean').plot(axes=ax[1])
-        psd_epochs.average(method='median').plot(axes=ax)
+        # psd_epochs.average(method='median').plot(axes=ax)
         # ax[1].set_ylim(5,45)
         # ax[1].set_title('epochs average [median]')
 
         # ## mean values of PSD from epochs
-        # psd_epochs_mean, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
-        psd_epochs_median, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
+        # psd_epochs_avg, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
+        psd_epochs_avg, freqs = self.psd_epochs.average(method='mean').get_data(return_freqs=True)
         # print(f"psd_epochs_mean.shape: {psd_epochs_mean.shape}")
         # for ch_data in psd_epochs_mean:
         #     ax[1].plot(freqs, np.log10(ch_data), lw=0.5)
@@ -434,14 +444,40 @@ class TF_components:
 
         ## mean values of PSD from channels
         # psd_channels_mean = np.median(1e6*psd_epochs_mean, axis=0)
-        psd_channels_median = np.median(1e6*psd_epochs_median, axis=0)
+        # psd_channels_median = np.median(1e6*psd_epochs_avg, axis=0)
+
+        psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
+        psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
+        psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
+
+        self.df_psd_quantiles['freqs'] = freqs
+        self.df_psd_quantiles['psd_q1'] = psd_channels_q1
+        self.df_psd_quantiles['psd_q2'] = psd_channels_q2
+        self.df_psd_quantiles['psd_q3'] = psd_channels_q3
+       
+        
+        # ax.plot(freqs, 10*np.log10(psd_channels_q2), color='tab:gray')
+        ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
+        ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
+
+        ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
+        self.psd_epochs.average(method='mean').plot(axes=ax)
+
+        if self.flag_csd:
+            ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
+        else:
+            pass
+
+        ax.set_title(self.title_ax)
+
+
         # ax[1].plot(freqs, np.log10(psd_channels_mean))
         
-        psd_d = {'freqs':freqs, 'psd':psd_channels_median}
-        self.psd_dict[label] = psd_d
-        print(f"psd freqs: {self.psd_dict[label]}")
-        # print(f"psd psd: {self.psd_dict['psd']}")
-        print()
+        # psd_d = {'freqs':freqs, 'psd':psd_channels_median}
+        # self.psd_dict[label] = psd_d
+        # print(f"psd freqs: {self.psd_dict[label]}")
+        # # print(f"psd psd: {self.psd_dict['psd']}")
+        # print()
 
         # delta_freq = freqs[1]-freqs[0]
         # print(f"10*log10({delta_freq})={10*np.log10(delta_freq)}")
@@ -453,15 +489,132 @@ class TF_components:
 
         ## aperiodic component model
         # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
-        fm.add_data(freqs, psd_channels_median, freq_range)
-        fm.fit()
-        self.fm_models_dict[label] = fm
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
+        # fm.add_data(freqs, psd_channels_median, freq_range)
+        # fm.fit()
+        # self.fm_models_dict[label] = fm
 
-        print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
+        # print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
 
-        return psd_channels_median, freqs
+        # return psd_channels_median, freqs
+        return 0
+
+
+    def get_psd_quantiles(self,):
+        return self.df_psd_quantiles
     
+    def fit_fooof(self, range_freqs):
+        print(f"FOOOF: aperiodic and periodic components' estimation")
+        # df_psd_global
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 25.0], max_n_peaks=3, min_peak_height=3.0)
+        fm.add_data(self.df_psd_quantiles['freqs'].to_numpy(), self.df_psd_quantiles['psd_q2'].to_numpy(), range_freqs)
+    
+        return 0
+
+    ########################################
+    # def get_average_psd_model(self, channels, freq_range, label, ax):
+    def plot_psd_quantiles(self, channels, freq_range, label, ax):
+        ## power spectral density (PSD) from epochs of selected channels
+        psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
+
+        # fig, ax = plt.subplots(3,1, sharex=True,)
+        # psd_epochs.plot(axes=ax)
+        # ax[0].set_ylim(5,45)
+        # ax[0].set_title('epochs')
+        
+        # ## mean values of PSD from epochs
+        # psd_epochs.average(method='mean').plot(axes=ax)
+        ## median values of PSD from epochs
+        # psd_epochs.average(method='median').plot(axes=ax)
+        # ax[1].set_ylim(5,45)
+        # ax[1].set_title('epochs average [median]')
+
+        # ## mean values of PSD from epochs
+        # psd_epochs_avg, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
+        # psd_epochs_avg, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
+        
+
+        # print(f"psd_epochs_mean.shape: {psd_epochs_mean.shape}")
+        # for ch_data in psd_epochs_mean:
+        #     ax[1].plot(freqs, np.log10(ch_data), lw=0.5)
+        #     # ax[1].plot(freqs, ch_data, lw=0.5)
+        # ax[1].set_title('epochs average')
+
+        ## mean values of PSD from channels
+        # psd_channels_mean = np.median(1e6*psd_epochs_mean, axis=0)
+        # psd_channels_median = np.median(1e6*psd_epochs_avg, axis=0)
+
+        # psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
+        # psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
+        # psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
+
+        freqs = self.df_psd_quantiles['freqs']
+        psd_channels_q1 = self.df_psd_quantiles['psd_q1']
+        psd_channels_q2 = self.df_psd_quantiles['psd_q2']
+        psd_channels_q3 = self.df_psd_quantiles['psd_q3']
+
+        
+        # ax.plot(freqs, 10*np.log10(psd_channels_q2), color='tab:gray')
+        ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
+        ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
+
+        ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
+        # psd_epochs.average(method='mean').plot(axes=ax)
+        ax.plot(freqs, psd_channels_q2)
+
+        if self.flag_csd:
+            ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
+        else:
+            pass
+
+        ax.set_title(self.title_ax)
+        ax.grid(ls=':',lw=0.5)
+
+        ## apply fooof selected region of the PSD, just after big peak of alpha
+        ## first average results of psd epochs
+        # df_psd_epochs = psd_epochs.to_data_frame()
+        # print(f"dataframe epochs psd:\n{df_psd_epochs}")
+        
+        # ## fooof
+        # ## data range selected interactively
+        # self.df_psd_quantiles['freqs'] = freqs
+        # self.df_psd_quantiles['psd_q1'] = psd_channels_q1
+        # self.df_psd_quantiles['psd_q2'] = psd_channels_q2
+        # self.df_psd_quantiles['psd_q3'] = psd_channels_q3
+
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)# Add data to the object
+        # fm.add_data(freqs, spectrum, [3, 40])
+
+
+        # ax[1].plot(freqs, np.log10(psd_channels_mean))
+        
+        # psd_d = {'freqs':freqs, 'psd':psd_channels_median}
+        # self.psd_dict[label] = psd_d
+        # print(f"psd freqs: {self.psd_dict[label]}")
+        # # print(f"psd psd: {self.psd_dict['psd']}")
+        # print()
+
+        # delta_freq = freqs[1]-freqs[0]
+        # print(f"10*log10({delta_freq})={10*np.log10(delta_freq)}")
+        # ax[2].plot(freqs, 10*np.log10(psd_channels_mean))
+        # ax[2].plot(freqs, 10*np.log10(psd_channels_median))
+        # ax[2].set_ylim(5,45)
+        # ax[2].set_title('channels mean')
+        # return 0
+
+        ## aperiodic component model
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
+        # fm.add_data(freqs, psd_channels_median, freq_range)
+        # fm.fit()
+        # self.fm_models_dict[label] = fm
+
+        # print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
+
+        # return psd_channels_median, freqs
+        return 0
+
     ####################################
     def get_plot_psd_model(self, ax1, label,):
 
@@ -920,8 +1073,10 @@ class TF_components:
         # epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} EEG time series",)
 
         # # ## we exclude VREF because it is the reference (0 volts all the time)
+        bads_list = epochs.info['bads']
+        bads_list.append('VREF')
         fig_psd, ax_psd = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-        epochs.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax_psd, fmin=0, fmax=80, xscale='log',)
+        epochs.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd, fmin=0, fmax=80, xscale='log',)
         
         
         return 0
@@ -933,8 +1088,12 @@ class TF_components:
 
         # # ## we exclude VREF because it is the reference (0 volts all the time)
         fig_psd, ax_psd = plt.subplots(nrows=2, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-        epochs_before.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax_psd[0], fmin=0, fmax=80, xscale='log',)
-        epochs_after.plot_psd(picks=['eeg'], exclude=['VREF'], ax=ax_psd[1], fmin=0, fmax=80, xscale='log',)
+        # bads_list = self.raw_seg.info['bads']
+        # bads_list = bads_list + epochs_before.info['bads']
+        bads_list = epochs_before.info['bads']
+        bads_list.append('VREF')
+        epochs_before.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd[0], fmin=0, fmax=80, xscale='log',)
+        epochs_after.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd[1], fmin=0, fmax=80, xscale='log',)
         ax_psd[0].set_title(f"PSD before ICA")
         ax_psd[1].set_title(f"PSD after ICA")
         
@@ -950,11 +1109,12 @@ class TF_components:
             flag_ica = 1
             ## re-calculate ICA components    
             while flag_ica==1 :
-                ## display psd eeg raw data
-                self.display_psd_epochs(self.epochs)
                 ## copy of raw data
                 copy_epochs = self.epochs.copy()
+                ## display psd eeg raw data
+                self.display_psd_epochs(self.epochs)
                 
+                                
                 if recal_ica_flag==False:
                     print(f"reading the previous ICA model...")
                     self.read_ica_model()
@@ -982,14 +1142,14 @@ class TF_components:
                 ############
                 ## visual comparison before and after ICA
                 ## data visualization EEG         
-                ## original epochs
-                self.epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) Before ICA",)
+                ## psd
                 ## apply ICA to a copy of the original epochs
                 self.ica.apply(copy_epochs)
-                ## results of ICA after components exclusion
-                copy_epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) After ICA",)
-                ## psd
                 self.display_psd_epochs2x(self.epochs, copy_epochs)
+                ## original epochs
+                self.epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) Before ICA",)
+                ## results of ICA after components exclusion
+                copy_epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) After ICA",)
                 
                 ## visual comparison before and after ICA
                 ############
@@ -999,7 +1159,7 @@ class TF_components:
                 # option_ica = 0 if (flag_ica == '') else int(flag_ica)
                 if option_ica==1:
                     ## update bad channels interactively
-                    fig_raw = self.epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) Before ICA",)
+                    fig_raw = self.epochs.plot(n_epochs=21, events=True, block=False, n_channels=36, scalings=self.scale_dict, title=f"Epochs {self.label_seg}_{self.id_seg} (EEG) Before ICA",)
                     self.update_channels_bads()
                     ## save on disk bad channels
                     self.save_channels_bads()
@@ -1262,7 +1422,7 @@ class TF_components:
         ## in place
         # self.raw_seg = mne.preprocessing.compute_current_source_density(self.raw_seg)
         self.epochs = mne.preprocessing.compute_current_source_density(self.epochs)
-        
+        self.flag_csd = True
         # ## save figure csd
         # # fig_csd = mne.viz.plot_raw(self.raw_seg, start=0, duration=240, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian', show=False, block=False)
         # fig_csd = self.raw_seg.plot(picks=ch_list, start=0, duration=240, n_channels=32, scalings=self.scale_dict, highpass=None, lowpass=None, filtorder=4, title=f'EEG after Surface Laplacian - {self.title_fig}', show=False, block=False)
@@ -1489,7 +1649,7 @@ class TF_components:
 
         if label_update:
             fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(9,4), sharey=True, sharex=True)
-            self.raw_seg.compute_psd(fmax=80, picks=['eeg'], reject_by_annotation = True,).plot(xscale='log', axes=ax, exclude=['VREF'], show=True, )
+            self.raw_seg.compute_psd(fmax=80, picks=['eeg'], exclude='bads', reject_by_annotation = True,).plot(xscale='log', axes=ax, exclude=['VREF'], show=True, )
 
             print(f"Raw data inspection to identify bad segments:\n{self.title_fig}")
             mne.viz.plot_raw(self.raw_seg, start=0, duration=240, n_channels=36, scalings=self.scale_dict, title=f'Interactive selection of bad segments, {self.title_fig}', show=True, block=True)
@@ -1506,7 +1666,7 @@ class TF_components:
         self.load_channels_bads()
 
         if flag_update:
-            self.epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Interactive bad channels selection on EEG time series {self.title_fig}",)
+            self.epochs.plot(n_epochs=24, events=True, block=True, n_channels=36, scalings=self.scale_dict, title=f"Interactive bad channels selection on EEG epochs (time series) {self.title_fig}",)
 
         self.update_channels_bads()
         self.save_channels_bads()
@@ -2091,6 +2251,9 @@ class TF_components:
     
     def get_df_psd(self):
         return self.df_psd
+    
+    def get_flag_csd(self):
+        return self.flag_csd
     
     
         
