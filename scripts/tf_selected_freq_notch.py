@@ -37,6 +37,7 @@ sampling_rate = 1.0
 y_limits = [-8,8]
 ylim_global = [0, 40]
 freq_range = [1,45]
+thr_peaks_global = 2.0
 
 ## scale selection for visualization raw data with annotations
 scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
@@ -71,13 +72,20 @@ fig_ce=[]
 fig_oe=[]
 ax_ce=[]
 ax_oe=[]
+fig_peaks=[]
+ax_peaks=[]
 
 obj_list = []
+obj_global = []
+region_global = ''
 selectors=[]
+selectors_peaks=[]
 df_psd_global = pd.DataFrame()
 f0_global=0
 f1_global=0
 flag_eyes_closed = True
+flag_peaks_global = False
+fig_title_mea = ''
 
 #############################
 #############################
@@ -745,6 +753,7 @@ def plot_psd_quantiles(obj_list, event_list, info_p, ylim, path, flag_save):
         else:
             pass
     
+    ## the figures would include one or more of the following: resting before cycling, cycling, and resting after cycling. The columns would present responses of the left and right sides
     fig_ce, ax_ce = plt.subplots(sum_ce, 2, sharex=True, sharey=True, figsize=(12,6))
     fig_oe, ax_oe = plt.subplots(sum_oe, 2, sharex=True, sharey=True, figsize=(12,6))
     ax_ce = ax_ce.flatten()
@@ -821,6 +830,43 @@ def plot_psd_quantiles(obj_list, event_list, info_p, ylim, path, flag_save):
 
     return 0
 
+def update_psd_plots():
+
+    freq_range = [1,45]
+    ## ids to define a subplot order for ax_ce and ax_oe
+    ax_ce_dict = {'a_ce':0, 'b_ce':2, 'c_ce':4}
+    ax_oe_dict = {'a_oe':0, 'b_oe':2, 'c_oe':4}
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if obj.get_selected_flag():
+            ## get the label of the selected object [a_ce, a_oe, ...]
+            label_eyes = obj.get_label_simple()
+            ## separate closed eyes and open eyes
+            if 'ce' in label_eyes:
+                ## closed eyes [a_ce, b_ce, c_ce]
+                id_ax = ax_ce_dict[label_eyes]
+                region ='central_left'
+                ax_ce[id_ax].cla()
+                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_ce[id_ax])
+                obj.plot_fooof(region, ax_ce[id_ax])
+                region ='central_right'
+                ax_ce[id_ax+1].cla()
+                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax_ce[id_ax+1])
+            else:
+                ## open eyes [a_oe, b_oe, c_oe]
+                id_ax = ax_oe_dict[label_eyes]
+                region ='central_left'
+                ax_oe[id_ax].cla()
+                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_oe[id_ax])
+                region ='central_right'
+                ax_oe[id_ax+1].cla()
+                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax_oe[id_ax+1])
+        else:
+            pass
+    
+    return 0
+
 ##############################################
 def onselect(vmin, vmax):
     global f0_global, f1_global
@@ -831,9 +877,18 @@ def onselect(vmin, vmax):
 
     return 0
 
+##############################################
+def onselect_peaks(vmin, vmax):
+    global thr_peaks_global
+    print(vmin, vmax)
+
+    thr_peaks_global = np.max([vmin,vmax])
+    print(f"thr peak: {thr_peaks_global}")
+
+    return 0
 ######################################
 def on_click(event):
-    global ax_index
+    global ax_index, flag_eyes_closed, fig_title_mea
 
     # ax_copy = np.copy(ax_ce_global)
 
@@ -842,19 +897,19 @@ def on_click(event):
     if event.button is MouseButton.LEFT:
         # print(f"button left")
         ##
-        print(f"event.canvas.figure: {event.canvas.figure}")
-        print(f"fig_ce: {fig_ce}")
-        print(f"fig_oe: {fig_oe}")
+        # print(f"event.canvas.figure: {event.canvas.figure}")
+        # print(f"fig_ce: {fig_ce}")
+        # print(f"fig_oe: {fig_oe}")
 
         if event.canvas.figure == fig_ce:
             flag_eyes_closed = True
             ax_copy = np.copy(ax_ce)
-            fig_title = f"EYES CLOSED"
+            fig_title_mea = f"EYES CLOSED"
             print(f"flag_eyes_closed: {flag_eyes_closed}")
         elif event.canvas.figure == fig_oe:
             flag_eyes_closed = False
             ax_copy = np.copy(ax_oe)
-            fig_title = f"EYES OPEN"
+            fig_title_mea = f"EYES OPEN"
             print(f"flag_eyes_closed: {flag_eyes_closed}")
         else:
             print(f"flag_eyes_closed: not found")
@@ -868,7 +923,7 @@ def on_click(event):
             ## subplot index
             print(f"selected ax: {ax_index}")
             ## open a new window with the signals of the selected subplot
-            signal_measurements(ax_index, flag_eyes_closed, fig_title)
+            signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
         else:
             pass
             # print(f"event.inaxes out of ax")
@@ -881,15 +936,23 @@ def on_click(event):
 ####################################
 def signal_measurements(ax_index, flag_eyes_closed, fig_title):
     ## open a new figure and plot graphical info of the selected subplot 
-    global fig_mea, ax_mea, emg_list, selectors, df_psd_global
+    global fig_mea, ax_mea, emg_list, selectors, df_psd_global, obj_global, region_global
 
-    ## close previous figure
-    if type(fig_mea) != type([]):
-        plt.close(fig_mea)
+    ## create a figure (first time) or clean it to update it
+    if fig_mea == []:
+        ## creates a figure to plot the selected stimulation responses 
+        n_rows = 2
+        n_cols = 1
+        fig_mea, ax_mea = plt.subplots(n_rows, n_cols, sharex=True, figsize=(9*n_cols, 4*n_rows))
+        ## interactive selection freq range
+        span = mwidgets.SpanSelector(ax_mea[0], onselect, 'horizontal', interactive=True, useblit=True, props=dict(facecolor='blue', alpha=0.2))
+        selectors.append(span)
+        ## keyboard interaction
+        fig_mea.canvas.mpl_connect('key_press_event', on_press)
     else:
-        pass
+        ax_mea[0].cla()
 
-    ## subplots graphics order
+    ## subplots graphics order; each row one state: a_, b_, or c_; left columns for channels left side, right columns for channels right side
     ax_ce_dict_global = {0:'a_ce', 1:'a_ce', 2:'b_ce', 3:'b_ce', 4:'c_ce', 5:'c_ce'}
     ax_oe_dict_global = {0:'a_oe', 1:'a_oe', 2:'b_oe', 3:'b_oe', 4:'c_oe', 5:'c_oe'}
 
@@ -909,21 +972,14 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
         region ='central_right'
         sel_channels = central_right_channels
 
-    ## close previous figure (if it is open)
-    if type(fig_mea) != type([]):
-        plt.close(fig_mea)
-    else:
-        pass
+    fig_title = fig_title + ' ' + region
     
-    ## creates a figure to plot the selected stimulation responses 
-    n_rows = 1
-    n_cols = 1
-    fig, ax = plt.subplots(n_rows, n_cols, sharex=True, figsize=(10*n_cols, 5*n_rows))
-     ## ax limits, closed eyes, open eyes
-    ax.set_ylim(ylim_global[0], ylim_global[1])
-    ax.set_xlim(freq_range[0]-1, freq_range[1]+1)
-    fig.suptitle(f"{fig_title}")
-    
+    ## ax limits, closed eyes, open eyes
+    ax_mea[0].set_ylim(ylim_global[0], ylim_global[1])
+    ax_mea[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
+    fig_mea.suptitle(f"{fig_title}")
+
+    ## search obj according to the selected plot    
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
@@ -933,17 +989,14 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
             if sel_label in label_eyes:
                 ## closed eyes [a_ce, b_ce, c_ce]
                 ## plot a graphical representation of the PSD of the selected subplot
-                obj.plot_psd_quantiles(sel_channels, freq_range, region, ax)
+                obj.plot_psd_quantiles(sel_channels, freq_range, region, ax_mea[0])
+                ## calculate fooof model
                 # obj.fit_fooof(freq_range)
-                df_psd_global = obj.get_psd_quantiles()
+                ## obj global
+                obj_global = obj
+                region_global = region
+                # df_psd_global = obj.get_psd_quantiles()
                 break
-
-    span = mwidgets.SpanSelector(ax, onselect, 'horizontal', interactive=True, useblit=True, props=dict(facecolor='blue', alpha=0.2))
-    selectors.append(span)
-
-    fig_mea = fig
-    ax_mea = ax
-    fig_mea.canvas.mpl_connect('key_press_event', on_press)
         
     plt.show()
 
@@ -951,12 +1004,11 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
 
 #########################
 def on_press(event):
-    global ax_seg, fig_seg, ax_mea
+    global ax_seg, fig_seg, fig_mea, ax_mea, fig_peaks, ax_peaks, selectors, flag_peaks_global, obj_global
     # print('press', event.key)
     sys.stdout.flush()
 
     range_freqs = [f0_global, f1_global]
-    fig = fig_mea
 
     # Set whether to plot in log-log space
     plt_log = False
@@ -965,29 +1017,44 @@ def on_press(event):
     print(f'freq range: {range_freqs}')
     ## measuring amplitude peak to peak
     if event.key == 'a':
-        print(f"FOOOF: aperiodic and periodic components' estimation")
+        # print(f"FOOOF: aperiodic and periodic components' estimation")
         # df_psd_global
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 25.0], max_n_peaks=3, min_peak_height=3.0)
-        fm.add_data(df_psd_global['freqs'].to_numpy(), df_psd_global['psd_q2'].to_numpy(), range_freqs)
+        
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=3, min_peak_height=thr_peaks_global)
+        # fm.add_data(df_psd_global['freqs'].to_numpy(), df_psd_global['psd_q2'].to_numpy(), range_freqs)
         # Fit the power spectrum model
-        fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
+        ## fit applies log10, but the function already have log10, then we add 10^fuction (10**function) to neutralize the effect of the log10
+        # fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
         # Do an initial aperiodic fit - a robust fit, that excludes outliers
         # This recreates an initial fit that isn't ultimately stored in the FOOOF object
-        init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+        # init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
 
         # Plot the initial aperiodic fit
-        _, ax = plt.subplots(figsize=(12, 10))
+        if flag_peaks_global == False:
+            # fig_peaks, ax_peaks = plt.subplots(figsize=(10, 5))
+            span_peaks = mwidgets.SpanSelector(ax_mea[1], onselect_peaks, 'vertical', interactive=True, useblit=True, props=dict(facecolor='tab:green', alpha=0.2))
+            selectors.append(span_peaks)
+            # fig_peaks.canvas.mpl_connect('key_press_event', on_press)
+            flag_peaks_global = True
+        else:
+            ax_mea[1].cla()
+
+        print(f"threshold peaks: {thr_peaks_global}")
+        obj_global.fit_fooof(region_global, range_freqs, thr_peaks_global, ax_mea[1])
+
         # plot_spectra(fm.freqs, fm.power_spectrum, plt_log,
         #             label='Original Power Spectrum', color='black', ax=ax)
         # plot_spectra(fm.freqs, init_ap_fit, plt_log, label='Initial Aperiodic Fit',
         #             color='blue', alpha=0.5, linestyle='dashed', ax=ax)
 
         # # Recompute the flattened spectrum using the initial aperiodic fit
-        init_flat_spec = fm.power_spectrum - init_ap_fit
+        # init_flat_spec = fm.power_spectrum - init_ap_fit
 
         # # Plot the flattened the power spectrum
-        plot_spectra(fm.freqs, init_flat_spec, plt_log, label='Flattened Spectrum', color='black', ax=ax)
+        # plot_spectra(fm.freqs, init_flat_spec, plt_log, label='Flattened Spectrum', color='tab:blue', ax=ax_mea[1])
+
+        ax_mea[1].axhline(y=thr_peaks_global, xmin=-10, xmax=100, ls='--', lw=1.0, color='tab:blue')
+
         # # Plot the iterative approach to finding peaks from the flattened spectrum
         # plot_annotated_peak_search(fm)
 
@@ -1003,14 +1070,38 @@ def on_press(event):
         
         # Plot full model, created by combining the peak and aperiodic fits
         # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='Full Model', color='red')
-        plot_spectra(fm.freqs, fm._peak_fit, plt_log, label='Full Model', color='red', ax=ax)
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label='peak fit', color='tab:red', ax=ax_mea[1])
+        # fig_peaks.canvas.mpl_connect('button_press_event', on_click)
+
+        # Re-plot selected PSD and the fooof model fit
+        signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+        
+        fm = obj_global.get_fooof_model(region_global)
+        plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='Full Model', color='tab:red', ax=ax_mea[0])
+        
+        ax_mea[0].axvline(x=range_freqs[0], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+        ax_mea[0].axvline(x=range_freqs[1], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+        ax_mea[1].axvline(x=range_freqs[0], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+        ax_mea[1].axvline(x=range_freqs[1], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+
 
         # Print out the model results
-        fm.print_results()
+        print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
+        # fm.print_results()
+        print(f"results fooof:\n{obj_global.get_results_fooof()}")
+
+        # print(f"fm results:\n{fm.peak_params_}")
 
         # Plot the full model fit of the power spectrum
         #  The final fit (red), and aperiodic fit (blue), are the same as we plotted above
         # fm.plot(plt_log)
+
+    if event.key == 'z':
+        ## print results from all fitted models
+        # Print out the model results
+        print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
+        # fm.print_results()
+        print(f"results fooof:\n{obj_global.get_results_fooof()}")
 
     else:
         pass
@@ -1962,7 +2053,7 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global
+    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -1988,7 +2079,7 @@ def main(args):
 
     #########################
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims = participants_list(path, subject, session, abt)
+    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims, thr_peaks_global = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
         return 0

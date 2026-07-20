@@ -78,7 +78,12 @@ class TF_components:
         self.tf_means = []
         self.tf_freqs = []
         self.psd_dict = {}
+        self.quantiles_dict = {}
+        self.fm_dict = {}
         self.psd_epochs = []
+        self.fm = []
+        self.range_freqs = [0.0, 0.0]
+        self.thr_peaks = 0.0
 
         # pandas data frames
         self.df_ch_bands = pd.DataFrame()
@@ -419,103 +424,6 @@ class TF_components:
     ########################################
     def calculate_average_psd_model(self, channels, freq_range, label, ax):
         ## power spectral density (PSD) from epochs of selected channels
-        self.psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
-
-        # fig, ax = plt.subplots(3,1, sharex=True,)
-        # psd_epochs.plot(axes=ax)
-        # ax[0].set_ylim(5,45)
-        # ax[0].set_title('epochs')
-        
-        # ## mean values of PSD from epochs
-        # psd_epochs.average(method='mean').plot(axes=ax)
-        ## median values of PSD from epochs
-        # psd_epochs.average(method='median').plot(axes=ax)
-        # ax[1].set_ylim(5,45)
-        # ax[1].set_title('epochs average [median]')
-
-        # ## mean values of PSD from epochs
-        # psd_epochs_avg, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
-        psd_epochs_avg, freqs = self.psd_epochs.average(method='mean').get_data(return_freqs=True)
-        # print(f"psd_epochs_mean.shape: {psd_epochs_mean.shape}")
-        # for ch_data in psd_epochs_mean:
-        #     ax[1].plot(freqs, np.log10(ch_data), lw=0.5)
-        #     # ax[1].plot(freqs, ch_data, lw=0.5)
-        # ax[1].set_title('epochs average')
-
-        ## mean values of PSD from channels
-        # psd_channels_mean = np.median(1e6*psd_epochs_mean, axis=0)
-        # psd_channels_median = np.median(1e6*psd_epochs_avg, axis=0)
-
-        psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
-        psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
-        psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
-
-        self.df_psd_quantiles['freqs'] = freqs
-        self.df_psd_quantiles['psd_q1'] = psd_channels_q1
-        self.df_psd_quantiles['psd_q2'] = psd_channels_q2
-        self.df_psd_quantiles['psd_q3'] = psd_channels_q3
-       
-        
-        # ax.plot(freqs, 10*np.log10(psd_channels_q2), color='tab:gray')
-        ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
-        ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
-
-        ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
-        self.psd_epochs.average(method='mean').plot(axes=ax)
-
-        if self.flag_csd:
-            ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
-        else:
-            pass
-
-        ax.set_title(self.title_ax)
-
-
-        # ax[1].plot(freqs, np.log10(psd_channels_mean))
-        
-        # psd_d = {'freqs':freqs, 'psd':psd_channels_median}
-        # self.psd_dict[label] = psd_d
-        # print(f"psd freqs: {self.psd_dict[label]}")
-        # # print(f"psd psd: {self.psd_dict['psd']}")
-        # print()
-
-        # delta_freq = freqs[1]-freqs[0]
-        # print(f"10*log10({delta_freq})={10*np.log10(delta_freq)}")
-        # ax[2].plot(freqs, 10*np.log10(psd_channels_mean))
-        # ax[2].plot(freqs, 10*np.log10(psd_channels_median))
-        # ax[2].set_ylim(5,45)
-        # ax[2].set_title('channels mean')
-        # return 0
-
-        ## aperiodic component model
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
-        # fm.add_data(freqs, psd_channels_median, freq_range)
-        # fm.fit()
-        # self.fm_models_dict[label] = fm
-
-        # print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
-
-        # return psd_channels_median, freqs
-        return 0
-
-
-    def get_psd_quantiles(self,):
-        return self.df_psd_quantiles
-    
-    def fit_fooof(self, range_freqs):
-        print(f"FOOOF: aperiodic and periodic components' estimation")
-        # df_psd_global
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 25.0], max_n_peaks=3, min_peak_height=3.0)
-        fm.add_data(self.df_psd_quantiles['freqs'].to_numpy(), self.df_psd_quantiles['psd_q2'].to_numpy(), range_freqs)
-    
-        return 0
-
-    ########################################
-    # def get_average_psd_model(self, channels, freq_range, label, ax):
-    def plot_psd_quantiles(self, channels, freq_range, label, ax):
-        ## power spectral density (PSD) from epochs of selected channels
         psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
 
         # fig, ax = plt.subplots(3,1, sharex=True,)
@@ -532,9 +440,7 @@ class TF_components:
 
         # ## mean values of PSD from epochs
         # psd_epochs_avg, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
-        # psd_epochs_avg, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
-        
-
+        psd_epochs_avg, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
         # print(f"psd_epochs_mean.shape: {psd_epochs_mean.shape}")
         # for ch_data in psd_epochs_mean:
         #     ax[1].plot(freqs, np.log10(ch_data), lw=0.5)
@@ -545,23 +451,25 @@ class TF_components:
         # psd_channels_mean = np.median(1e6*psd_epochs_mean, axis=0)
         # psd_channels_median = np.median(1e6*psd_epochs_avg, axis=0)
 
-        # psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
-        # psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
-        # psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
+        psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
+        psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
+        psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
 
-        freqs = self.df_psd_quantiles['freqs']
-        psd_channels_q1 = self.df_psd_quantiles['psd_q1']
-        psd_channels_q2 = self.df_psd_quantiles['psd_q2']
-        psd_channels_q3 = self.df_psd_quantiles['psd_q3']
-
+        df_psd_quantiles = pd.DataFrame()
+        df_psd_quantiles['freqs'] = freqs
+        df_psd_quantiles['psd_q1'] = psd_channels_q1
+        df_psd_quantiles['psd_q2'] = psd_channels_q2
+        df_psd_quantiles['psd_q3'] = psd_channels_q3
+       
+        ## label: left or right regions
+        self.quantiles_dict[label] = df_psd_quantiles
         
         # ax.plot(freqs, 10*np.log10(psd_channels_q2), color='tab:gray')
         ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
         ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
 
         ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
-        # psd_epochs.average(method='mean').plot(axes=ax)
-        ax.plot(freqs, psd_channels_q2)
+        psd_epochs.average(method='mean').plot(axes=ax)
 
         if self.flag_csd:
             ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
@@ -569,22 +477,6 @@ class TF_components:
             pass
 
         ax.set_title(self.title_ax)
-        ax.grid(ls=':',lw=0.5)
-
-        ## apply fooof selected region of the PSD, just after big peak of alpha
-        ## first average results of psd epochs
-        # df_psd_epochs = psd_epochs.to_data_frame()
-        # print(f"dataframe epochs psd:\n{df_psd_epochs}")
-        
-        # ## fooof
-        # ## data range selected interactively
-        # self.df_psd_quantiles['freqs'] = freqs
-        # self.df_psd_quantiles['psd_q1'] = psd_channels_q1
-        # self.df_psd_quantiles['psd_q2'] = psd_channels_q2
-        # self.df_psd_quantiles['psd_q3'] = psd_channels_q3
-
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)# Add data to the object
-        # fm.add_data(freqs, spectrum, [3, 40])
 
 
         # ax[1].plot(freqs, np.log10(psd_channels_mean))
@@ -613,6 +505,81 @@ class TF_components:
         # print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
 
         # return psd_channels_median, freqs
+        return 0
+
+    #############
+    def get_psd_quantiles(self, label):
+        return self.quantiles_dict[label]
+    
+    #############
+    def fit_fooof(self, label, range_freqs, thr_peaks, ax):
+        # Set whether to plot in log-log space
+        self.range_freqs = range_freqs
+        self.thr_peaks = thr_peaks
+
+        plt_log = False
+        print(f"FOOOF: aperiodic and periodic components' estimation")
+        # df_psd_global
+        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=3, min_peak_height=thr_peaks)
+        
+        ## label: left or right side electrodes
+        df_psd_quantiles = self.quantiles_dict[label]
+
+        # fm.add_data(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
+        # fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
+
+        fm.fit(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
+
+        init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+        init_flat_spec = fm.power_spectrum - init_ap_fit
+
+        # # Plot the flattened the power spectrum
+        plot_spectra(fm.freqs, init_flat_spec, plt_log, label='Flattened Spectrum', color='tab:blue', ax=ax)
+        plot_spectra(fm.freqs, fm._peak_fit, plt_log, label='peak fit', color='tab:red', ax=ax)
+
+        self.fm_dict[label] = fm
+    
+        return 0
+
+    #############
+    def get_fooof_model(self, label):
+        return self.fm_dict[label]
+    
+    #############
+    def get_results_fooof(self):
+        if self.fm != []:
+            return self.fm.peak_params_
+        else:
+            return 'void: no data to display'
+
+    ########################################
+    # def get_average_psd_model(self, channels, freq_range, label, ax):
+    def plot_psd_quantiles(self, channels, freq_range, label, ax):
+        ## power spectral density (PSD) from epochs of selected channels
+        psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
+
+        df_psd_quantiles = self.quantiles_dict[label]
+
+        freqs = df_psd_quantiles['freqs']
+        psd_channels_q1 = df_psd_quantiles['psd_q1']
+        psd_channels_q2 = df_psd_quantiles['psd_q2']
+        psd_channels_q3 = df_psd_quantiles['psd_q3']
+
+        ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
+        ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
+
+        ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
+        ax.plot(freqs, psd_channels_q2)
+
+        if self.flag_csd:
+            ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
+        else:
+            pass
+
+        ax.set_title(self.title_ax)
+        ax.grid(ls=':',lw=0.5)
+
         return 0
 
     ####################################
