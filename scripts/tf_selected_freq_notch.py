@@ -63,7 +63,12 @@ midline_channels = ['VREF','E6','E11','E16','E55','E62','E72','E75']
 
 excluded_channels = ['E8','E14','E15','E17','E21','E25','E38','E39','E43','E44','E45','E48','E49','E56','E57','E63','E68','E73','E81','E88','E94','E99','E100','E107','E108','E113','E114','E115','E119','E120','E121','E125','E126','E127','E128']
 
+event_list_ce = ['a_ce','b_ce','c_ce']
+event_list_oe = ['a_oe','b_oe','c_oe']
+
 ## interactive plots
+fig_a = []
+ax_a = []
 ax_ce_global = []
 fig_ce_global = []
 fig_mea = []
@@ -74,6 +79,7 @@ ax_ce=[]
 ax_oe=[]
 fig_peaks=[]
 ax_peaks=[]
+info_p = ''
 
 obj_list = []
 obj_global = []
@@ -86,6 +92,7 @@ f1_global=0
 flag_eyes_closed = True
 flag_peaks_global = False
 fig_title_mea = ''
+path_fig_fooof = ''
 
 #############################
 #############################
@@ -729,7 +736,7 @@ def average_psd_regions(obj_list, event_list):
 
 ##############################################
 ##############################
-def plot_psd_quantiles(obj_list, event_list, info_p, ylim, path, flag_save):
+def plot_psd_regions(obj_list, event_list, info_p, ylim, path, flag_save):
     global ax_ce_global, fig_ce_global, flag_eyes_closed, fig_ce, fig_oe, ax_ce, ax_oe
     ##
     print(f"event list: {event_list}")
@@ -837,6 +844,7 @@ def update_psd_plots():
     ax_ce_dict = {'a_ce':0, 'b_ce':2, 'c_ce':4}
     ax_oe_dict = {'a_oe':0, 'b_oe':2, 'c_oe':4}
 
+
     for obj in obj_list:
         ## find the selected segment for each label
         if obj.get_selected_flag():
@@ -847,23 +855,43 @@ def update_psd_plots():
                 ## closed eyes [a_ce, b_ce, c_ce]
                 id_ax = ax_ce_dict[label_eyes]
                 region ='central_left'
-                ax_ce[id_ax].cla()
-                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_ce[id_ax])
-                obj.plot_fooof(region, ax_ce[id_ax])
+                # ax_ce[id_ax].cla()
+                obj.plot_average_psd_model(region, ax_ce[id_ax])
                 region ='central_right'
-                ax_ce[id_ax+1].cla()
-                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax_ce[id_ax+1])
+                # ax_ce[id_ax+1].cla()
+                obj.plot_average_psd_model(region, ax_ce[id_ax+1])
             else:
                 ## open eyes [a_oe, b_oe, c_oe]
                 id_ax = ax_oe_dict[label_eyes]
                 region ='central_left'
-                ax_oe[id_ax].cla()
-                obj.calculate_average_psd_model(central_left_channels, freq_range, region, ax_oe[id_ax])
+                # ax_oe[id_ax].cla()
+                obj.plot_average_psd_model(region, ax_oe[id_ax])
                 region ='central_right'
-                ax_oe[id_ax+1].cla()
-                obj.calculate_average_psd_model(central_right_channels, freq_range, region, ax_oe[id_ax+1])
+                # ax_oe[id_ax+1].cla()
+                obj.plot_average_psd_model(region, ax_oe[id_ax+1])
         else:
             pass
+    
+    
+    # ## ax titles closed-eyes
+    # ax_ce[0].set_title(f'left central region\nresting (before cycling)')
+    # ax_ce[1].set_title(f'right central region\nresting (before cycling)')
+    # ## ax titles open eyes
+    # ax_oe[0].set_title(f'left central region\nresting (before cycling)')
+    # ax_oe[1].set_title(f'right central region\nresting (before cycling)')
+
+     ## ax limits, closed eyes, open eyes
+    ax_ce[0].set_ylim(ylim_global[0], ylim_global[1])
+    ax_oe[0].set_ylim(ylim_global[0], ylim_global[1])
+
+    ax_ce[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
+    ax_oe[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
+
+    ## labels x axes
+    ax_ce[-2].set_xlabel(f'frequency [Hz]')
+    ax_ce[-1].set_xlabel(f'frequency [Hz]')
+    ax_oe[-2].set_xlabel(f'frequency [Hz]')
+    ax_oe[-1].set_xlabel(f'frequency [Hz]')
     
     return 0
 
@@ -888,7 +916,7 @@ def onselect_peaks(vmin, vmax):
     return 0
 ######################################
 def on_click(event):
-    global ax_index, flag_eyes_closed, fig_title_mea
+    global ax_index, flag_eyes_closed, fig_title_mea, ax_mea
 
     # ax_copy = np.copy(ax_ce_global)
 
@@ -924,6 +952,7 @@ def on_click(event):
             print(f"selected ax: {ax_index}")
             ## open a new window with the signals of the selected subplot
             signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+            ax_mea[1].cla()
         else:
             pass
             # print(f"event.inaxes out of ax")
@@ -1017,17 +1046,6 @@ def on_press(event):
     print(f'freq range: {range_freqs}')
     ## measuring amplitude peak to peak
     if event.key == 'a':
-        # print(f"FOOOF: aperiodic and periodic components' estimation")
-        # df_psd_global
-        
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=3, min_peak_height=thr_peaks_global)
-        # fm.add_data(df_psd_global['freqs'].to_numpy(), df_psd_global['psd_q2'].to_numpy(), range_freqs)
-        # Fit the power spectrum model
-        ## fit applies log10, but the function already have log10, then we add 10^fuction (10**function) to neutralize the effect of the log10
-        # fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
-        # Do an initial aperiodic fit - a robust fit, that excludes outliers
-        # This recreates an initial fit that isn't ultimately stored in the FOOOF object
-        # init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
 
         # Plot the initial aperiodic fit
         if flag_peaks_global == False:
@@ -1042,38 +1060,10 @@ def on_press(event):
         print(f"threshold peaks: {thr_peaks_global}")
         obj_global.fit_fooof(region_global, range_freqs, thr_peaks_global, ax_mea[1])
 
-        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log,
-        #             label='Original Power Spectrum', color='black', ax=ax)
-        # plot_spectra(fm.freqs, init_ap_fit, plt_log, label='Initial Aperiodic Fit',
-        #             color='blue', alpha=0.5, linestyle='dashed', ax=ax)
-
-        # # Recompute the flattened spectrum using the initial aperiodic fit
-        # init_flat_spec = fm.power_spectrum - init_ap_fit
-
-        # # Plot the flattened the power spectrum
-        # plot_spectra(fm.freqs, init_flat_spec, plt_log, label='Flattened Spectrum', color='tab:blue', ax=ax_mea[1])
-
+        ## threshold line to include two peaks to model two gaussian models (fooof)
         ax_mea[1].axhline(y=thr_peaks_global, xmin=-10, xmax=100, ls='--', lw=1.0, color='tab:blue')
 
-        # # Plot the iterative approach to finding peaks from the flattened spectrum
-        # plot_annotated_peak_search(fm)
-
-        # # Plot the peak fit: created by re-fitting all of the candidate peaks together
-        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, color='green', label='Final Periodic Fit')
-        # # Plot the peak removed power spectrum, created by removing peak fit from original spectrum
-        # plot_spectra(fm.freqs, fm._spectrum_peak_rm, plt_log, label='Peak Removed Spectrum', color='black')
-
-        # Plot the final aperiodic fit, calculated on the peak removed power spectrum
-        # _, ax = plt.subplots(figsize=(12, 10))
-        # plot_spectra(fm.freqs, fm._spectrum_peak_rm, plt_log, label='Peak Removed Spectrum', color='black', ax=ax)
-        # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label='Final Aperiodic Fit', color='blue', alpha=0.5, linestyle='dashed', ax=ax)
-        
-        # Plot full model, created by combining the peak and aperiodic fits
-        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='Full Model', color='red')
-        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label='peak fit', color='tab:red', ax=ax_mea[1])
-        # fig_peaks.canvas.mpl_connect('button_press_event', on_click)
-
-        # Re-plot selected PSD and the fooof model fit
+        # (Re)Plot curves of quantiles from the PSD of the selected channels
         signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
         
         fm = obj_global.get_fooof_model(region_global)
@@ -1088,7 +1078,8 @@ def on_press(event):
         # Print out the model results
         print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
         # fm.print_results()
-        print(f"results fooof:\n{obj_global.get_results_fooof()}")
+        print(f"results 01 fooof:\n{fm.peak_params_}")
+        print(f"results 02 fooof:\n{obj_global.get_results_fooof(region_global)}")
 
         # print(f"fm results:\n{fm.peak_params_}")
 
@@ -1096,13 +1087,35 @@ def on_press(event):
         #  The final fit (red), and aperiodic fit (blue), are the same as we plotted above
         # fm.plot(plt_log)
 
-    if event.key == 'z':
+    elif event.key == 'u':
+        ## update plots including fooof model in the psd eyes closed and eyes open
         ## print results from all fitted models
-        # Print out the model results
-        print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
-        # fm.print_results()
-        print(f"results fooof:\n{obj_global.get_results_fooof()}")
+        update_psd_plots()
+        
 
+    elif event.key == 'z':
+        ## fooof curves comparison
+        plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig_fooof, info_p)
+        ## print results from all fitted models
+        print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
+        ## closed eyes; left and right regions
+        # fm.print_results()
+        # print(f"results fooof:\n{obj_global.get_results_fooof()}")
+        for obj in obj_list:
+        ## find the selected segment for each label
+            if obj.get_selected_flag():
+                ## get CF (center frequency), PW (power), and BW (bandwidth) from the second gaussian curve (fooof), which represents beta-band response
+                for label in ['central_left', 'central_right']:
+                    print(obj.get_label_title() +', '+ label)
+                    obj.get_beta_params(label)
+                    # b_params = obj.get_beta_params(label)
+                    
+                    # print(f"CF, PW, BW:\n{b_params}")
+                    # print(f"CF, PW, BW:\n{b_params[0][0]}, {b_params[0][1]}, {b_params[0][2]}")
+                    # print(f"CF, PW, BW:\n{b_params[1][0]}, {b_params[1][1]}, {b_params[1][2]}")
+                    print()
+            else:
+                pass
     else:
         pass
 
@@ -1342,6 +1355,123 @@ def plot_psd_responses_only4(obj_list, event_list_ce, event_list_oe, path_fig, i
 
 
     fig_a.savefig(path_fig+'fooof_psd_a.png', bbox_inches ="tight")
+    # fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
+    # fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
+
+    return 0
+##################
+def get_color(label):
+    ## curve color
+    if 'a_' in label:
+        ## rest start
+        color='tab:blue'
+    elif 'b_' in label:
+        ## cycling
+        color='tab:orange'
+    elif 'c_' in label:
+        ## rest end
+        color='tab:green'
+    else:
+        color='black'
+    return color
+
+##################
+def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig, info_p):
+    global fig_a, ax_a
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    if fig_a == []:
+        fig_a, ax_a = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(12,6), layout='constrained')
+        ax_a = ax_a.flatten()
+    else:
+        for ax in ax_a:
+            ax.cla()
+        pass
+
+    ## colored regions frequency bands [theta, alpha, beta]
+    ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+    # ax_a[0].axvspan(mu-2*sigma, mu-sigma, color='0.95')
+    ##theta (4-8 Hz)
+    
+    
+    ymin = 5
+    ymax = 35
+    # set_bands_ax4plot(ax_a, ymax)
+
+    flags = [0,0,0]
+
+    for obj in obj_list:
+        ## find the selected segment for each label
+        ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+        if obj.get_selected_flag():
+            ## color represents resting start (blue), cycling (orange), or resting end (green)
+            color = get_color(obj.get_label_simple())
+            ## a_ce, b_ce, c_ce
+            if obj.get_label_simple() in event_list_ce:
+                ## closed eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                obj.plot_psd_fooof(ax_a[0], region, color)
+                flags = label_flags(obj, flags)
+
+                region ='central_right'
+                obj.plot_psd_fooof(ax_a[1], region, color)
+                flags = label_flags(obj, flags)
+                
+            ## a_oe, b_oe, c_oe
+            elif obj.get_label_simple() in event_list_oe:
+                ## open eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                obj.plot_psd_fooof(ax_a[2], region, color)
+                flags = label_flags(obj, flags)
+                
+                region ='central_right'
+                obj.plot_psd_fooof(ax_a[3], region, color)
+                flags = label_flags(obj, flags)
+
+
+    ## x and y limits
+    ax_a[0].set_xlim(-1, 47.0)
+    # ax_a[0].set_ylim(-6.25, -1.75)
+    # ax_a[0].set_ylim(ymin,ymax)
+
+
+    set_labels_ax_4only(ax_a)
+    ## legend
+    fig_a = set_legend(fig_a, flags)
+
+    # set_labels_ax(ax_b)
+    # set_labels_ax(ax_c)
+
+    # set_title_ax(ax_a[0])
+    set_title_ax4only(ax_a)
+    # set_title_ax(ax_b[0])
+    # set_title_ax(ax_c[0])
+
+    # set_subtitle_fig(fig_a)
+    # set_subtitle_fig(fig_b)
+    # set_subtitle_fig(fig_c)
+
+    # set_annotation_ax (ax_a[0,:], '(PSD)')
+    # set_annotation_ax (ax_a[1,:], '(APERIODIC COMP.)')
+    # set_annotation_ax (ax_a[2,:], '(PSD) - (APERIODIC COMP.)')
+
+    # fig_a.text(0.32, 0.925, "central left channels", ha='center', fontsize=12,)
+    # fig_a.text(0.72, 0.925, "central right channels", ha='center', fontsize=12,)
+
+    set_grid_ax4only(ax_a)
+    
+    # set_grid_ax(ax_b)
+    # set_grid_ax(ax_c)
+
+    ## save figures
+    # text_subtitle = "\ncentral left channels \t \t \t central right channels\n".replace("\t", "    ")
+    fig_a.suptitle(f"{info_p}\n",)
+    # fig_b.suptitle(f"{info_p}")
+    # fig_c.suptitle(f"{info_p}")
+
+
+    # fig_a.savefig(path_fig+'fooof_psd_a.png', bbox_inches ="tight")
     # fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
     # fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
 
@@ -2053,7 +2183,7 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global
+    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -2166,9 +2296,9 @@ def main(args):
         raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
     # raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
 
-    freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
-    print(f"Resampling (freq: {freq_resampling} Hz)...")
-    raw_data.resample(sfreq=freq_resampling, method="polyphase",)
+    # freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
+    # print(f"Resampling (freq: {freq_resampling} Hz)...")
+    # raw_data.resample(sfreq=freq_resampling, method="polyphase",)
 
     ###########################################
     ## cropping data according to every section (annotations), namely 'baseline','a_closed_eyes','a_opened_eyes','b_closed_eyes', and 'b_opened_eyes'
@@ -2216,8 +2346,7 @@ def main(args):
     # annotation_bad_channels(obj_list[:nobj], flag_update)
 
     ###############################################
-    event_list_ce = ['a_ce','b_ce','c_ce']
-    event_list_oe = ['a_oe','b_oe','c_oe']
+    
     event_list = event_list_ce + event_list_oe
     # #############################################
     ## apply ICA to try to remove components of noise and artifacts
@@ -2236,8 +2365,8 @@ def main(args):
     #######################################################################
     ## psd visualization
     print(f"plot quantiles")
-    save_psd_plots = True
-    plot_psd_quantiles(obj_list, event_list, info_p, ylims, path_fig_psd, save_psd_plots)
+    save_psd_plots = False
+    plot_psd_regions(obj_list, event_list, info_p, ylims, path_fig_psd, save_psd_plots)
 
     #####################
     plt.show(block=True)
@@ -2246,7 +2375,7 @@ def main(args):
     ## PSD average per regions
     ## central left and right
     average_psd_regions(sel_objs, event_list)
-    plot_psd_responses_median(sel_objs, event_list_ce, event_list_oe, path_fig_fooof, info_p)
+    
 
     # plot_psd_responses_all(sel_objs, event_list_ce, event_list_oe, path_fig_fooof, info_p)
     

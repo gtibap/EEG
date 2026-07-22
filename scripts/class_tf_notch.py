@@ -69,6 +69,7 @@ class TF_components:
         self.data_tf = []
         self.df_bands = []
         self.epochs = []
+        self.psd_epochs_mean_dict = {'central_left':[], 'central_right':[]}
         self.freqs_tf = []
         self.mask_data_tf = []
         self.new_events = []
@@ -79,9 +80,10 @@ class TF_components:
         self.tf_freqs = []
         self.psd_dict = {}
         self.quantiles_dict = {}
-        self.fm_dict = {}
+        self.fm_dict = {'central_left':[], 'central_right':[]}
         self.psd_epochs = []
         self.fm = []
+        self.ax_copy = []
         self.range_freqs = [0.0, 0.0]
         self.thr_peaks = 0.0
 
@@ -426,30 +428,10 @@ class TF_components:
         ## power spectral density (PSD) from epochs of selected channels
         psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
 
-        # fig, ax = plt.subplots(3,1, sharex=True,)
-        # psd_epochs.plot(axes=ax)
-        # ax[0].set_ylim(5,45)
-        # ax[0].set_title('epochs')
-        
-        # ## mean values of PSD from epochs
-        # psd_epochs.average(method='mean').plot(axes=ax)
-        ## median values of PSD from epochs
-        # psd_epochs.average(method='median').plot(axes=ax)
-        # ax[1].set_ylim(5,45)
-        # ax[1].set_title('epochs average [median]')
 
         # ## mean values of PSD from epochs
         # psd_epochs_avg, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
         psd_epochs_avg, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
-        # print(f"psd_epochs_mean.shape: {psd_epochs_mean.shape}")
-        # for ch_data in psd_epochs_mean:
-        #     ax[1].plot(freqs, np.log10(ch_data), lw=0.5)
-        #     # ax[1].plot(freqs, ch_data, lw=0.5)
-        # ax[1].set_title('epochs average')
-
-        ## mean values of PSD from channels
-        # psd_channels_mean = np.median(1e6*psd_epochs_mean, axis=0)
-        # psd_channels_median = np.median(1e6*psd_epochs_avg, axis=0)
 
         psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
         psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
@@ -464,12 +446,12 @@ class TF_components:
         ## label: left or right regions
         self.quantiles_dict[label] = df_psd_quantiles
         
-        # ax.plot(freqs, 10*np.log10(psd_channels_q2), color='tab:gray')
         ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
-        ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
+        # ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
 
         ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
-        psd_epochs.average(method='mean').plot(axes=ax)
+        self.psd_epochs_mean_dict[label] = psd_epochs.average(method='mean')
+        self.psd_epochs_mean_dict[label].plot(axes=ax)
 
         if self.flag_csd:
             ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
@@ -478,33 +460,49 @@ class TF_components:
 
         ax.set_title(self.title_ax)
 
+        self.ax_copy = np.copy(ax)
 
-        # ax[1].plot(freqs, np.log10(psd_channels_mean))
+        return 0
+
+
+########################################
+    def plot_average_psd_model(self, label, ax):
+        ## power spectral density (PSD) from epochs of selected channels
         
-        # psd_d = {'freqs':freqs, 'psd':psd_channels_median}
-        # self.psd_dict[label] = psd_d
-        # print(f"psd freqs: {self.psd_dict[label]}")
-        # # print(f"psd psd: {self.psd_dict['psd']}")
-        # print()
+        # ## label: left or right regions
+        # df_psd_quantiles = self.quantiles_dict[label]
 
-        # delta_freq = freqs[1]-freqs[0]
-        # print(f"10*log10({delta_freq})={10*np.log10(delta_freq)}")
-        # ax[2].plot(freqs, 10*np.log10(psd_channels_mean))
-        # ax[2].plot(freqs, 10*np.log10(psd_channels_median))
-        # ax[2].set_ylim(5,45)
-        # ax[2].set_title('channels mean')
-        # return 0
+        # freqs = df_psd_quantiles['freqs']
+        # psd_channels_q1 = df_psd_quantiles['psd_q1']
+        # psd_channels_q2 = df_psd_quantiles['psd_q2']
+        # psd_channels_q3 = df_psd_quantiles['psd_q3']
+        
+        # ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
+        # ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
 
-        ## aperiodic component model
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=7, min_peak_height=0.001)
-        # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 10], max_n_peaks=6, min_peak_height=0.01)
-        # fm.add_data(freqs, psd_channels_median, freq_range)
-        # fm.fit()
-        # self.fm_models_dict[label] = fm
+        # ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
+        # self.psd_epochs_mean_dict[label].plot(axes=ax)
 
-        # print(f"fooof fit model results {self.label_seg}:\n{fm.print_results()}")
+        # Set whether to plot in log-log space
+        plt_log = False
+        ## plot fooof fitted model
+        if self.fm_dict[label] != []:
+            # ax.cla()
+            ## mean values of PSD from epochs, i.e. average curves from epochs for each selected channel
+            # self.psd_epochs_mean_dict[label].plot(average=True, color='tab:gray', axes=ax)
+            ## update model
+            fm = self.fm_dict[label]
+            plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='fooof', color='tab:red', ax=ax)
+        else:
+            pass
 
-        # return psd_channels_median, freqs
+        if self.flag_csd:
+            ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
+        else:
+            pass
+
+        ax.set_title(self.title_ax)
+
         return 0
 
     #############
@@ -521,10 +519,11 @@ class TF_components:
         print(f"FOOOF: aperiodic and periodic components' estimation")
         # df_psd_global
         # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=3, min_peak_height=thr_peaks)
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=5, min_peak_height=thr_peaks)
         
         ## label: left or right side electrodes
         df_psd_quantiles = self.quantiles_dict[label]
+        print(f"df psd quantiles:\n{df_psd_quantiles}")
 
         # fm.add_data(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
         # fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
@@ -541,15 +540,16 @@ class TF_components:
         self.fm_dict[label] = fm
     
         return 0
+        
 
     #############
     def get_fooof_model(self, label):
         return self.fm_dict[label]
     
     #############
-    def get_results_fooof(self):
-        if self.fm != []:
-            return self.fm.peak_params_
+    def get_results_fooof(self, label):
+        if self.fm_dict[label] != []:
+            return self.fm_dict[label].peak_params_
         else:
             return 'void: no data to display'
 
@@ -591,6 +591,36 @@ class TF_components:
         plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1[0]) ## color=color,
         plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
         plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax1[2])
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax1[3]) ## color=color,
+
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax3[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax3[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax2[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax2[1]) ## color=color,
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax4) ## color=color,
+        # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax4) ## color=color,
+
+        return 0
+    
+    ####################################
+    def plot_psd_fooof(self, ax, label, color):
+
+        plt_log = False
+        fm = self.fm_dict[label]
+
+        if fm != []:
+            # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, color=color, ax=ax)
+            ax.plot(fm.freqs, fm.fooofed_spectrum_, label=self.label, color=color)
+        else:
+            print(f'Noting to plot for: {self.label}')
+            pass
+
+        # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1[0]) ## color=color,
+        # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
+        # plot_spectra(fm.freqs, (fm.power_spectrum - fm._ap_fit), plt_log, label=self.label, ax=ax1[2])
         # plot_spectra(fm.freqs, fm._peak_fit, plt_log, label=self.label, ax=ax1[3]) ## color=color,
 
 
@@ -2221,6 +2251,36 @@ class TF_components:
     
     def get_flag_csd(self):
         return self.flag_csd
+    
+    def get_label_title(self):
+        return self.title_fig
+    
+    def get_beta_params(self,label):
+        fm = self.fm_dict[label]
+        if  fm != []:
+            df = pd.DataFrame()
+            df['freq']=fm.freqs
+            df['model']=fm.fooofed_spectrum_
+            params = fm.peak_params_
+            
+            ## data from the second row (row=1), i.e. second gaussian approx. (B-band)
+            cf = params[1][0] # central freq
+            bw = params[1][2] # bandwidth
+
+            df.iloc()
+            # df_emg = df[(df.iloc[:,'freq']>=(cf-(0.5*bw))) & (df.iloc[:,'freq']<=(cf+(0.5*bw)))]
+            df_beta = df.loc[(df.freq >= (cf-(0.5*bw))) & (df.freq <=(cf+(0.5*bw)))]
+            ## find max value (peak beta-band)
+            df_max = df_beta.loc[df_beta.model >= df_beta['model'].max()]
+
+            print(f"fooofed_spectrum_:\n{params}")
+            # print(f"df_max:\n{df_max}")
+            print(f"peak max:\n{df_max.iloc[0]['freq']}, {df_max.iloc[0]['model']}, {params[1][2]}")
+
+            return 0
+        else:
+            return [np.nan, np.nan, np.nan]
+        
     
     
         
