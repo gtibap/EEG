@@ -86,6 +86,7 @@ class TF_components:
         self.ax_copy = []
         self.range_freqs = [0.0, 0.0]
         self.thr_peaks = 0.0
+        self.params_beta_dict = {'central_left':[], 'central_right':[]}
 
         # pandas data frames
         self.df_ch_bands = pd.DataFrame()
@@ -519,7 +520,7 @@ class TF_components:
         print(f"FOOOF: aperiodic and periodic components' estimation")
         # df_psd_global
         # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=5, min_peak_height=thr_peaks)
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=3, min_peak_height=thr_peaks)
         
         ## label: left or right side electrodes
         df_psd_quantiles = self.quantiles_dict[label]
@@ -2254,7 +2255,11 @@ class TF_components:
     
     def get_label_title(self):
         return self.title_fig
-    
+
+    def find_nearest(self, array, value):
+        idx = (np.abs(array - value)).argmin()
+        return array[idx], idx
+
     def get_beta_params(self,label):
         fm = self.fm_dict[label]
         if  fm != []:
@@ -2267,20 +2272,29 @@ class TF_components:
             cf = params[1][0] # central freq
             bw = params[1][2] # bandwidth
 
-            df.iloc()
-            # df_emg = df[(df.iloc[:,'freq']>=(cf-(0.5*bw))) & (df.iloc[:,'freq']<=(cf+(0.5*bw)))]
-            df_beta = df.loc[(df.freq >= (cf-(0.5*bw))) & (df.freq <=(cf+(0.5*bw)))]
-            ## find max value (peak beta-band)
-            df_max = df_beta.loc[df_beta.model >= df_beta['model'].max()]
+            ## find the closest value of center frequency in the freqs array
+            cfp, id_cfp = self.find_nearest(fm.freqs, cf)
+            ## power magnitude of the fitted model at the center frequency
+            pwp = fm.fooofed_spectrum_[id_cfp]
+
+            self.params_beta_dict[label] = [cfp,pwp,bw]
+
+            # ## find max peak in the fitted model around de center frequency
+            # # df_emg = df[(df.iloc[:,'freq']>=(cf-(0.5*bw))) & (df.iloc[:,'freq']<=(cf+(0.5*bw)))]
+            # df_beta = df.loc[(df.freq >= (cf-(0.5*bw))) & (df.freq <=(cf+(0.5*bw)))]
+            # ## find max value (peak beta-band)
+            # df_max = df_beta.loc[df_beta.model >= df_beta['model'].max()]
 
             print(f"fooofed_spectrum_:\n{params}")
+            print(f"{cfp}, {pwp}, {bw}")
             # print(f"df_max:\n{df_max}")
-            print(f"peak max:\n{df_max.iloc[0]['freq']}, {df_max.iloc[0]['model']}, {params[1][2]}")
+            # print(f"peak max:\n{df_max.iloc[0]['freq']}, {df_max.iloc[0]['model']}, {params[1][2]}")
+            
 
-            return 0
+            return self.params_beta_dict[label]
         else:
             return [np.nan, np.nan, np.nan]
         
-    
-    
-        
+    ###############
+    def get_info_p(self):
+        return self.pt_info

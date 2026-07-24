@@ -93,6 +93,7 @@ flag_eyes_closed = True
 flag_peaks_global = False
 fig_title_mea = ''
 path_fig_fooof = ''
+path_csv_files = ''
 
 #############################
 #############################
@@ -922,7 +923,7 @@ def on_click(event):
 
     # print(f"onclick event.inaxes: {event.inaxes}")
     ## is the mouse left-button pressed ?
-    if event.button is MouseButton.LEFT:
+    if (event.button is MouseButton.LEFT):
         # print(f"button left")
         ##
         # print(f"event.canvas.figure: {event.canvas.figure}")
@@ -1101,21 +1102,41 @@ def on_press(event):
         ## closed eyes; left and right regions
         # fm.print_results()
         # print(f"results fooof:\n{obj_global.get_results_fooof()}")
+        # df_beta = pd.DataFrame(columns=['sequence','side','CF[Hz]','PW[dB]','BW[Hz]'])
+        df_beta = pd.DataFrame()
         for obj in obj_list:
         ## find the selected segment for each label
             if obj.get_selected_flag():
                 ## get CF (center frequency), PW (power), and BW (bandwidth) from the second gaussian curve (fooof), which represents beta-band response
                 for label in ['central_left', 'central_right']:
                     print(obj.get_label_title() +', '+ label)
-                    obj.get_beta_params(label)
+                    params = obj.get_beta_params(label)
                     # b_params = obj.get_beta_params(label)
-                    
+                    data = {'sequence':obj.get_label_simple(),'side':label,'CF[Hz]':params[0],'PW[dB]':params[1],'BW[Hz]':params[2]}
+                    df = pd.DataFrame([data])
+                    df_beta = pd.concat([df_beta,df], ignore_index=True)
                     # print(f"CF, PW, BW:\n{b_params}")
                     # print(f"CF, PW, BW:\n{b_params[0][0]}, {b_params[0][1]}, {b_params[0][2]}")
                     # print(f"CF, PW, BW:\n{b_params[1][0]}, {b_params[1][1]}, {b_params[1][2]}")
                     print()
             else:
                 pass
+        ## save parameters csv file
+        # df_beta.to_csv(path_csv_files+'params_beta.csv', float_format="%.2f", index=False)
+        with open(path_csv_files+'params_beta.csv', 'w') as ict:
+            # Write the header lines, including the index variable for
+            # the last one if you're letting Pandas produce that for you.
+            # (see above).
+            for line in info_p:
+                ict.write(line)
+            ict.write('\n')
+            # Just write the data frame to the file object instead of
+            # to a filename. Pandas will do the right thing and realize
+            # it's already been opened.
+            df_beta.to_csv(ict, float_format="%.2f", index=False)
+
+
+        
     else:
         pass
 
@@ -2183,7 +2204,7 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof
+    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof, path_csv_files
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
@@ -2227,6 +2248,8 @@ def main(args):
     path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
     path_fig_psd = path+'session_'+str(session)+f'/figures/psd/'
     path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
+    path_csv_files = path+'session_'+str(session)+f'/csv/'
+
     # checking if the directory figures
     # exist or not.
     if not os.path.exists(path_fig_boxplot):
@@ -2243,6 +2266,11 @@ def main(args):
         # if the figures directory is not present 
         # then create it.
         os.makedirs(path_fig_psd)
+
+    if not os.path.exists(path_csv_files):
+            # if the figures directory is not present 
+            # then create it.
+            os.makedirs(path_csv_files)
 
     ################################################
     ## read annotations (.csv file)
