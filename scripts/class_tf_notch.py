@@ -434,9 +434,14 @@ class TF_components:
         # psd_epochs_avg, freqs = psd_epochs.average(method='median').get_data(return_freqs=True)
         psd_epochs_avg, freqs = psd_epochs.average(method='mean').get_data(return_freqs=True)
 
-        psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
-        psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
-        psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
+        if self.flag_csd:
+            psd_channels_q1 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.25, axis=0))
+            psd_channels_q2 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.50, axis=0))
+            psd_channels_q3 = 10*np.log10(np.quantile(1e6*psd_epochs_avg, q=0.75, axis=0))
+        else:
+            psd_channels_q1 = 10*np.log10(np.quantile(1e12*psd_epochs_avg, q=0.25, axis=0))
+            psd_channels_q2 = 10*np.log10(np.quantile(1e12*psd_epochs_avg, q=0.50, axis=0))
+            psd_channels_q3 = 10*np.log10(np.quantile(1e12*psd_epochs_avg, q=0.75, axis=0))
 
         df_psd_quantiles = pd.DataFrame()
         df_psd_quantiles['freqs'] = freqs
@@ -457,7 +462,7 @@ class TF_components:
         if self.flag_csd:
             ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
         else:
-            pass
+            ax.set_ylabel(f"Power (dB $\mu$V$^2$/Hz)")
 
         ax.set_title(self.title_ax)
 
@@ -520,11 +525,11 @@ class TF_components:
         print(f"FOOOF: aperiodic and periodic components' estimation")
         # df_psd_global
         # fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[0.5, 12], max_n_peaks=5, min_peak_height=1.0)
-        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=3, min_peak_height=thr_peaks)
+        fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=7, min_peak_height=thr_peaks)
         
         ## label: left or right side electrodes
         df_psd_quantiles = self.quantiles_dict[label]
-        print(f"df psd quantiles:\n{df_psd_quantiles}")
+        # print(f"df psd quantiles:\n{df_psd_quantiles}")
 
         # fm.add_data(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
         # fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
@@ -562,11 +567,14 @@ class TF_components:
 
         df_psd_quantiles = self.quantiles_dict[label]
 
+        print(f"quantiles:\n{df_psd_quantiles}")
+
         freqs = df_psd_quantiles['freqs']
         psd_channels_q1 = df_psd_quantiles['psd_q1']
         psd_channels_q2 = df_psd_quantiles['psd_q2']
         psd_channels_q3 = df_psd_quantiles['psd_q3']
 
+        print(f"inside plot psd quantiles...")
         ## plot region between the q1 and q1 quantiles, i.e. the region where 25% and 75% data is located
         ax.fill_between(freqs, psd_channels_q1, psd_channels_q3, alpha=0.5, color='tab:gray')
 
@@ -576,12 +584,12 @@ class TF_components:
         if self.flag_csd:
             ax.set_ylabel(f"Power\n[dB (mV/m$^2$)$^2$/Hz]")
         else:
-            pass
+            ax.set_ylabel(f"Power (dB $\mu$V$^2$/Hz)")
 
         ax.set_title(self.title_ax)
         ax.grid(ls=':',lw=0.5)
 
-        return 0
+        return ax
 
     ####################################
     def get_plot_psd_model(self, ax1, label,):
@@ -614,10 +622,12 @@ class TF_components:
 
         if fm != []:
             # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, color=color, ax=ax)
-            ax.plot(fm.freqs, fm.fooofed_spectrum_, label=self.label, color=color)
+            # ax.plot(fm.freqs, fm.fooofed_spectrum_, label=self.label, color=color)
+            ax.plot(fm.freqs, fm.power_spectrum, label=self.label, color=color)
+            return fm.freqs, fm.power_spectrum
         else:
             print(f'Noting to plot for: {self.label}')
-            pass
+            return [],[]
 
         # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1[0]) ## color=color,
         # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label=self.label, ax=ax1[1]) ## color=color,
@@ -634,7 +644,22 @@ class TF_components:
         # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax4) ## color=color,
         # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, ax=ax4) ## color=color,
 
-        return 0
+        
+
+    ####################################
+    def psd_minus_aperiodic(self, ax, label, color):
+
+        plt_log = False
+        fm = self.fm_dict[label]
+
+        if fm != []:
+            # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label=self.label, color=color, ax=ax)
+            psd_minus_aperiodic = fm.power_spectrum - fm._ap_fit
+            ax.plot(fm.freqs, psd_minus_aperiodic, label=self.label, color=color)
+            return fm.freqs, psd_minus_aperiodic
+        else:
+            print(f'Noting to plot for: {self.label}')
+            return [], []
     
     ####################################
     def get_plot_psd_model(self, ax1, label,):

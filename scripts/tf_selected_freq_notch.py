@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import time
 import sys
+import json
 
 import numpy as np
 import pandas as pd
@@ -69,6 +70,8 @@ event_list_oe = ['a_oe','b_oe','c_oe']
 ## interactive plots
 fig_a = []
 ax_a = []
+fig_ap = []
+ax_ap = []
 ax_ce_global = []
 fig_ce_global = []
 fig_mea = []
@@ -94,6 +97,7 @@ flag_peaks_global = False
 fig_title_mea = ''
 path_fig_fooof = ''
 path_csv_files = ''
+path_fig_psd = ''
 
 #############################
 #############################
@@ -677,14 +681,14 @@ def redefine_reference(obj_list, event_list):
                 #average re-referencing, bad-channels interpolation, and spatial filtering...
                 
                 # re-referencing appli. average after ICA
-                # print(f"re-referencing...")
-                # obj.re_referencing()
+                print(f"re-referencing...")
+                obj.re_referencing()
 
                 print("Bad channels interpolation...")
                 obj.bads_interpolation()
                 
-                print(f"Current source density (Laplacian surface)...")
-                obj.apply_csd()
+                # print(f"Current source density (Laplacian surface)...")
+                # obj.apply_csd()
 
                 # print(f"PSD from EEG epochs after ICA...")
                 # obj.display_psd_eeg()
@@ -838,7 +842,7 @@ def plot_psd_regions(obj_list, event_list, info_p, ylim, path, flag_save):
 
     return 0
 
-def update_psd_plots():
+def update_psd_plots(path_fig,flag_save):
 
     freq_range = [1,45]
     ## ids to define a subplot order for ax_ce and ax_oe
@@ -893,6 +897,10 @@ def update_psd_plots():
     ax_ce[-1].set_xlabel(f'frequency [Hz]')
     ax_oe[-2].set_xlabel(f'frequency [Hz]')
     ax_oe[-1].set_xlabel(f'frequency [Hz]')
+
+    if flag_save:
+        fig_ce.savefig(path_fig+'eyes_closed_psd.png', bbox_inches ="tight")
+        fig_oe.savefig(path_fig+'eyes_open_psd.png', bbox_inches ="tight")
     
     return 0
 
@@ -1005,7 +1013,7 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
     fig_title = fig_title + ' ' + region
     
     ## ax limits, closed eyes, open eyes
-    ax_mea[0].set_ylim(ylim_global[0], ylim_global[1])
+    # ax_mea[0].set_ylim(ylim_global[0], ylim_global[1])
     ax_mea[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
     fig_mea.suptitle(f"{fig_title}")
 
@@ -1019,7 +1027,8 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
             if sel_label in label_eyes:
                 ## closed eyes [a_ce, b_ce, c_ce]
                 ## plot a graphical representation of the PSD of the selected subplot
-                obj.plot_psd_quantiles(sel_channels, freq_range, region, ax_mea[0])
+                print("figure quantiles...")
+                ax_mea[0] = obj.plot_psd_quantiles(sel_channels, freq_range, region, ax_mea[0])
                 ## calculate fooof model
                 # obj.fit_fooof(freq_range)
                 ## obj global
@@ -1080,7 +1089,7 @@ def on_press(event):
         print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
         # fm.print_results()
         print(f"results 01 fooof:\n{fm.peak_params_}")
-        print(f"results 02 fooof:\n{obj_global.get_results_fooof(region_global)}")
+        # print(f"results 02 fooof:\n{obj_global.get_results_fooof(region_global)}")
 
         # print(f"fm results:\n{fm.peak_params_}")
 
@@ -1091,52 +1100,22 @@ def on_press(event):
     elif event.key == 'u':
         ## update plots including fooof model in the psd eyes closed and eyes open
         ## print results from all fitted models
-        update_psd_plots()
+        flag_save_fig = True
+        update_psd_plots(path_fig_psd, flag_save_fig)
         
-
     elif event.key == 'z':
         ## fooof curves comparison
-        plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig_fooof, info_p)
-        ## print results from all fitted models
-        print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
-        ## closed eyes; left and right regions
-        # fm.print_results()
-        # print(f"results fooof:\n{obj_global.get_results_fooof()}")
-        # df_beta = pd.DataFrame(columns=['sequence','side','CF[Hz]','PW[dB]','BW[Hz]'])
-        df_beta = pd.DataFrame()
-        for obj in obj_list:
-        ## find the selected segment for each label
-            if obj.get_selected_flag():
-                ## get CF (center frequency), PW (power), and BW (bandwidth) from the second gaussian curve (fooof), which represents beta-band response
-                for label in ['central_left', 'central_right']:
-                    print(obj.get_label_title() +', '+ label)
-                    params = obj.get_beta_params(label)
-                    # b_params = obj.get_beta_params(label)
-                    data = {'sequence':obj.get_label_simple(),'side':label,'CF[Hz]':params[0],'PW[dB]':params[1],'BW[Hz]':params[2]}
-                    df = pd.DataFrame([data])
-                    df_beta = pd.concat([df_beta,df], ignore_index=True)
-                    # print(f"CF, PW, BW:\n{b_params}")
-                    # print(f"CF, PW, BW:\n{b_params[0][0]}, {b_params[0][1]}, {b_params[0][2]}")
-                    # print(f"CF, PW, BW:\n{b_params[1][0]}, {b_params[1][1]}, {b_params[1][2]}")
-                    print()
-            else:
-                pass
-        ## save parameters csv file
-        # df_beta.to_csv(path_csv_files+'params_beta.csv', float_format="%.2f", index=False)
-        with open(path_csv_files+'params_beta.csv', 'w') as ict:
-            # Write the header lines, including the index variable for
-            # the last one if you're letting Pandas produce that for you.
-            # (see above).
-            for line in info_p:
-                ict.write(line)
-            ict.write('\n')
-            # Just write the data frame to the file object instead of
-            # to a filename. Pandas will do the right thing and realize
-            # it's already been opened.
-            df_beta.to_csv(ict, float_format="%.2f", index=False)
+        flag_save_fig = True
+        plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig_fooof, info_p, flag_save_fig)
 
+    elif event.key == 'c':
+        ## fooof aperiodic component subtraction from psd
+        flag_save_fig = True
+        plot_psd_minus_aperiodic(obj_list, event_list_ce, event_list_oe, path_fig_fooof, info_p, flag_save_fig)
 
-        
+    elif event.key == 'q':      
+        ## close all windows
+        plt.close('all')
     else:
         pass
 
@@ -1397,7 +1376,7 @@ def get_color(label):
     return color
 
 ##################
-def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig, info_p):
+def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig, info_p, flag_save):
     global fig_a, ax_a
     ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
     if fig_a == []:
@@ -1413,46 +1392,74 @@ def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig, i
     # ax_a[0].axvspan(mu-2*sigma, mu-sigma, color='0.95')
     ##theta (4-8 Hz)
     
-    
     ymin = 5
     ymax = 35
     # set_bands_ax4plot(ax_a, ymax)
 
     flags = [0,0,0]
 
+    fooof_curves_dict = {}
     for obj in obj_list:
         ## find the selected segment for each label
         ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
         if obj.get_selected_flag():
             ## color represents resting start (blue), cycling (orange), or resting end (green)
             color = get_color(obj.get_label_simple())
+            label = obj.get_label_simple()
             ## a_ce, b_ce, c_ce
-            if obj.get_label_simple() in event_list_ce:
+            if label in event_list_ce:
                 ## closed eyes
                 print(f"{obj.get_label(), obj.get_id()}")
                 region ='central_left'
-                obj.plot_psd_fooof(ax_a[0], region, color)
-                flags = label_flags(obj, flags)
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.plot_psd_fooof(ax_a[0], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
 
                 region ='central_right'
-                obj.plot_psd_fooof(ax_a[1], region, color)
-                flags = label_flags(obj, flags)
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.plot_psd_fooof(ax_a[1], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
                 
             ## a_oe, b_oe, c_oe
-            elif obj.get_label_simple() in event_list_oe:
+            elif label in event_list_oe:
                 ## open eyes
                 print(f"{obj.get_label(), obj.get_id()}")
                 region ='central_left'
-                obj.plot_psd_fooof(ax_a[2], region, color)
-                flags = label_flags(obj, flags)
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.plot_psd_fooof(ax_a[2], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
                 
                 region ='central_right'
-                obj.plot_psd_fooof(ax_a[3], region, color)
-                flags = label_flags(obj, flags)
-
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.plot_psd_fooof(ax_a[3], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
+            else:
+                pass
+        else:
+            pass
 
     ## x and y limits
-    ax_a[0].set_xlim(-1, 47.0)
+    ax_a[0].set_xlim(-1, 42.0)
     # ax_a[0].set_ylim(-6.25, -1.75)
     # ax_a[0].set_ylim(ymin,ymax)
 
@@ -1491,12 +1498,156 @@ def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig, i
     # fig_b.suptitle(f"{info_p}")
     # fig_c.suptitle(f"{info_p}")
 
+    if flag_save:
+        fig_a.savefig(path_fig+'fooof_psd_all.png', bbox_inches ="tight")
+        ## save dict with curves (dataframes) from fooof modeling
+        # np.save(path_fig+'fooof_curves_dict.npy', fooof_curves_dict, allow_pickle=True)
+        with open(path_fig+'fooof_curves_dict.json', 'w') as f:
+            f.write(json.dumps(fooof_curves_dict))
+        
 
-    # fig_a.savefig(path_fig+'fooof_psd_a.png', bbox_inches ="tight")
+
     # fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
     # fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
 
     return 0
+
+##################
+def plot_psd_minus_aperiodic(obj_list, event_list_ce, event_list_oe, path_fig, info_p, flag_save):
+    global fig_ap, ax_ap
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    if fig_ap == []:
+        fig_ap, ax_ap = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(12,6), layout='constrained')
+        ax_ap = ax_ap.flatten()
+    else:
+        for ax in ax_ap:
+            ax.cla()
+        pass
+
+    ## colored regions frequency bands [theta, alpha, beta]
+    ## theta (4-8 Hz), alpha (8-12 Hz), beta (12-30 Hz)
+    # ax_a[0].axvspan(mu-2*sigma, mu-sigma, color='0.95')
+    ##theta (4-8 Hz)
+    
+    ymin = 5
+    ymax = 35
+    # set_bands_ax4plot(ax_a, ymax)
+
+    flags = [0,0,0]
+
+    fooof_curves_dict = {}
+    for obj in obj_list:
+        ## find the selected segment for each label
+        ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+        if obj.get_selected_flag():
+            ## color represents resting start (blue), cycling (orange), or resting end (green)
+            color = get_color(obj.get_label_simple())
+            label = obj.get_label_simple()
+            ## a_ce, b_ce, c_ce
+            if label in event_list_ce:
+                ## closed eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.psd_minus_aperiodic(ax_ap[0], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
+
+                region ='central_right'
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.psd_minus_aperiodic(ax_ap[1], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
+                
+            ## a_oe, b_oe, c_oe
+            elif label in event_list_oe:
+                ## open eyes
+                print(f"{obj.get_label(), obj.get_id()}")
+                region ='central_left'
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.psd_minus_aperiodic(ax_ap[2], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
+                
+                region ='central_right'
+                if obj.get_fooof_model(region) != []:
+                    freqs, mag = obj.psd_minus_aperiodic(ax_ap[3], region, color)
+                    flags = label_flags(obj, flags)
+                    ## to save data of fooof models
+                    df = pd.DataFrame({'freqs':freqs, 'fooof':mag})
+                    fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+                else:
+                    pass
+            else:
+                pass
+        else:
+            pass
+
+    ## x and y limits
+    ax_ap[0].set_xlim(-1, 42.0)
+    # ax_a[0].set_ylim(-6.25, -1.75)
+    # ax_a[0].set_ylim(ymin,ymax)
+
+
+    set_labels_ax_4only(ax_ap)
+    ## legend
+    fig_ap = set_legend(fig_ap, flags)
+
+    # set_labels_ax(ax_b)
+    # set_labels_ax(ax_c)
+
+    # set_title_ax(ax_a[0])
+    set_title_ax4only(ax_ap)
+    # set_title_ax(ax_b[0])
+    # set_title_ax(ax_c[0])
+
+    # set_subtitle_fig(fig_a)
+    # set_subtitle_fig(fig_b)
+    # set_subtitle_fig(fig_c)
+
+    # set_annotation_ax (ax_a[0,:], '(PSD)')
+    # set_annotation_ax (ax_a[1,:], '(APERIODIC COMP.)')
+    # set_annotation_ax (ax_a[2,:], '(PSD) - (APERIODIC COMP.)')
+
+    # fig_a.text(0.32, 0.925, "central left channels", ha='center', fontsize=12,)
+    # fig_a.text(0.72, 0.925, "central right channels", ha='center', fontsize=12,)
+
+    set_grid_ax4only(ax_ap)
+    
+    # set_grid_ax(ax_b)
+    # set_grid_ax(ax_c)
+
+    ## save figures
+    # text_subtitle = "\ncentral left channels \t \t \t central right channels\n".replace("\t", "    ")
+    fig_ap.suptitle(f"{info_p}\n",)
+    # fig_b.suptitle(f"{info_p}")
+    # fig_c.suptitle(f"{info_p}")
+
+    if flag_save:
+        fig_ap.savefig(path_fig+'psd_minus_aperiodic.png', bbox_inches ="tight")
+        ## save dict with curves (dataframes) from fooof modeling
+        with open(path_fig+'psd_minus_aperiodic_dict.json', 'w') as f:
+            f.write(json.dumps(fooof_curves_dict))
+        
+
+
+    # fig_b.savefig(path_fig+'fooof_b.png', bbox_inches ="tight")
+    # fig_c.savefig(path_fig+'fooof_c.png', bbox_inches ="tight")
+
+    return 0
+
 
 ##################
 def plot_psd_responses_median(obj_list, event_list_ce, event_list_oe, path_fig, info_p):
@@ -2204,7 +2355,7 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof, path_csv_files
+    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof, path_csv_files, path_fig_psd
 
     ## interactive mouse pause the image visualization
     # fig.canvas.mpl_connect('button_press_event', toggle_pause)
