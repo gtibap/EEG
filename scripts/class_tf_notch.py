@@ -84,8 +84,8 @@ class TF_components:
         self.psd_epochs = []
         self.fm = []
         self.ax_copy = []
-        self.range_freqs = [0.0, 0.0]
-        self.thr_peaks = 0.0
+        self.range_freqs_dict = {'central_left':[], 'central_right':[]}
+        self.thr_peaks_dict = {'central_left':[], 'central_right':[]}
         self.params_beta_dict = {'central_left':[], 'central_right':[]}
 
         # pandas data frames
@@ -512,14 +512,10 @@ class TF_components:
         return 0
 
     #############
-    def get_psd_quantiles(self, label):
-        return self.quantiles_dict[label]
-    
-    #############
     def fit_fooof(self, label, range_freqs, thr_peaks, ax):
         # Set whether to plot in log-log space
-        self.range_freqs = range_freqs
-        self.thr_peaks = thr_peaks
+        self.range_freqs_dict[label] = range_freqs
+        self.thr_peaks_dict[label] = thr_peaks
 
         plt_log = False
         print(f"FOOOF: aperiodic and periodic components' estimation")
@@ -534,6 +530,7 @@ class TF_components:
         # fm.add_data(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
         # fm.fit(df_psd_global['freqs'].to_numpy(), 10**(df_psd_global['psd_q2'].to_numpy()), range_freqs)
 
+        ## 10^(psd_q2) because the fit function apply log10 to the data
         fm.fit(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
 
         init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
@@ -693,8 +690,8 @@ class TF_components:
             # plot_spectra(fm.freqs, fm.power_spectrum, plt_log, label=self.label, ax=ax1) ## color=color,
             ax1.plot(self.psd_dict[label]['freqs'], 10*np.log10(self.psd_dict[label]['psd']), label=self.label)
             print(f"plotting {self.label}, {label}")
-            print(f"freqs:\{self.psd_dict[label]['freqs']}")
-            print(f"psd:\{self.psd_dict[label]['psd']}")
+            print(f"freqs:\n{self.psd_dict[label]['freqs']}")
+            print(f"psd:\n{self.psd_dict[label]['psd']}")
             print(f'')
 
         except:
@@ -2323,3 +2320,14 @@ class TF_components:
     ###############
     def get_info_p(self):
         return self.pt_info
+
+    #############
+    def get_psd_quantiles(self, label):
+        return self.quantiles_dict[label]
+
+    ##############
+    def get_params_fooof(self, label):
+        params_dict = {}
+        params_dict['range_freqs'] =  self.range_freqs_dict[label]
+        params_dict['thr_peaks'] =  self.thr_peaks_dict[label]
+        return params_dict

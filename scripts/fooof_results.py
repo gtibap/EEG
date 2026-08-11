@@ -244,11 +244,14 @@ def main(args):
     print(f'arg {args[2]}') ## subject = {0:patient 1, 1:patient 2, ...}
     print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
     print(f'arg {args[4]}') ## ABT = {0:resting, 1:biking}
+    print(f'arg {args[5]}') ## rest end = {0:off, 1:on}
+
     
     path=args[1]
     subject= int(args[2])
     session=int(args[3])
     abt= int(args[4])
+    flag_rest_end = int(args[5])
 
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
     path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims, thr_peaks_global = participants_list(path, subject, session, abt)
@@ -263,10 +266,16 @@ def main(args):
     # session = '1'
     path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
 
-    labels_ce_right = ['a_ce_right','b_ce_right','c_ce_right']
-    labels_oe_right = ['a_oe_right','b_oe_right','c_oe_right']
-    labels_ce_left  = ['a_ce_left','b_ce_left','c_ce_left']
-    labels_oe_left  = ['a_oe_left','b_oe_left','c_oe_left']
+    if flag_rest_end:
+        labels_ce_right = ['a_ce_right','b_ce_right','c_ce_right']
+        labels_oe_right = ['a_oe_right','b_oe_right','c_oe_right']
+        labels_ce_left  = ['a_ce_left','b_ce_left','c_ce_left']
+        labels_oe_left  = ['a_oe_left','b_oe_left','c_oe_left']
+    else:
+        labels_ce_right = ['a_ce_right','b_ce_right']
+        labels_oe_right = ['a_oe_right','b_oe_right']
+        labels_ce_left  = ['a_ce_left','b_ce_left']
+        labels_oe_left  = ['a_oe_left','b_oe_left']
 
     
     if abt:
