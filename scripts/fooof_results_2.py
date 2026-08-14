@@ -280,9 +280,72 @@ def get_color(label):
     return color
 
 ##############
+def get_freq_range_per_section(peak_freqs_dict):
+
+    section_mean = {}
+    freqs_per_section = {}
+    section_list = ['ce_left', 'ce_right', 'oe_left', 'oe_right']
+
+    ## sorting values of frequencies with max. peak values per section
+    for section in section_list:
+        freqs_list = []
+        for label in peak_freqs_dict:
+            # print(f"{label} freq peak:\t{round(peak_freqs_dict[label],1)}")
+            if (section in label) and (len(peak_freqs_dict[label])>0):
+                ## append freq values same section
+                freqs_list.append(peak_freqs_dict[label])
+            else:
+                pass
+        ## sort freq values per section
+        freqs_per_section[section] = freqs_list
+
+    ## mean values of frequencies of max peaks per section
+    for section in freqs_per_section:
+        central_freq = np.mean(freqs_per_section[section])
+        left_freq = central_freq - 2.5 ## Hz
+        right_freq = central_freq + 2.5 ## Hz
+        section_mean[section] = [left_freq, central_freq, right_freq] 
+    # print(f"mean freq values:\n{section_mean}")
+
+    return section_mean
+
+##############    
+def plot_band_boundaries(ax_list,f1,f2):
+    for ax in ax_list:
+        ax.axvline(x=f1, ymin=-100, ymax=100, linestyle='dashed', alpha=0.5, lw=1.0)
+        ax.axvline(x=f2, ymin=-100, ymax=100, linestyle='dashed', alpha=0.5, lw=1.0)
+    return 0
+
+##################
+def calculate_band_attenuation(mean_psd_bands_dict):
+
+    diff_bands_dict = {}
+    ## difference between cycling and baseline (rest start)
+    ## closed eyes
+
+    ## differences between biking and rest start left and right closed eyes
+
+    for eyes in ['ce', 'oe']:
+
+        ref = mean_psd_bands_dict[f'a_{eyes}_left']['alpha'][0]
+        val = mean_psd_bands_dict[f'b_{eyes}_left']['alpha'][0]
+
+        diff = 100*(val-ref)/ref
+        diff_bands_dict[f'ba_{eyes}_left'] = diff
+
+        ref = mean_psd_bands_dict[f'a_{eyes}_right']['alpha'][0]
+        val = mean_psd_bands_dict[f'b_{eyes}_right']['alpha'][0]
+
+        diff = 100*(val-ref)/ref
+        diff_bands_dict[f'ba_{eyes}_right'] = diff
+
+    print(f"diff_bands_dict:\n{diff_bands_dict}")
+
+    return diff_bands_dict
+
+##############
 def main(args):
     # global flags_global
-
     flags_global = np.array([0,0,0])
 
     flag_csd = False
@@ -294,7 +357,6 @@ def main(args):
     print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
     print(f'arg {args[4]}') ## ABT = {0:resting, 1:biking}
     print(f'arg {args[5]}') ## rest end = {0:off, 1:on}
-
     
     path=args[1]
     subject= int(args[2])
@@ -309,37 +371,41 @@ def main(args):
         return 0
     else:
         pass
-    
 
-    # path = '../../data/a_neuroplasticity/n_007/'
-    # session = '1'
+    ## path to save figures
     path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
 
     if flag_rest_end:
+        ## to include rest start, cycling, and rest after cycling in the figures
         labels_ce_right = ['a_ce_right','b_ce_right','c_ce_right']
         labels_oe_right = ['a_oe_right','b_oe_right','c_oe_right']
         labels_ce_left  = ['a_ce_left','b_ce_left','c_ce_left']
         labels_oe_left  = ['a_oe_left','b_oe_left','c_oe_left']
     else:
+        ## to include rest start and cycling in the figures
         labels_ce_right = ['a_ce_right','b_ce_right']
         labels_oe_right = ['a_oe_right','b_oe_right']
         labels_ce_left  = ['a_ce_left','b_ce_left']
         labels_oe_left  = ['a_oe_left','b_oe_left']
 
     obj_list = []
+    peak_freqs_dict = {}
+    peak_freqs_list = []
+    labels_list = []
 
-    ## read parametres to fit fooof model
+    ## read parameters to fit fooof model
     filename_params = path_fig_fooof+'fooof_parameters_dict.json'
     with open(filename_params, "r") as file:
         data_params = json.load(file)
 
-    ## read psd quantiles from selected channels
+    ## read psd quantiles from selected channels from each case, i.e. a_oe_left, a_oe_right, b_oe_left, ...
     filename_quantiles = path_fig_fooof+'psd_quantiles_dict.json'
     with open(filename_quantiles, "r") as file:
         data_quantiles = json.load(file)
 
     ## create obj for each case, i.e. a_oe_left, a_oe_right, b_oe_left, ...
     for label in data_params:
+        labels_list.append(label)
         # print(f"datum:\n{label}")
         # print(f"freqs: {data[label]['range_freqs']}")
         # print(f"thres: {data[label]['thr_peaks']}")
@@ -347,15 +413,50 @@ def main(args):
         freqs = data_params[label]['range_freqs']
         thres = data_params[label]['thr_peaks']
 
+        ## dict quantiles
         quantiles = data_quantiles[label]
+        ## to dataframe
         df_quantiles = pd.DataFrame(data=quantiles['data'], columns=quantiles['columns'])
         # print(f"df_quantiles\n{df_quantiles}")
+        ## obj initialization
         obj = FOOOF_class(label, freqs, thres, df_quantiles)
         ## fit fooof for each case
         obj.fit_fooof()
+        ## finding peak alpha in the 5- 13Hz frequency range
+        if obj.get_fooof_model() != []:
+            ## only for those who have the periodic and aperiodic decomposition
+            ## list of freq of psd peaks in the selected freq range
+            peak_freqs_list.append(obj.get_freq_peak_value(5,13))
+        ## save objs in a list to iterate later on
         obj_list.append(obj)
 
+    # print(f"peak_freqs_dict:\n{peak_freqs_list}")
+    ## central frequency value (median)
+    freq_central = np.median(peak_freqs_list)
+    freq_left  = freq_central - 2.5 ## Hz
+    freq_right = freq_central + 2.5 ## Hz
+    print(f"freqs band (left, central, right):\n{freq_left, freq_central, freq_right}")
 
+    ## calculate mean values of psd limited by the previously defined frequencies
+    mean_psd_bands_dict = {}
+    label_band = 'alpha'
+    for obj in obj_list:
+        obj.calculate_mean_psd_band(label_band, freq_left, freq_right)
+        mean_bands = obj.get_mean_psd_band()
+        mean_psd_bands_dict[obj.get_label()] = mean_bands
+
+    print(f"mean_bands dict:\n{mean_psd_bands_dict}")
+    diff_bands_dict =  calculate_band_attenuation(mean_psd_bands_dict)
+
+    # ## frequency range alpha band per section (centered in the peak average of the compared psd, for example: a_ce_left, and b_ce_left)
+    # ## sections include: ce_left, ce_right, oe_left, oe_right
+    # ## range of freq of 5 Hz for alpha band
+    # freqs_per_section = get_freq_range_per_section(peak_freqs_dict)
+    # print(f"freq list per section:\n{freqs_per_section}")
+
+    ## calculate mean values of psd periodic response
+
+    ## labels to separate closed-eyes and open-eyes
     event_list_ce = ['a_ce','b_ce','c_ce']
     event_list_oe = ['a_oe','b_oe','c_oe']
 
@@ -365,6 +466,10 @@ def main(args):
     fig_per, ax_per = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(12,6), layout='constrained')
     ax_per = ax_per.flatten()
 
+    ## results of peak params fooof
+    # peaks_params_dict = {}
+
+
     for obj in obj_list:
         color = get_color(obj.get_label())
         label = obj.get_label()
@@ -373,15 +478,22 @@ def main(args):
         if label[:4] in event_list_ce:
             ## closed eyes
             if '_left' in label:
-                ## plot psd 
+                ## closed eyes left side
+                ## plot psd and aperiodic component
                 flags_global = obj.plot_psd_fooof(ax_psd[0], color, flags_global)
-                ## plot psd - aperiodic
+                ## plot psd periodic component (i.e. psd minus aperiodic)
                 obj.plot_per_fooof(ax_per[0], color)
+                ## get peaks params gaussian fitting fooof
+                # peaks_params_dict[label] = obj.get_fooof_peaks_params()
+                # print(f"peaks_params -- {label}:\n{peaks_params}")
             elif '_right' in label:
+                ## closed eyes right side
                 ## plot psd
                 flags_global = obj.plot_psd_fooof(ax_psd[1], color, flags_global)
                 ## plot psd - aperiodic
                 obj.plot_per_fooof(ax_per[1], color)
+                ## get peaks params gaussian fitting fooof
+                # peaks_params_dict[label] = obj.get_fooof_peaks_params()
             else:
                 pass
             
@@ -389,20 +501,36 @@ def main(args):
         elif label[:4] in event_list_oe:
             ## open eyes
             if '_left' in label:
+                ## open eyes left side
                 ## plot psd
                 flags_global = obj.plot_psd_fooof(ax_psd[2], color, flags_global)
                 ## plot psd - aperiodic
                 obj.plot_per_fooof(ax_per[2], color)
+                ## get peaks params gaussian fitting fooof
+                # peaks_params_dict[label] = obj.get_fooof_peaks_params()
             elif '_right' in label:
+                ## open eyes right side
                 ## plot psd
                 flags_global = obj.plot_psd_fooof(ax_psd[3], color, flags_global)
                 ## plot psd - aperiodic
                 obj.plot_per_fooof(ax_per[3], color)
+                ## get peaks params gaussian fitting fooof
+                # peaks_params_dict[label] = obj.get_fooof_peaks_params()
             else:
                 pass
 
         else:
             pass
+
+    ## plot alpha band boundaries
+    plot_band_boundaries(ax_per, freq_left, freq_right)
+
+    ###########
+    # ## peaks params gaussian
+    # print(f"peaks params")
+    # for label in peaks_params_dict:
+    #     print(f"\n{label}")
+    #     print(f"[central freq, power magnitude, bandwidth]\n{peaks_params_dict[label]}")
 
     ###########
     ## subtract baseline
@@ -461,6 +589,8 @@ def main(args):
     flag_save = True
     ## save figures
     if flag_save:
+        fig_psd.savefig(path_fig_fooof+'psd_ap_fit.png', bbox_inches ="tight")
+        fig_per.savefig(path_fig_fooof+'psd_periodic.png', bbox_inches ="tight")
         fig_diff.savefig(path_fig_fooof+'psd_diff.png', bbox_inches ="tight")
         fig_mean.savefig(path_fig_fooof+'psd_diff_mean.png', bbox_inches ="tight")
 
