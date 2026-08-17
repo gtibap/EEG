@@ -317,7 +317,7 @@ def plot_band_boundaries(ax_list,f1,f2):
     return 0
 
 ##################
-def calculate_band_attenuation(mean_psd_bands_dict):
+def calculate_band_attenuation(mean_psd_bands_dict, mean_psd_ref, label_band, label_val, label_ref):
 
     diff_bands_dict = {}
     ## difference between cycling and baseline (rest start)
@@ -327,19 +327,21 @@ def calculate_band_attenuation(mean_psd_bands_dict):
 
     for eyes in ['ce', 'oe']:
 
-        ref = mean_psd_bands_dict[f'a_{eyes}_left']['alpha'][0]
-        val = mean_psd_bands_dict[f'b_{eyes}_left']['alpha'][0]
+        ref = mean_psd_bands_dict[label_band][f'{label_ref}_{eyes}_left']
+        val = mean_psd_bands_dict[label_band][f'{label_val}_{eyes}_left']
+        nor = mean_psd_ref[f'{label_ref}_{eyes}_left']
 
-        diff = 100*(val-ref)/ref
-        diff_bands_dict[f'ba_{eyes}_left'] = diff
+        diff = 100*(val-ref)/nor
+        diff_bands_dict[f'{label_val}_{label_ref}_{eyes}_left'] = diff
 
-        ref = mean_psd_bands_dict[f'a_{eyes}_right']['alpha'][0]
-        val = mean_psd_bands_dict[f'b_{eyes}_right']['alpha'][0]
+        ref = mean_psd_bands_dict[label_band][f'{label_ref}_{eyes}_right']
+        val = mean_psd_bands_dict[label_band][f'{label_val}_{eyes}_right']
+        nor = mean_psd_ref[f'{label_ref}_{eyes}_right']
 
-        diff = 100*(val-ref)/ref
-        diff_bands_dict[f'ba_{eyes}_right'] = diff
+        diff = 100*(val-ref)/nor
+        diff_bands_dict[f'{label_val}_{label_ref}_{eyes}_right'] = diff
 
-    print(f"diff_bands_dict:\n{diff_bands_dict}")
+    # print(f"diff_bands_dict:\n{diff_bands_dict}")
 
     return diff_bands_dict
 
@@ -422,7 +424,7 @@ def main(args):
         obj = FOOOF_class(label, freqs, thres, df_quantiles)
         ## fit fooof for each case
         obj.fit_fooof()
-        ## finding peak alpha in the 5- 13Hz frequency range
+        ## finding peak alpha in the 5- 13Hz frequency range only if fooof model was fitted
         if obj.get_fooof_model() != []:
             ## only for those who have the periodic and aperiodic decomposition
             ## list of freq of psd peaks in the selected freq range
@@ -432,22 +434,80 @@ def main(args):
 
     # print(f"peak_freqs_dict:\n{peak_freqs_list}")
     ## central frequency value (median)
-    freq_central = np.median(peak_freqs_list)
-    freq_left  = freq_central - 2.5 ## Hz
-    freq_right = freq_central + 2.5 ## Hz
-    print(f"freqs band (left, central, right):\n{freq_left, freq_central, freq_right}")
+    alpha_freq_central = np.median(peak_freqs_list)
+    ## 5 Hz range for alpha band
+    alpha_freq_left  = alpha_freq_central - 2.5 ## Hz
+    alpha_freq_right = alpha_freq_central + 2.5 ## Hz
+    print(f"alpha freqs band (left, central, right):\n{alpha_freq_left, alpha_freq_central, alpha_freq_right}")
+
+    ## beta band starts at the end of alpha band and with a 10 Hz range
+    beta_freq_left  = alpha_freq_right ## Hz
+    beta_freq_right = alpha_freq_right + 10 ## Hz
+    print(f"beta freqs band (left and right):\n{beta_freq_left, beta_freq_right}")
+
+    ## limits freqs bands, which define frequency ranges
+    lim_freqs_bands={}
+    lim_freqs_bands['alpha'] = [alpha_freq_left, alpha_freq_right]
+    lim_freqs_bands['beta']  = [beta_freq_left, beta_freq_right]
 
     ## calculate mean values of psd limited by the previously defined frequencies
     mean_psd_bands_dict = {}
-    label_band = 'alpha'
-    for obj in obj_list:
-        obj.calculate_mean_psd_band(label_band, freq_left, freq_right)
-        mean_bands = obj.get_mean_psd_band()
-        mean_psd_bands_dict[obj.get_label()] = mean_bands
+    for label_band in ['alpha', 'beta']:
+        ##  freq limits for each band
+        lim_freqs = lim_freqs_bands[label_band]
+        # mean_psd_bands_dict[obj.get_label()] = []
+        values_dict = {}
+        for obj in obj_list:
+            ## calculate mean values from the periodic component of the fooof decomposition
+            if obj.get_fooof_model() != []:
+                ## mean value from periodic component
+                obj.calculate_mean_psd_band(label_band, lim_freqs[0], lim_freqs[1])
+                ## get calculated values
+                mean_bands = obj.get_mean_psd_band(label_band)
+                # print(f"mean_bands: {mean_bands}")
+                values_dict[obj.get_label()] = mean_bands
+            else:
+                print(f"No periodic component for {obj.get_label()}. No values to calculate.")
 
+        # print(f"values dict:\n{values_dict}")
+        mean_psd_bands_dict[label_band] = values_dict
+    ## results mean values per frequency band
     print(f"mean_bands dict:\n{mean_psd_bands_dict}")
-    diff_bands_dict =  calculate_band_attenuation(mean_psd_bands_dict)
 
+    ## calculate average including alpha and beta of psd reference, i.e. a_ce_left, a_oe_right ...
+    labels_ref = ['a_ce_left','a_ce_right','a_oe_left','a_oe_right']
+    ## psd average from the reference in the range including alpha and beta for normalization
+    label_band = 'alpha+beta'
+    lim_freqs_bands_all = [alpha_freq_left, beta_freq_right]
+
+    values_ref_dict = {}
+    for obj in obj_list:
+        ## calculate mean values from the periodic component of the fooof decomposition
+        if (obj.get_fooof_model() != []) and (obj.get_label() in labels_ref):
+            ## mean value from periodic component
+            print(f"baseline {obj.get_label()}")
+            obj.calculate_mean_psd_band(label_band, lim_freqs_bands_all[0], lim_freqs_bands_all[1])
+            ## get calculated values
+            mean_bands = obj.get_mean_psd_band(label_band)
+            # print(f"mean_bands: {mean_bands}")
+            values_ref_dict[obj.get_label()] = mean_bands
+        else:
+            pass
+
+    print(f"values ref:\n{values_ref_dict}")
+
+
+    diff_bands_dict = {}
+    # diff_bands_dict =  calculate_band_attenuation(mean_psd_bands_dict) between two conditions: 
+    # cycling (b) and rest start (a)
+    # rest end (c) and rest start (a)
+    label_band = 'alpha'
+    diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
+    label_band = 'beta'
+    diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
+    print(f"diff bands:\n{diff_bands_dict}")
+
+    return 0
     # ## frequency range alpha band per section (centered in the peak average of the compared psd, for example: a_ce_left, and b_ce_left)
     # ## sections include: ce_left, ce_right, oe_left, oe_right
     # ## range of freq of 5 Hz for alpha band
@@ -523,7 +583,9 @@ def main(args):
             pass
 
     ## plot alpha band boundaries
-    plot_band_boundaries(ax_per, freq_left, freq_right)
+    # lim_freqs_bands['beta']
+    plot_band_boundaries(ax_per, lim_freqs_bands['alpha'][0], lim_freqs_bands['alpha'][1])
+    plot_band_boundaries(ax_per, lim_freqs_bands['beta'][0], lim_freqs_bands['beta'][1])
 
     ###########
     # ## peaks params gaussian

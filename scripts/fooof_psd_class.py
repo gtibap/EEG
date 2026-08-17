@@ -51,14 +51,14 @@ class FOOOF_class:
         if self.fm != []:
             df = self.df_fooof.copy()
             df = df.loc[(df['freqs']>=freq_left) & (df['freqs']<freq_right)]
-            self.bands_avg[label_band] = [df['periodic'].mean()]
+            self.bands_avg[label_band] = df['periodic'].mean()
         else:
-            self.bands_avg[label_band] = []
+            self.bands_avg[label_band] = np.nan
         return 0
 
     ##########
-    def get_mean_psd_band(self):
-        return self.bands_avg
+    def get_mean_psd_band(self, label_band):
+        return self.bands_avg[label_band]
     
     ##############################
     def get_freq_peak_value(self, f0, f1):
@@ -68,14 +68,16 @@ class FOOOF_class:
             df = df.loc[(df['freqs']>=f0) & (df['freqs']<f1)]
             x = df['freqs'].to_numpy()
             y = df['periodic'].to_numpy()
-
+            ## interpolation to smooth the curve
             aki = Akima1DInterpolator(x, y)
             x_data = np.arange(np.min(x), np.max(x), 0.01)
             y_data = aki(x_data)
-            plt.plot(x_data,y_data)
+            # plt.plot(x_data,y_data)
             ## max value in the data
             max_value = np.max(y_data)
+            ## where the maximum is located in the array
             max_id = np.argmax(y_data)
+            ## that location is the same for freq max
             freq_max = x_data[max_id]
             # print(f"{self.label} (freq, max_value):\n{np.round(freq_max,1), np.round(max_value,1)}")
             self.peak_value = max_value
