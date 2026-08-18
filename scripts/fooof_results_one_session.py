@@ -347,25 +347,13 @@ def calculate_band_attenuation(mean_psd_bands_dict, mean_psd_ref, label_band, la
     return diff_bands_dict
 
 ##############
-def main(args):
+def get_fooof_results(path, subject, session, abt, flag_rest_end):
     # global flags_global
     flags_global = np.array([0,0,0])
 
     flag_csd = False
     ## run matplotlib in interactive mode
     plt.ion()
-
-    print(f'arg {args[1]}') ## folder location
-    print(f'arg {args[2]}') ## subject = {0:patient 1, 1:patient 2, ...}
-    print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
-    print(f'arg {args[4]}') ## ABT = {0:resting, 1:biking}
-    print(f'arg {args[5]}') ## rest end = {0:off, 1:on}
-    
-    path=args[1]
-    subject= int(args[2])
-    session=int(args[3])
-    abt= int(args[4])
-    flag_rest_end = int(args[5])
 
     ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
     path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims, thr_peaks_global = participants_list(path, subject, session, abt)
@@ -509,9 +497,9 @@ def main(args):
     print(f"diff bands:\n{diff_bands_dict}")
 
     ## plot power differences from alpha and beta bands
-    plot_eeg_bands(diff_bands_dict, info_p)
+    # plot_eeg_bands(diff_bands_dict, info_p)
 
-    return 0
+    return diff_bands_dict
     # ## frequency range alpha band per section (centered in the peak average of the compared psd, for example: a_ce_left, and b_ce_left)
     # ## sections include: ce_left, ce_right, oe_left, oe_right
     # ## range of freq of 5 Hz for alpha band
