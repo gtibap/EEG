@@ -1,16 +1,10 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
 from scipy.interpolate import Akima1DInterpolator
-from scipy.interpolate import UnivariateSpline
 
 # Import the FOOOF object
 from fooof import FOOOF
-# from fooof.sim.gen import gen_aperiodic
-# from fooof.plts.spectra import plot_spectra
-# from fooof.plts.annotate import plot_annotated_peak_search
-
 
 class FOOOF_class:
     ################
@@ -54,7 +48,7 @@ class FOOOF_class:
             self.bands_avg[label_band] = df['periodic'].mean()
         else:
             self.bands_avg[label_band] = np.nan
-        return 0
+        return self.bands_avg[label_band]
 
     ##########
     def get_mean_psd_band(self, label_band):
@@ -83,60 +77,10 @@ class FOOOF_class:
             self.peak_value = max_value
             self.peak_freq  = freq_max 
 
-            return [self.peak_freq]
+            return self.peak_freq
         else:
-            return []
+            return np.nan
         
-
-    # ########################
-    # def fit_gaussian(self, f0, f1):
-    #     if self.fm != []:
-    #         df = self.df_fooof.copy()
-    #         df = df.loc[(df['freqs']>=f0) & (df['freqs']<f1)]
-    #         x = df['freqs'].to_numpy()
-    #         y = df['periodic'].to_numpy()
-    #         ## extend arrays to facilitate fitting gaussian function
-    #         ## extend x left and right sides
-    #         delta_x = x[1] - x[0]
-    #         range_x = x[-1]- x[0]
-    #         x_left = x - range_x - delta_x 
-    #         x_right = x + range_x + delta_x
-    #         x_new = np.concatenate((x_left, x, x_right), axis=None)
-    #         x_new = x_new - x_new[0]
-
-    #         ## extend y with the first and last values
-    #         y_left = len(y)*[y[0]]
-    #         y_right = len(y)*[y[-1]]
-    #         y_new = np.concatenate((y_left, y, y_right), axis=None)
-    #         # print(f"y: {y}")
-    #         # print(f"y_new: {y_new}")
-    #         # print(f"x: {x}")
-    #         # print(f"x_new: {x_new}")
-    #         # print(f"fit gaussian {self.label}:\n{x, yn}")
-    #          ## interpolation to increase number of samples and to smooth the signal
-    #         # aki = Akima1DInterpolator(x_new, y_new)
-    #         # x_data = np.arange(np.min(x_new), np.max(x_new), 0.01)
-    #         # y_data = aki(x_data)
-    #         ## spline interpolation
-    #         spl = UnivariateSpline(x_new, y_new)
-    #         # Manually change the amount of smoothing
-    #         spl.set_smoothing_factor(0.9)
-    #         x_data = np.arange(np.min(x_new), np.max(x_new), 0.01)
-    #         y_data = spl(x_data)
-
-    #         plt.plot(x_data,y_data)
-
-    #         popt, _ = curve_fit(self.func_gaussian, x_data, y_data)
-    #         print(f"Gaussian fitting params: {popt}")
-    #     else:
-    #         pass
-    #     return 0
-
-    #####################
-    # # Gaussian function
-    # def func_gaussian(self, x, a, x0, sigma):
-    #     return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
-
     ################
     def plot_psd_fooof(self, ax, color, flags):
 
