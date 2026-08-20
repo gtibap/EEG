@@ -10,7 +10,7 @@ class FOOOF_class:
     ################
     def __init__(self, label, freqs, thres, df):
         self.label = label
-        self.freqs = freqs
+        self.freq_range = freqs
         self.thres = thres
         self.df = df
         self.df_per = pd.DataFrame()
@@ -20,7 +20,6 @@ class FOOOF_class:
         self.peak_value = []
         self.peak_freq = []
         self.bands_avg = {}
-        pass
 
     ################
     def set_quantiles(self):
@@ -31,10 +30,13 @@ class FOOOF_class:
         ## fooof initial parametres
         if self.thres != []:
             self.fm = FOOOF(aperiodic_mode='fixed', peak_width_limits=[1.0, 15.0], max_n_peaks=7, min_peak_height=self.thres)
-            ## fit model
-            self.fm.fit(self.df['freqs'].to_numpy(), 10**(self.df['psd_q2'].to_numpy()), self.freqs)
+            ## fit model, we include 10** to neutralize the log10 that is applied by the function before fitting
+            self.fm.fit(self.df['freqs'].to_numpy(), 10**(self.df['psd_q2'].to_numpy()), self.freq_range)
+            ## obtain the periodic component (psd - aperiodic fit)
             self.df_fooof['freqs'] = self.fm.freqs
             self.df_fooof['periodic'] = self.fm.power_spectrum - self.fm._ap_fit
+            self.df_fooof['psd'] = self.fm.power_spectrum
+            self.df_fooof['aperiodic'] = self.fm._ap_fit
         else:
             print(f"Warning: No fooof fitted model for {self.label}")
 
@@ -135,5 +137,11 @@ class FOOOF_class:
     ###################
     def get_fooof_model(self):
         return self.fm
+
+    def get_fooof_data(self):
+        if self.fm != []:
+            return self.df_fooof
+        else:
+            return np.nan
     
 

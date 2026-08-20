@@ -52,6 +52,8 @@ def get_info_split(text):
     return id_pt, ais_nli, days
 
 ##############
+## parameters of the fooof model here were defined in a previous step (tf_selected_freq_notch.py)
+## hence, here those parameters are readed and the fooof model is reproduced
 def get_fooof_results(path, subject, session, abt, flag_rest_end):
     # global flags_global
     flags_global = np.array([0,0,0])
@@ -60,7 +62,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     ## run matplotlib in interactive mode
     plt.ion()
 
-    ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
+    ## reading info related to the patient
     path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims, thr_peaks_global = participants_list(path, subject, session, abt)
     if fn_csv == '':
         print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
@@ -68,6 +70,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     else:
         pass
 
+    ## patient info to include in figures (plots)
     print (f"info_p: {info_p}")
     id_pt, ais_nli, days = get_info_split(info_p)
     info_pt_dict={}
@@ -92,7 +95,6 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
         labels_oe_left  = ['a_oe_left','b_oe_left']
 
     obj_list = []
-    peak_freqs_dict = {}
     peak_freqs_list = []
     labels_list = []
 
@@ -123,12 +125,12 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
         # print(f"df_quantiles\n{df_quantiles}")
         ## obj initialization
         obj = FOOOF_class(label, freqs, thres, df_quantiles)
-        ## fit fooof for each case
+        ## fit fooof for each case and uses the aperiodic fit to calculates the PSD periodic component
         obj.fit_fooof()
         ## finding peak alpha in the 5- 13Hz frequency range only if fooof model was fitted
         if obj.get_fooof_model() != []:
-            ## only for those who have the periodic and aperiodic decomposition
-            ## list of freq of psd peaks in the selected freq range
+            ## only for those who have the periodic component
+            ## list of freq of psd peaks in the selected freq range [5-13 Hz] to search the peak of alpha band
             peak_freqs_list.append(obj.get_freq_peak_value(5,13))
         ## save objs in a list to iterate later on
         obj_list.append(obj)
@@ -161,7 +163,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
         for obj in obj_list:
             ## calculate mean values from the periodic component of the fooof decomposition
             if obj.get_fooof_model() != []:
-                ## mean value from periodic component
+                ## mean value from periodic component for label_band (alpha or beta)
                 mean_bands = obj.calculate_mean_psd_band(label_band, lim_freqs[0], lim_freqs[1])
                 ## get calculated values
                 # mean_bands = obj.get_mean_psd_band(label_band)
@@ -175,7 +177,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     ## results mean values per frequency band
     print(f"mean_bands dict:\n{mean_psd_bands_dict}")
 
-    ## calculate average including alpha and beta of psd reference, i.e. a_ce_left, a_oe_right ...
+    ## to normalize values and facilitate comparison between sessions, a mean value of psd that includes alpha and theta band is calculated for each state, only for rest start (reference1), i.e. a_ce_left, a_oe_right ...
     labels_ref = ['a_ce_left','a_ce_right','a_oe_left','a_oe_right']
     ## psd average from the reference in the range including alpha and beta for normalization
     label_band = 'alpha+beta'
@@ -185,8 +187,8 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     for obj in obj_list:
         ## calculate mean values from the periodic component of the fooof decomposition
         if (obj.get_fooof_model() != []) and (obj.get_label() in labels_ref):
-            ## mean value from periodic component
-            print(f"baseline {obj.get_label()}")
+            ## mean value from periodic component of the reference of each state (rest start, i.e. labels that start with a_)
+            # print(f"baseline {obj.get_label()}")
             obj.calculate_mean_psd_band(label_band, lim_freqs_bands_all[0], lim_freqs_bands_all[1])
             ## get calculated values
             mean_bands = obj.get_mean_psd_band(label_band)
@@ -197,16 +199,75 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
 
     print(f"values ref:\n{values_ref_dict}")
 
-
-    diff_bands_dict = {}
-    # diff_bands_dict =  calculate_band_attenuation(mean_psd_bands_dict) between two conditions: 
+    # calculate_band_attenuation(mean_psd_bands_dict) between two conditions: 
     # cycling (b) and rest start (a)
     # rest end (c) and rest start (a)
-    label_band = 'alpha'
-    diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
-    label_band = 'beta'
-    diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
-    print(f"diff bands:\n{diff_bands_dict}")
+    diff_bands_dict = {}
+    for label_band in ['alpha','beta']:
+        diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
+    # print(f"diff bands:\n{diff_bands_dict}")
 
+
+    ###########
+    ## this section is dedicated to generate figures that could be used for a presentation
+    ## first figure includes PSD from the states that have a fooof fitted model
+    plot_psd_states(obj_list)
+
+
+    ###########
 
     return diff_bands_dict, info_pt_dict
+
+
+def plot_psd_states(obj_list):
+    # print(f"plot psd states:")
+    fig, axs = plt.subplots(2,2)
+    axs = axs.flatten()
+
+    for obj in obj_list:
+        print(obj.get_label())
+        if 'ce_left' in obj.get_label():
+            plot_psd_obj(obj, axs[0])
+        elif 'ce_right' in obj.get_label():
+            plot_psd_obj(obj, axs[1])
+        elif 'oe_left' in obj.get_label():
+            plot_psd_obj(obj, axs[2])
+        elif 'oe_right' in obj.get_label():
+            plot_psd_obj(obj, axs[3])
+    return 0
+
+##################
+def plot_psd_obj(obj, ax):
+    df = obj.get_fooof_data()
+    if not isinstance(df, float):
+        color = get_color(obj.get_label())
+        ax.plot(df['freqs'], df['psd'], color=color )
+    else:
+        pass
+    return 0
+
+def get_color(label):
+    ## curve color
+    if 'a_' in label:
+        ## rest start
+        color='tab:blue'
+    elif 'b_' in label:
+        ## cycling
+        color='tab:orange'
+    elif 'c_' in label:
+        ## rest end
+        color='tab:green'
+    else:
+        color='black'
+    return color
+
+def set_flags(label):
+    global flags
+    if 'c_' in label:
+        flags[2]=1
+    elif 'b_' in label:
+        flags[1]=1
+    elif 'a_' in label:
+        flags[0]=1
+    else:
+        pass

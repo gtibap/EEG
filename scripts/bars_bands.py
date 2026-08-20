@@ -1,19 +1,13 @@
-# Source - https://stackoverflow.com/a/67094486
-# Posted by JohanC, modified by community. See post 'Timeline' for change history
-# Retrieved 2026-08-18, License - CC BY-SA 4.0
-
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+##################
 def plot_eeg_bands(sessions_values_dict, info_patient_dict, fig_filename):
 
     fig = plt.figure(figsize=(12, 6),) ## layout='constrained'
     axs = create_axes()
-    ## each ax subplot is ready to include information of alpha and beta bands power
-    # colors = ['purple','olive','cyan']
-    # counts = [4, 1, 3]
-    # bar_labels = ['10 (B-C6)', '56 (C-C6)', '256 (D-C7)']
-    bar_colors = ['tab:purple', 'tab:olive', 'tab:cyan',]
+
+    bar_colors = ['tab:purple', 'tab:olive', 'tab:cyan', 'tab:pink', 'tab:brown']
 
     # axs[0].bar(colors, counts, label=bar_labels, color=bar_colors)
     # axs[0].set_ylabel('color supply')
@@ -24,20 +18,20 @@ def plot_eeg_bands(sessions_values_dict, info_patient_dict, fig_filename):
         values_dict = sessions_values_dict[label_values]
         info_pt = info_patient_dict[label_values]
         title_id_pt = info_pt['id']
-        print(f"info pt: {info_pt}")
-        label_bar = " ".join([info_pt['days'], f"({info_pt['ais_nli']})"])
+        # print(f"info pt: {info_pt}")
+        label_bar = " ".join([info_pt['days'], f"[{info_pt['ais_nli']}]"])
 
         ## alpha band components
         alpha_dict = values_dict['alpha']
         ## beta band components
         beta_dict = values_dict['beta']
 
-        print(f"labels alpha: {alpha_dict}")
-        print(f"labels beta: {beta_dict}")
+        # print(f"labels alpha: {alpha_dict}")
+        # print(f"labels beta: {beta_dict}")
 
         ## session id
         id_s = label_values
-        print(f"id_s: {id_s}")
+        # print(f"id_s: {id_s}")
         for alpha_label in alpha_dict:
             if 'ce_left' in alpha_label:
                 axs[0].bar(id_s, alpha_dict[alpha_label], label=label_bar, color=bar_colors[id_s])
@@ -63,11 +57,10 @@ def plot_eeg_bands(sessions_values_dict, info_patient_dict, fig_filename):
                 pass
                 
 
-
     loc = 'outside right upper'
-    fig.legend(loc=loc, title='Days after trauma\n(AIS-NLI)')
+    fig.legend(loc=loc, title='Days after trauma\n[AIS-NLI]')
     
-    fig.suptitle(f"Normalized PSD response from EEG during passive cycling minus baseline (resting)\n{title_id_pt}")
+    fig.suptitle(f" Cycling effect in PSD(EEG) response after resting\n{title_id_pt}")
     # plt.tight_layout()
     fig.savefig(fig_filename, bbox_inches ="tight")
 
@@ -75,6 +68,7 @@ def plot_eeg_bands(sessions_values_dict, info_patient_dict, fig_filename):
 
     return 0
 
+##################
 def create_axes():
 
     axs = []

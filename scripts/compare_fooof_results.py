@@ -30,7 +30,7 @@ def main(args):
     abt= int(args[4])
     flag_rest_end = int(args[5])
 
-     ## path to save figure
+    ## path to save figure
     path_fig = path+'a_neuroplasticity/figures/'
 
     # checking if the directory figures
@@ -48,6 +48,7 @@ def main(args):
 
     ## plot power differences from alpha and beta bands
     fig_filename = path_fig+f'eeg_bands_n_{subject}.png'
+    ## plot power differences between two states, for example cycling and resting start
     plot_eeg_bands(fooof_results_dict, info_patient_dict, fig_filename)
 
     return 0
