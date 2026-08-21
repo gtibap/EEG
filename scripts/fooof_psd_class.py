@@ -77,9 +77,9 @@ class FOOOF_class:
             freq_max = x_data[max_id]
             # print(f"{self.label} (freq, max_value):\n{np.round(freq_max,1), np.round(max_value,1)}")
             self.peak_value = max_value
-            self.peak_freq  = freq_max 
+            self.peak_freq  = freq_max
 
-            return self.peak_freq
+            return self.peak_freq, self.peak_value
         else:
             return np.nan
         

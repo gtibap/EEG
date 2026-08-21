@@ -30,24 +30,31 @@ def main(args):
     abt= int(args[4])
     flag_rest_end = int(args[5])
 
-    ## path to save figure
-    path_fig = path+'a_neuroplasticity/figures/'
+    # ## path to save figure
+    # path_fig = path+'a_neuroplasticity/'
 
-    # checking if the directory figures
-    # exist or not.
-    if not os.path.exists(path_fig):
-        # if the figures directory is not present 
-        # then it creates it.
-        os.makedirs(path_fig)
+    # # checking if the directory figures
+    # # exist or not.
+    # if not os.path.exists(path_fig):
+    #     # if the figures directory is not present 
+    #     # then it creates it.
+    #     os.makedirs(path_fig)
 
     ## read all sessions until the session value
     fooof_results_dict={}
     info_patient_dict={}
     for id_s in np.arange(session+1):
-        fooof_results_dict[id_s], info_patient_dict[id_s] = get_fooof_results(path, subject, id_s, abt, flag_rest_end)
+        fooof_results_dict[id_s], info_patient_dict[id_s], path_base = get_fooof_results(path, subject, id_s, abt, flag_rest_end)
 
+    print(f"path base: {path_base}")
+
+    path_base = path_base + 'figures/'
+    if not os.path.exists(path_base):
+            # if the figures directory is not present 
+            # then it creates it.
+            os.makedirs(path_base)
     ## plot power differences from alpha and beta bands
-    fig_filename = path_fig+f'eeg_bands_n_{subject}.png'
+    fig_filename = path_base+f'eeg_bands_n_{subject}.png'
     ## plot power differences between two states, for example cycling and resting start
     plot_eeg_bands(fooof_results_dict, info_patient_dict, fig_filename)
 

@@ -9,6 +9,7 @@ from list_participants import participants_list
 
 ## import class
 from fooof_psd_class import FOOOF_class
+from graphics_psd_fooof import plot_psd_states, graphics_periodic_comp
 
 ##################
 def calculate_band_attenuation(mean_psd_bands_dict, mean_psd_ref, label_band, label_val, label_ref):
@@ -37,6 +38,32 @@ def calculate_band_attenuation(mean_psd_bands_dict, mean_psd_ref, label_band, la
     # print(f"diff_bands_dict:\n{diff_bands_dict}")
 
     return diff_bands_dict
+
+##################
+def calculate_normalized_mean_bands(mean_psd_bands_dict, mean_psd_ref,):
+
+    normalized_bands_dict = {}
+
+    for label_band in mean_psd_bands_dict:
+        print(f"label band: {label_band}")
+        values_dict = {} 
+        for label_state in mean_psd_bands_dict[label_band]:
+            print(f"label state: {label_state}")
+            if 'ce_left' in label_state:
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_ce_left']
+            elif 'ce_right' in label_state:
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_ce_right']
+            elif 'oe_left' in label_state:
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_oe_left']
+            elif 'oe_right' in label_state:
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_oe_right']
+            else:
+                pass
+        
+        normalized_bands_dict[label_band] = values_dict
+
+    return normalized_bands_dict
+
 
 ######################
 def get_info_split(text):
@@ -80,6 +107,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
 
     ## path to save figures
     path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
+    path_fig_psd   = path+'session_'+str(session)+f'/figures/psd/'
 
     if flag_rest_end:
         ## to include rest start, cycling, and rest after cycling in the figures
@@ -96,6 +124,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
 
     obj_list = []
     peak_freqs_list = []
+    peak_power_list = []
     labels_list = []
 
     ## read parameters to fit fooof model
@@ -131,7 +160,9 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
         if obj.get_fooof_model() != []:
             ## only for those who have the periodic component
             ## list of freq of psd peaks in the selected freq range [5-13 Hz] to search the peak of alpha band
-            peak_freqs_list.append(obj.get_freq_peak_value(5,13))
+            freq_peak, value_peak = obj.get_freq_peak_value(5,13)
+            peak_freqs_list.append(freq_peak)
+            peak_power_list.append(value_peak)
         ## save objs in a list to iterate later on
         obj_list.append(obj)
 
@@ -205,69 +236,24 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     diff_bands_dict = {}
     for label_band in ['alpha','beta']:
         diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
+        ## calculate normalized mean values for each state, alpha and beta bands
+    
+    normalized_mean_bands_dict = calculate_normalized_mean_bands(mean_psd_bands_dict, values_ref_dict)
+    print(f"normalized_mean_bands_dict:\n{normalized_mean_bands_dict}")
+
     # print(f"diff bands:\n{diff_bands_dict}")
 
 
     ###########
     ## this section is dedicated to generate figures that could be used for a presentation
     ## first figure includes PSD from the states that have a fooof fitted model
-    plot_psd_states(obj_list)
+    # plot_psd_states(obj_list, info_p, path_fig_psd)
+    ## plot PSD periodic components, i.e. PSD - aperiodic component
+    max_peak_value = np.max(peak_power_list)
+    graphics_periodic_comp(obj_list, info_p, lim_freqs_bands, max_peak_value, path_fig_psd)
 
 
     ###########
 
-    return diff_bands_dict, info_pt_dict
+    return diff_bands_dict, info_pt_dict, path
 
-
-def plot_psd_states(obj_list):
-    # print(f"plot psd states:")
-    fig, axs = plt.subplots(2,2)
-    axs = axs.flatten()
-
-    for obj in obj_list:
-        print(obj.get_label())
-        if 'ce_left' in obj.get_label():
-            plot_psd_obj(obj, axs[0])
-        elif 'ce_right' in obj.get_label():
-            plot_psd_obj(obj, axs[1])
-        elif 'oe_left' in obj.get_label():
-            plot_psd_obj(obj, axs[2])
-        elif 'oe_right' in obj.get_label():
-            plot_psd_obj(obj, axs[3])
-    return 0
-
-##################
-def plot_psd_obj(obj, ax):
-    df = obj.get_fooof_data()
-    if not isinstance(df, float):
-        color = get_color(obj.get_label())
-        ax.plot(df['freqs'], df['psd'], color=color )
-    else:
-        pass
-    return 0
-
-def get_color(label):
-    ## curve color
-    if 'a_' in label:
-        ## rest start
-        color='tab:blue'
-    elif 'b_' in label:
-        ## cycling
-        color='tab:orange'
-    elif 'c_' in label:
-        ## rest end
-        color='tab:green'
-    else:
-        color='black'
-    return color
-
-def set_flags(label):
-    global flags
-    if 'c_' in label:
-        flags[2]=1
-    elif 'b_' in label:
-        flags[1]=1
-    elif 'a_' in label:
-        flags[0]=1
-    else:
-        pass
