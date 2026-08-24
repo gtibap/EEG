@@ -30,21 +30,22 @@ def main(args):
     abt= int(args[4])
     flag_rest_end = int(args[5])
 
-    # ## path to save figure
-    # path_fig = path+'a_neuroplasticity/'
-
-    # # checking if the directory figures
-    # # exist or not.
-    # if not os.path.exists(path_fig):
-    #     # if the figures directory is not present 
-    #     # then it creates it.
-    #     os.makedirs(path_fig)
-
     ## read all sessions until the session value
+    labels_list = ['a','b','c']
+    titles_list = ['rest start','biking','rest end']
+
+    id_ref = 0
+    label_ref = labels_list[id_ref]
+    title_ref = titles_list[id_ref]
+
+    id_val = 2
+    label_val = labels_list[id_val]
+    title_val = titles_list[id_val]
+
     fooof_results_dict={}
     info_patient_dict={}
     for id_s in np.arange(session+1):
-        fooof_results_dict[id_s], info_patient_dict[id_s], path_base = get_fooof_results(path, subject, id_s, abt, flag_rest_end)
+        fooof_results_dict[id_s], info_patient_dict[id_s], path_base = get_fooof_results(path, subject, id_s, abt, flag_rest_end,  label_val, label_ref)
 
     print(f"path base: {path_base}")
 
@@ -53,10 +54,24 @@ def main(args):
             # if the figures directory is not present 
             # then it creates it.
             os.makedirs(path_base)
+
+    # for label_s in fooof_results_dict:
+    #     print(f"fooof_results_dict label: {label_s}")
+    #     comp_dict = fooof_results_dict[label_s]
+    #     print(f"comp_dict:\n{comp_dict}")
+
+    #     for label_diff in comp_dict:
+    #         ## plot power differences from alpha and beta bands
+    #         fig_filename = path_base+f'eeg_bands_n_{subject}.png'
+    #         ## plot power differences between two states, for example cycling and resting start
+    #         plot_eeg_bands(comp_dict[label_diff], info_patient_dict, fig_filename)
+        
     ## plot power differences from alpha and beta bands
-    fig_filename = path_base+f'eeg_bands_n_{subject}.png'
+    flag_save = True
+    fig_filename = path_base+f'diff_{label_val}_{label_ref}_n_{subject}.png'
     ## plot power differences between two states, for example cycling and resting start
-    plot_eeg_bands(fooof_results_dict, info_patient_dict, fig_filename)
+    
+    plot_eeg_bands(fooof_results_dict, info_patient_dict, fig_filename, flag_save, title_val, title_ref)
 
     return 0
 

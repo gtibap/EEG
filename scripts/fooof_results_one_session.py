@@ -10,6 +10,7 @@ from list_participants import participants_list
 ## import class
 from fooof_psd_class import FOOOF_class
 from graphics_psd_fooof import plot_psd_states, graphics_periodic_comp
+from bars_bands import plot_normalized_mean_bands
 
 ##################
 def calculate_band_attenuation(mean_psd_bands_dict, mean_psd_ref, label_band, label_val, label_ref):
@@ -40,23 +41,60 @@ def calculate_band_attenuation(mean_psd_bands_dict, mean_psd_ref, label_band, la
     return diff_bands_dict
 
 ##################
-def calculate_normalized_mean_bands(mean_psd_bands_dict, mean_psd_ref,):
+def calculate_band_diff(mean_psd_bands_dict, label_band, label_val, label_ref):
+
+    diff_bands_dict = {}
+    ## difference between cycling and baseline (rest start)
+    ## closed eyes
+
+    ## differences between biking and rest start left and right closed eyes
+    for eyes in ['ce', 'oe']:
+        try:
+            ref = mean_psd_bands_dict[label_band][f'{label_ref}_{eyes}_left']
+            val = mean_psd_bands_dict[label_band][f'{label_val}_{eyes}_left']
+
+            diff = val-ref
+            diff_bands_dict[f'{label_val}_{label_ref}_{eyes}_left'] = diff
+
+            ref = mean_psd_bands_dict[label_band][f'{label_ref}_{eyes}_right']
+            val = mean_psd_bands_dict[label_band][f'{label_val}_{eyes}_right']
+
+            diff = val-ref
+            diff_bands_dict[f'{label_val}_{label_ref}_{eyes}_right'] = diff
+        except:
+            diff_bands_dict[f'{label_val}_{label_ref}_{eyes}_left'] = np.nan
+            diff_bands_dict[f'{label_val}_{label_ref}_{eyes}_right'] = np.nan
+
+
+    # print(f"diff_bands_dict:\n{diff_bands_dict}")
+
+    return diff_bands_dict
+
+##################
+def calculate_normalized_mean_bands(mean_psd_bands_dict, mean_psd_ref, label_ref):
 
     normalized_bands_dict = {}
 
     for label_band in mean_psd_bands_dict:
-        print(f"label band: {label_band}")
+        ## label_band: alpha or beta
+        # print(f"label band: {label_band}")
         values_dict = {} 
         for label_state in mean_psd_bands_dict[label_band]:
-            print(f"label state: {label_state}")
+            ## label_state: a_ce_left, a_ce_right, b_ce_left, ...
+            # print(f"label state: {label_state}")
+
             if 'ce_left' in label_state:
-                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_ce_left']
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref[f'{label_ref}_ce_left']
+
             elif 'ce_right' in label_state:
-                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_ce_right']
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref[f'{label_ref}_ce_right']
+
             elif 'oe_left' in label_state:
-                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_oe_left']
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref[f'{label_ref}_oe_left']
+
             elif 'oe_right' in label_state:
-                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref['a_oe_right']
+                values_dict[label_state] = mean_psd_bands_dict[label_band][label_state] / mean_psd_ref[f'{label_ref}_oe_right']
+
             else:
                 pass
         
@@ -81,7 +119,7 @@ def get_info_split(text):
 ##############
 ## parameters of the fooof model here were defined in a previous step (tf_selected_freq_notch.py)
 ## hence, here those parameters are readed and the fooof model is reproduced
-def get_fooof_results(path, subject, session, abt, flag_rest_end):
+def get_fooof_results(path, subject, session, abt, flag_rest_end,  label_val, label_ref):
     # global flags_global
     flags_global = np.array([0,0,0])
 
@@ -98,7 +136,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
         pass
 
     ## patient info to include in figures (plots)
-    print (f"info_p: {info_p}")
+    # print (f"info_p: {info_p}")
     id_pt, ais_nli, days = get_info_split(info_p)
     info_pt_dict={}
     info_pt_dict['id'] = id_pt
@@ -172,12 +210,12 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     ## 5 Hz range for alpha band
     alpha_freq_left  = alpha_freq_central - 2.5 ## Hz
     alpha_freq_right = alpha_freq_central + 2.5 ## Hz
-    print(f"alpha freqs band (left, central, right):\n{alpha_freq_left, alpha_freq_central, alpha_freq_right}")
+    # print(f"alpha freqs band (left, central, right):\n{alpha_freq_left, alpha_freq_central, alpha_freq_right}")
 
     ## beta band starts at the end of alpha band and with a 10 Hz range
     beta_freq_left  = alpha_freq_right ## Hz
     beta_freq_right = alpha_freq_right + 10 ## Hz
-    print(f"beta freqs band (left and right):\n{beta_freq_left, beta_freq_right}")
+    # print(f"beta freqs band (left and right):\n{beta_freq_left, beta_freq_right}")
 
     ## limits freqs bands, which define frequency ranges
     lim_freqs_bands={}
@@ -209,7 +247,7 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
     print(f"mean_bands dict:\n{mean_psd_bands_dict}")
 
     ## to normalize values and facilitate comparison between sessions, a mean value of psd that includes alpha and theta band is calculated for each state, only for rest start (reference1), i.e. a_ce_left, a_oe_right ...
-    labels_ref = ['a_ce_left','a_ce_right','a_oe_left','a_oe_right']
+    labels_ref = [f'{label_ref}_ce_left',f'{label_ref}_ce_right',f'{label_ref}_oe_left',f'{label_ref}_oe_right']
     ## psd average from the reference in the range including alpha and beta for normalization
     label_band = 'alpha+beta'
     lim_freqs_bands_all = [alpha_freq_left, beta_freq_right]
@@ -230,18 +268,36 @@ def get_fooof_results(path, subject, session, abt, flag_rest_end):
 
     print(f"values ref:\n{values_ref_dict}")
 
-    # calculate_band_attenuation(mean_psd_bands_dict) between two conditions: 
-    # cycling (b) and rest start (a)
-    # rest end (c) and rest start (a)
-    diff_bands_dict = {}
-    for label_band in ['alpha','beta']:
-        diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
-        ## calculate normalized mean values for each state, alpha and beta bands
+    # # calculate_band_attenuation(mean_psd_bands_dict) between two conditions: 
+    # # cycling (b) and rest start (a)
+    # # rest end (c) and rest start (a)
+    # diff_bands_dict = {}
+    # for label_band in ['alpha','beta']:
+    #     diff_bands_dict[label_band] = calculate_band_attenuation(mean_psd_bands_dict, values_ref_dict, label_band, 'b', 'a')
     
-    normalized_mean_bands_dict = calculate_normalized_mean_bands(mean_psd_bands_dict, values_ref_dict)
+    ## calculate normalized mean values for each state, alpha and beta bands
+    normalized_mean_bands_dict = calculate_normalized_mean_bands(mean_psd_bands_dict, values_ref_dict, label_ref)
     print(f"normalized_mean_bands_dict:\n{normalized_mean_bands_dict}")
 
+    plot_normalized_mean_bands(normalized_mean_bands_dict, info_p, path_fig_psd)
+
+    # calculate_band_attenuation(subtraction) between two conditions: 
+    # cycling (b) and rest start (a)
+    # rest end (c) and rest start (a)
+
+    comp_dict = {}
+
+    print(f"val-ref: {label_val, label_ref}")
+
+    diff_bands_dict = {}
+    for label_band in ['alpha','beta']:
+        diff_bands_dict[label_band] = calculate_band_diff(normalized_mean_bands_dict, label_band, label_val, label_ref)
+        # calculate_band_diff(mean_psd_bands_dict, label_band, label_val, label_ref)
+        ## calculate normalized mean values for each state, alpha and beta bands
     # print(f"diff bands:\n{diff_bands_dict}")
+    # comp_dict[f'{label_val}_{label_ref}_diff'] = diff_bands_dict
+
+    # print(f"{comp_dict}")
 
 
     ###########
