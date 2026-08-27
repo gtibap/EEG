@@ -2427,6 +2427,160 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 
     return 0
 
+##############
+def create_directories(path, session):
+    ## path filename boxplots
+    path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
+    path_fig_psd = path+'session_'+str(session)+f'/figures/psd/'
+    path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
+    path_csv_files = path+'session_'+str(session)+f'/csv/'
+    path_prep = f"{path}session_{session}/prep/"
+
+    # checking if the directory figures
+    # exist or not.
+    if not os.path.exists(path_fig_boxplot):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_fig_boxplot)
+    
+    if not os.path.exists(path_fig_fooof):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_fig_fooof)
+
+    if not os.path.exists(path_fig_psd):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_fig_psd)
+
+    if not os.path.exists(path_csv_files):
+        # if the figures directory is not present 
+        # then create it.
+        os.makedirs(path_csv_files)
+    
+    Path(path_prep).mkdir(parents=True, exist_ok=True)
+            
+    return 0
+
+############
+def interactive_segment_selection(raw_copy, label, path_prep):
+    ## open annotations
+    try:
+        ## annotations for each label would include two main parts: segments labeled as label's name, and 'bad_seg' to exclude all the rest
+        updated_annot = mne.read_annotations(f"{path_prep}ann_{label}.fif")
+        print(f'updated annotations:\n{updated_annot}')
+        ## adding annotations to raw data
+        raw_copy.set_annotations(updated_annot)
+
+    except:
+        print(f"{label}: updated annotations not found")
+
+    ## interactive selection of selected regions (label) and bad segments
+    ## only keep bad annotations and selected label for each case, i.e. 'a_closed_eyes','a_opened_eyes','b_closed_eyes', ...
+    fig_raw = mne.viz.plot_raw(raw_copy, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f"EEG {label} -- Please select bad segments interactively", block=True)
+    ## save annotations             
+    interactive_annot = raw_copy.annotations
+    time_offset = raw_copy.first_samp / sampling_rate  ## in seconds
+    # print(f"time_offset = self.raw_seg.first_samp / self.sampling_rate: {time_offset} = {raw_copy.first_samp} / {sampling_rate}")
+
+    arr_onset=np.array([])
+    arr_durat=np.array([])
+    arr_label=[]
+
+    for ann in interactive_annot:
+        print(f"onset, duration, description: {ann['onset'], ann['duration'], ann['description']}")
+        if (label in ann['description']) or ('bad' in ann['description']):
+            arr_onset = np.append(arr_onset, ann['onset']-time_offset)
+            arr_durat = np.append(arr_durat, ann['duration'])
+            arr_label.append(ann['description'])
+
+    new_annot = mne.Annotations(
+    onset=arr_onset,  # in seconds
+    duration=arr_durat,  # in seconds, too
+    description=arr_label, # label description
+    )
+
+    print(f"save annotations:\n{new_annot}")
+    ## save annotations
+    new_annot.save(f"{path_prep}ann_{label}.fif", overwrite=True)
+
+    flag_reset = int(input(f"Question:\nReset bad epochs and bad channels list already recorded? (1 (Yes/True), 0 (No/False)): "))
+    if flag_reset:
+        # ## we create a file of bad segments and bad channels with empty lists (for (re)initialization). They would be modified later on
+        bad_epochs_dict={
+                'epoch_ids': [],
+                'bad_channels': [],
+            }
+        with open(f"{path_prep}{label}_bad_epochs.json", "w") as f:
+            json.dump(bad_epochs_dict, f)
+
+    return raw_copy
+
+############################
+def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
+    ## remove previously selected bad epochs and marking of bad channels
+    ## id's list of generated epochs
+    epochs_list = epochs.selection.astype(int)
+    print(f"epochs first_list: {epochs_list}")
+
+    ## removing bad epochs and bad channels if they were already selected in a previous iteration
+    try:
+        #### drop bad epochs
+        # Read list of bad epochs and bad channels from file
+        with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
+            data = json.load(f)
+        bad_epochs_list = data['epoch_ids']
+        bad_channels_list = data['bad_channels']
+        print(f"bad_epochs_list:\n{bad_epochs_list}")
+        print(f"bad_channels_list:\n{bad_channels_list}")
+
+        ## remove (drop) bad epochs
+        drop_idx_list = []
+        for id_bad in bad_epochs_list:
+            ## find id of bad epoch
+            drop_idx = np.where(epochs_list == id_bad)[0]
+            drop_idx_list = np.concatenate((drop_idx_list, drop_idx), axis=None)
+        print(f"ids_bad_list: {drop_idx_list}")
+        ## remove bad epochs by indexes
+        if len(drop_idx_list) > 0:
+            epochs.drop(drop_idx_list.astype(int))
+        else:
+            pass
+        ## marking bad channels
+        epochs.info['bads'] = bad_channels_list
+
+    except:
+        bad_epochs_list = []
+        print(f" Problem reading previous bad segments and bad channels. Probably, {label}_bad_epochs.json file were not found.")
+
+    ## update first list
+    first_list = epochs.selection.astype(int)
+    print(f"first_list: {first_list}")
+
+    ## interactive selection of bad epochs and bad channels
+    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
+
+    list_channel_bads = epochs.info['bads']
+    print(f"second list_bads: {list_channel_bads}")
+
+    second_list = epochs.selection.astype(int)
+    print(f"second_list: {second_list}")
+
+    ## found in the second list the epochs ids that were eliminated from the first list
+    bad_epochs_ids = np.array([x for x in first_list if not (x in second_list)]).astype(int)
+
+    print(f"bad epochs ids: {bad_epochs_ids}")
+    bad_epochs_list = np.concatenate((bad_epochs_list, bad_epochs_ids),axis=None).astype(int)
+
+    ## save bad epochs ids and bad channels ids
+    bad_epochs_dict={
+            'epoch_ids': bad_epochs_list.tolist(),
+            'bad_channels' : list_channel_bads,
+        }
+    with open(f"{path_prep}{label}_bad_epochs.json", "w") as f:
+        json.dump(bad_epochs_dict, f)
+
+    return epochs
 
 ###########################################
 ## EEG filtering and signals pre-processing
@@ -2471,37 +2625,17 @@ def main(args):
     ylim_global = ylims
     ## create folder (if it does not exist) to save preprocesing parameters
     # Path(path+'session_'+str(session)+"/prep").mkdir(parents=True, exist_ok=True)
-
     ## path filename for baseline normalization
-    filename_tr_ref = path+'session_'+str(session)+f'/prep/'+'tf_mean_baseline.npy'
+    # filename_tr_ref = path+'session_'+str(session)+f'/prep/'+'tf_mean_baseline.npy'
 
-    ## path filename boxplots
+    ## create folders/directories if they do not exit yet
+    create_directories(path, session)
+
     path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
     path_fig_psd = path+'session_'+str(session)+f'/figures/psd/'
     path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
     path_csv_files = path+'session_'+str(session)+f'/csv/'
-
-    # checking if the directory figures
-    # exist or not.
-    if not os.path.exists(path_fig_boxplot):
-        # if the figures directory is not present 
-        # then create it.
-        os.makedirs(path_fig_boxplot)
-    
-    if not os.path.exists(path_fig_fooof):
-        # if the figures directory is not present 
-        # then create it.
-        os.makedirs(path_fig_fooof)
-
-    if not os.path.exists(path_fig_psd):
-        # if the figures directory is not present 
-        # then create it.
-        os.makedirs(path_fig_psd)
-
-    if not os.path.exists(path_csv_files):
-            # if the figures directory is not present 
-            # then create it.
-            os.makedirs(path_csv_files)
+    path_prep = f"{path}session_{session}/prep/"
 
     ################################################
     ## read annotations (.csv file)
@@ -2510,8 +2644,7 @@ def main(args):
     print(f'annotations:\n{my_annot}')
     ## adding annotations to raw data
     raw_data.set_annotations(my_annot)
-    ##
-
+    
     ## exclude channels of the net boundaries that usually bring noise or artifacts
     ## geodesic system we remove channels in the boundaries
     # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
@@ -2566,106 +2699,42 @@ def main(args):
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    labels_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
+    label_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
 
     ## save annotations
-    path_prep = f"{path}session_{session}/prep/"
-    Path(path_prep).mkdir(parents=True, exist_ok=True)
     # new_annot.save(f"{path_prep}ann_{labels_list[0]}.fif", overwrite=True)
 
-    label = labels_list[0]
-    print (f"label to keep: {label}")
+    # label = labels_list[0]
+    for label in label_list[1:2]:
+        print (f"label to keep: {label}")
 
-    raw_copy = raw_data.copy()
-    ## open annotations
-    try:
-        updated_annot = mne.read_annotations(f"{path_prep}ann_{label}.fif")
-        print(f'updated annotations:\n{updated_annot}')
-        ## adding annotations to raw data
-        raw_copy.set_annotations(updated_annot)
+        ## copy raw data in order to separate segments by labels (annotations) and include bad segments
+        raw_copy = raw_data.copy()
 
-    except:
-        print(f"{label}: updated annotations not found")
-        ## interactive bad_seg selection
-        fig_raw = mne.viz.plot_raw(raw_copy, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=1.0, lowpass=45.0, title=f"EEG {labels_list[0]} -- Please select bad segments interactively", block=True)
-        # raw_copy.
-        ################
-        ## only keep bad annotations and selected label for each case, i.e. 'a_closed_eyes','a_opened_eyes','b_closed_eyes', ...
-        interactive_annot = raw_copy.annotations
-        time_offset = raw_copy.first_samp / sampling_rate  ## in seconds
-        # print(f"time_offset = self.raw_seg.first_samp / self.sampling_rate: {time_offset} = {raw_copy.first_samp} / {sampling_rate}")
+        ## interactive segments annotation: only two labels per case, i.e. label and bad_seg
+        raw_copy = interactive_segment_selection(raw_copy, label, path_prep)
 
-        arr_onset=np.array([])
-        arr_durat=np.array([])
-        arr_label=[]
+        ########
+        ## create events and epochs
+        dt = 5 ## epoch duration in seconds
 
-        for ann in interactive_annot:
-            print(f"onset, duration, description: {ann['onset'], ann['duration'], ann['description']}")
-            if (label in ann['description']) or ('bad' in ann['description']):
-                arr_onset = np.append(arr_onset, ann['onset']-time_offset)
-                arr_durat = np.append(arr_durat, ann['duration'])
-                arr_label.append(ann['description'])
+        ## first, include a sequence of regular events to the raw data 
+        new_events = mne.make_fixed_length_events(raw_copy, start=0, stop=None, duration=dt)
+        # raw_copy.add_events(new_events, replace=True)
 
-        new_annot = mne.Annotations(
-        onset=arr_onset,  # in seconds
-        duration=arr_durat,  # in seconds, too
-        description=arr_label, # label description
-        )
+        ## second, use events to create epochs excluding bad segments
+        epochs = mne.Epochs(raw_copy, new_events, tmin=0.0, tmax=dt, baseline=None, preload=True, reject=None, reject_by_annotation=True)
+        print(f"epochs:\n{epochs}")
 
-        print(f"save new annotations:\n{new_annot}")
-        ## save annotations
-        new_annot.save(f"{path_prep}ann_{label}.fif", overwrite=True)
+        ######
+        ## interactive selection of bad epochs and bad channels
+        epochs = interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep)
 
-    ########
-    ## create events and epochs
-    dt = 5 ## epoch duration in seconds
+        # epochs.interpolate_bads()
 
-    ## first, include a sequence of regular events to the raw data 
-    new_events = mne.make_fixed_length_events(raw_copy, start=0, stop=None, duration=dt)
-    # raw_copy.add_events(new_events, replace=True)
+        epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
+        print(f"epochs.info['bads']: {epochs.info['bads']}")
 
-    ## second, use events to create epochs
-    epochs = mne.Epochs(raw_copy, new_events, tmin=0.0, tmax=dt, baseline=None, preload=True, reject=None, reject_by_annotation=True)
-    print(f"epochs:\n{epochs}")
-
-    first_list = epochs.selection.astype(int)
-    print(f"first_list: {first_list}")
-
-    #### drop bad epochs
-    # Read from file and parse JSON
-    with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
-        data = json.load(f)
-    first_bad_epochs_list = data['ids']
-    print(f"bad_epochs_list:\n{first_bad_epochs_list}")
-    
-    drop_idx_list = []
-    for id_bad in first_bad_epochs_list:
-        drop_idx = np.where(first_list == id_bad)[0]
-        drop_idx_list = np.concatenate((drop_idx_list, drop_idx), axis=None)
-    print(f"ids_bad_list: {drop_idx_list}")
-
-    epochs.drop(drop_idx_list.astype(int))
-
-    ## update first list
-    first_list = epochs.selection.astype(int)
-    print(f"first_list: {first_list}")
-
-    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
-
-    second_list = epochs.selection.astype(int)
-    print(f"second_list: {second_list}")
-
-    bad_epochs_ids = np.array([x for x in first_list if not (x in second_list)]).astype(int)
-
-    print(f"bad epochs ids: {bad_epochs_ids}")
-    first_bad_epochs_list = np.concatenate((first_bad_epochs_list, bad_epochs_ids),axis=None).astype(int)
-
-    ## save bad epochs ids
-    bad_epochs_dict={
-            "ids": first_bad_epochs_list.tolist(),
-        }
-    with open(f"{path_prep}{label}_bad_epochs.json", "w") as f:
-        json.dump(bad_epochs_dict, f)
 
 
     return 0
