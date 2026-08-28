@@ -25,10 +25,10 @@ from fooof.sim.gen import gen_aperiodic
 from fooof.plts.spectra import plot_spectra
 from fooof.plts.annotate import plot_annotated_peak_search
 
-from channels_tfr import selected_channels
+# from channels_tfr import selected_channels
 ## include modules from another directory
 sys.path.insert(0, '../../scripts')
-from bad_channels import bad_channels_dict
+# from bad_channels import bad_channels_dict
 from list_participants import participants_list
 
 from class_tf_notch import TF_components
@@ -2464,6 +2464,16 @@ def create_directories(path, session):
 
 ############
 def interactive_segment_selection(raw_copy, label, path_prep):
+
+    ## raw info
+    first_s = raw_copy.first_samp
+    d = raw_copy.duration
+    nt = raw_copy.n_times
+    t = raw_copy.times
+    print(f"first_s, d, nt, t: {first_s, d, nt, t}")
+
+    ## 
+
     ## open annotations
     try:
         ## annotations for each label would include two main parts: segments labeled as label's name, and 'bad_seg' to exclude all the rest
@@ -2516,6 +2526,76 @@ def interactive_segment_selection(raw_copy, label, path_prep):
 
     return raw_copy
 
+
+############
+def group_segments_by_label(raw_copy, label):
+
+    annot_raw = raw_copy.annotations
+    time_offset = raw_copy.first_samp / sampling_rate  ## in seconds
+
+    arr_onset=np.array([])
+    arr_durat=np.array([])
+    arr_label=[]
+    label_list=[]
+
+    for ann in annot_raw:
+        label_list.append(ann['description'])
+        # print(f"onset, duration, description: {ann['onset'], ann['duration'], ann['description']}")
+        ## extract data only of selected label
+        if (label in ann['description']):
+            arr_onset = np.append(arr_onset, ann['onset']-time_offset)
+            arr_durat = np.append(arr_durat, ann['duration'])
+            arr_label.append(ann['description'])
+
+    ## create new_annot only if at least one annotation named "label" were found
+    if len(arr_label) > 0:
+
+        new_annot = mne.Annotations(
+        onset=arr_onset,  # in seconds
+        duration=arr_durat,  # in seconds, too
+        description=arr_label, # label description
+        )
+
+        ## copying annotations to take as a reference
+        copy_annot = new_annot.copy()
+
+        # first annotation bad segments from time=0s until start of the first annotation
+        onset=0
+        duration= arr_onset[0]
+        description='bad_seg'
+
+        new_annot.append(onset, duration, description)
+
+        # print(f"onset, duration, description:")
+        for ann_a, ann_b in zip(copy_annot, copy_annot[1:]):
+            # print(f"{ann['onset'], ann['duration'], ann['description']}")
+            onset = ann_a['onset'] + ann_a['duration']
+            duration =  ann_b['onset'] - onset
+            description = 'bad_seg'
+            new_annot.append(onset, duration, description)
+
+        # last annotation: from the end of the last annotation until the end of the recording
+        onset = arr_onset[-1] + arr_durat[-1]
+        duration = raw_copy.duration - onset
+        description = 'bad_seg'
+        new_annot.append(onset, duration, description)
+
+    else:
+        print(f"{label} annotations not found")
+        ## bad_seg from the beginning until the end
+        new_annot = mne.Annotations(
+        onset=0,  # in seconds
+        duration=raw_copy.duration,  # in seconds, too
+        description='bad_seg', # label description
+        )
+
+    ## set annotations of selected label + bad_seg
+    raw_copy.set_annotations(new_annot)
+    ## data visualization
+    # mne.viz.plot_raw(raw_copy, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=f"{label}", block=True)
+
+    return raw_copy
+
 ############################
 def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
     ## remove previously selected bad epochs and marking of bad channels
@@ -2558,7 +2638,7 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
     print(f"first_list: {first_list}")
 
     ## interactive selection of bad epochs and bad channels
-    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
+    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs {label}",)
 
     list_channel_bads = epochs.info['bads']
     print(f"second list_bads: {list_channel_bads}")
@@ -2622,6 +2702,25 @@ def main(args):
     ## load data
     raw_data.load_data()
 
+    ################################
+    ## Stage 1: passband and notch filters, and resampling
+    low_cut =    0.5
+    hi_cut  =   45.0
+
+    print(f"Passband filter {low_cut, hi_cut} Hz...")
+    raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+
+    # if flag_notch:
+    #     print(f"Notch filter...")
+    #     freqs_notch = [60,]
+    #     raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
+    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
+
+    # freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
+    # print(f"Resampling (freq: {freq_resampling} Hz)...")
+    # raw_data.resample(sfreq=freq_resampling, method="polyphase",)
+    ################################
+
     ylim_global = ylims
     ## create folder (if it does not exist) to save preprocesing parameters
     # Path(path+'session_'+str(session)+"/prep").mkdir(parents=True, exist_ok=True)
@@ -2673,47 +2772,29 @@ def main(args):
     ########################################################################
     ## Preprocessing Starts
     ########################################################################
-
-    ################################
-    ## Stage 1: passband and notch filters, and resampling
-    low_cut =    0.5
-    hi_cut  =   45.0
-
-    print(f"Passband filter {low_cut, hi_cut} Hz...")
-    raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
-
-    if flag_notch:
-        print(f"Notch filter...")
-        freqs_notch = [60,]
-        raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
-    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
-
-    # freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
-    # print(f"Resampling (freq: {freq_resampling} Hz)...")
-    # raw_data.resample(sfreq=freq_resampling, method="polyphase",)
-
-    ########################
     ## data visualization
-    # raw_data.plot()
     # display time-series signals
     ## scale selection for visualization raw data with annotations
     scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
 
-    label_list = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
+    ## data visualization. Interactive annotation editing
+    # mne.viz.plot_raw(raw_data, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=f"EEG time series -- interactive annotation editing", block=True)
+
+    ## make groups of EEG data segments with same label in order to create epochs
+
+    label_list_ref = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
 
     ## save annotations
     # new_annot.save(f"{path_prep}ann_{labels_list[0]}.fif", overwrite=True)
 
     # label = labels_list[0]
-    for label in label_list[1:2]:
-        print (f"label to keep: {label}")
-
+    for label in label_list_ref:
+        ## for each label segments are grouped and transformed into epochs
+        print (f"searching for annotations for: {label}")
         ## copy raw data in order to separate segments by labels (annotations) and include bad segments
         raw_copy = raw_data.copy()
-
-        ## interactive segments annotation: only two labels per case, i.e. label and bad_seg
-        raw_copy = interactive_segment_selection(raw_copy, label, path_prep)
-
+        ## raw_copy would includes only two labels: 'label' and 'bad_seg'
+        raw_copy = group_segments_by_label(raw_copy, label)
         ########
         ## create events and epochs
         dt = 5 ## epoch duration in seconds
@@ -2727,14 +2808,17 @@ def main(args):
         print(f"epochs:\n{epochs}")
 
         ######
-        ## interactive selection of bad epochs and bad channels
-        epochs = interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep)
+        if len(epochs.selection) > 0:
+            ## interactive selection of bad epochs and bad channels
+            epochs = interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep)
 
-        # epochs.interpolate_bads()
+            # epochs.interpolate_bads()
 
-        epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
-        print(f"epochs.info['bads']: {epochs.info['bads']}")
+            epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
+            print(f"epochs.info['bads']: {epochs.info['bads']}")
 
+        else:
+            print(f"{label}: Epochs were not found")
 
 
     return 0
