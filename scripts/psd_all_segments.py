@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 import mne
+mne.set_log_level('error')
 from mne.preprocessing import ICA
 from mne.time_frequency import psd_array_multitaper
 
@@ -29,10 +30,13 @@ from fooof.plts.annotate import plot_annotated_peak_search
 ## include modules from another directory
 sys.path.insert(0, '../../scripts')
 # from bad_channels import bad_channels_dict
-from list_participants import participants_list
+# from list_participants import participants_list
+from info_participants import subject_dict
 
 from class_tf_notch import TF_components
 
+######################
+## global variables
 
 sampling_rate = 1.0
 y_limits = [-8,8]
@@ -98,6 +102,8 @@ fig_title_mea = ''
 path_fig_fooof = ''
 path_csv_files = ''
 path_fig_psd = ''
+path_fig_boxplot = ''
+path_prep = ''
 
 #############################
 #############################
@@ -2428,13 +2434,14 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
     return 0
 
 ##############
-def create_directories(path, session):
+def create_directories(path_session):
     ## path filename boxplots
-    path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
-    path_fig_psd = path+'session_'+str(session)+f'/figures/psd/'
-    path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
-    path_csv_files = path+'session_'+str(session)+f'/csv/'
-    path_prep = f"{path}session_{session}/prep/"
+    global path_fig_boxplot, path_fig_psd, path_fig_fooof, path_csv_files, path_prep
+    path_fig_boxplot = path_session+'figures/'
+    path_fig_psd = path_session+'figures/psd/'
+    path_fig_fooof = path_session+'figures/fooof/'
+    path_csv_files = path_session+'csv/'
+    path_prep = path_session+'prep/'
 
     # checking if the directory figures
     # exist or not.
@@ -2591,9 +2598,13 @@ def group_segments_by_label(raw_copy, label):
 
     ## set annotations of selected label + bad_seg
     raw_copy.set_annotations(new_annot)
-    ## data visualization
-    # mne.viz.plot_raw(raw_copy, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=f"{label}", block=True)
 
+    # ##############################
+    # ## data visualization
+    # scale_dict = dict(eeg=100e-6, ecg=400e-6,)
+    
+    # mne.viz.plot_raw(raw_copy, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=f"{label}", block=True)
+    
     return raw_copy
 
 ############################
@@ -2638,7 +2649,7 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
     print(f"first_list: {first_list}")
 
     ## interactive selection of bad epochs and bad channels
-    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs {label}",)
+    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
 
     list_channel_bads = epochs.info['bads']
     print(f"second list_bads: {list_channel_bads}")
@@ -2666,41 +2677,54 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
 ## EEG filtering and signals pre-processing
 ##
 def main(args):
-    global sampling_rate, psd_fig_name, excluded_channels, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof, path_csv_files, path_fig_psd
+    global sampling_rate, psd_fig_name, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof, path_csv_files, path_fig_psd
 
-    ## interactive mouse pause the image visualization
-    # fig.canvas.mpl_connect('button_press_event', toggle_pause)
+    print(f'subject id: {args[1]}') ## subject id (integer number in the dict info_participants.py)
+    print(f'session: {args[2]}') ## session = {0:first session, 1:second session, and so on}
 
-    print(f'arg {args[1]}') ## folder location
-    print(f'arg {args[2]}') ## subject = {0:patient 1, 1:patient 2, ...}
-    print(f'arg {args[3]}') ## session = {1:time zero, 2:three months, 3:six months}
-    print(f'arg {args[4]}') ## ABT = {0:resting, 1:biking}
-    
-    path=args[1]
-    subject= int(args[2])
-    session=int(args[3])
-    abt= int(args[4])
+    subject= int(args[1])
+    session= int(args[2])
 
-    fn_in=''
-    
-    t0=0
-    t1=0
+    ## root folder for the selected subject
+    path = f"../../data/a_neuroplasticity/n_{str(subject).zfill(3)}/"
+    ## folder selected session
+    path_session = f"{path}session_{str(session)}/"
+    print(f"path: {path}")
+    print(f"path session: {path_session}")
 
-    #########################
-    ## selected data
-    print(f'path:{path}\nsubject:{subject}\nsession:{session}\nabt:{abt}\n')
+    ## create folders/directories if they do not exit yet
+    create_directories(path_session)
 
-    #########################
-    ## new path, eeg filename (fn_in), annotations filename (fn_csv), eeg raw data (raw_data)
-    path, fn_in, fn_csv, raw_data, fig_title, flag_notch, acquisition_system, info_p, Dx, selected_segs_dict, ch_excl_list, ylims, thr_peaks_global = participants_list(path, subject, session, abt)
-    if fn_csv == '':
-        print(f'It could not find the selected subject. Please check the path, and the selected subject number in the list of participants.')
-        return 0
-    else:
-        pass
+    ## patient info including file name of raw (data), age, sex, ais, nli, days (after trauma), 
+    data_pt = subject_dict[subject]
+    print(f"data pt: {data_pt}")
 
-    ## load data
+    raw_filename = data_pt['raw'][session]
+
+    ##########################
+    ## read raw data 
+    acquisition_system = 'geodesic'
+    raw_data = mne.io.read_raw_egi(path_session + raw_filename, preload=False)
+
+    ## open annotations annotations.fif
+    my_annot = mne.read_annotations(path_session + 'annotations.fif')
+
+    ##########################
+    ## raw data recording date
+    print(f"\nmeasuring date: {raw_data.info['meas_date']}\n")
+
+     ## loading raw data    
     raw_data.load_data()
+    ## adding annotations to raw data
+    raw_data.set_annotations(my_annot)
+
+    ##########################
+    ## exclude channels of the net boundaries that usually bring noise or artifacts
+    ## geodesic system we remove channels in the boundaries
+    # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
+    ## list of excluded channels 
+    raw_data.info["bads"] = excluded_channels
+    raw_data.drop_channels(raw_data.info['bads'])
 
     ################################
     ## Stage 1: passband and notch filters, and resampling
@@ -2710,85 +2734,12 @@ def main(args):
     print(f"Passband filter {low_cut, hi_cut} Hz...")
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
 
-    # if flag_notch:
-    #     print(f"Notch filter...")
-    #     freqs_notch = [60,]
-    #     raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",) ## filter_length="10s"
-    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
-
-    # freq_resampling = 250.0 ## usually half of the original sampling frequency (500 Hz), i.e. raw_data.info['sfreq'] / 2.0
-    # print(f"Resampling (freq: {freq_resampling} Hz)...")
-    # raw_data.resample(sfreq=freq_resampling, method="polyphase",)
-    ################################
-
-    ylim_global = ylims
-    ## create folder (if it does not exist) to save preprocesing parameters
-    # Path(path+'session_'+str(session)+"/prep").mkdir(parents=True, exist_ok=True)
-    ## path filename for baseline normalization
-    # filename_tr_ref = path+'session_'+str(session)+f'/prep/'+'tf_mean_baseline.npy'
-
-    ## create folders/directories if they do not exit yet
-    create_directories(path, session)
-
-    path_fig_boxplot = path+'session_'+str(session)+f'/figures/'
-    path_fig_psd = path+'session_'+str(session)+f'/figures/psd/'
-    path_fig_fooof = path+'session_'+str(session)+f'/figures/fooof/'
-    path_csv_files = path+'session_'+str(session)+f'/csv/'
-    path_prep = f"{path}session_{session}/prep/"
-
-    ################################################
-    ## read annotations (.csv file)
-    ## annotations of events during recording session that includes: resting, cycling, closed-eyes, open eyes
-    my_annot = mne.read_annotations(path + fn_csv[0])
-    print(f'annotations:\n{my_annot}')
-    ## adding annotations to raw data
-    raw_data.set_annotations(my_annot)
-    
-    ## exclude channels of the net boundaries that usually bring noise or artifacts
-    ## geodesic system we remove channels in the boundaries
-    # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
-    ## list of excluded channels 
-    print(f"excluded channels:\n{excluded_channels}")
-    raw_data.info["bads"] = excluded_channels
-    raw_data.drop_channels(raw_data.info['bads'])
-
-    ## additonal channels to exclude and interpolate because of problems in their signals
-    raw_data.info["bads"] = ch_excl_list
-    
-    ##########################
-    # printing basic information from data
-    print(f'raw data filename: {fn_in}')
-    print(f'annotations filename: {fn_csv}')
-    print(f'raw data info:\n{raw_data.info}')
-    # printing basic information from data
-    ############################
-    ## sampling rate
-    sampling_rate = raw_data.info['sfreq']
-    ############################
-    ## run matplotlib in interactive mode
-    plt.ion()
-    ############################
-
-    ########################################################################
-    ## Preprocessing Starts
-    ########################################################################
-    ## data visualization
-    # display time-series signals
-    ## scale selection for visualization raw data with annotations
-    scale_dict = dict(mag=1e-12, grad=4e-11, eeg=100e-6, eog=150e-6, ecg=400e-6, emg=1e-3, ref_meg=1e-12, misc=1e-3, stim=1, resp=1, chpi=1e-4, whitened=1e2)
-
-    ## data visualization. Interactive annotation editing
-    # mne.viz.plot_raw(raw_data, picks=['eeg','ecg'], start=0, duration=240, n_channels=36, scalings=scale_dict, highpass=0.5, lowpass=45.0, title=f"EEG time series -- interactive annotation editing", block=True)
-
+    #########################
     ## make groups of EEG data segments with same label in order to create epochs
-
     label_list_ref = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
 
-    ## save annotations
-    # new_annot.save(f"{path_prep}ann_{labels_list[0]}.fif", overwrite=True)
-
-    # label = labels_list[0]
-    for label in label_list_ref:
+    ################################
+    for label in label_list_ref[:1]:
         ## for each label segments are grouped and transformed into epochs
         print (f"searching for annotations for: {label}")
         ## copy raw data in order to separate segments by labels (annotations) and include bad segments
@@ -2814,7 +2765,7 @@ def main(args):
 
             # epochs.interpolate_bads()
 
-            epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
+            # epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
             print(f"epochs.info['bads']: {epochs.info['bads']}")
 
         else:
