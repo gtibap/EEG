@@ -34,6 +34,7 @@ sys.path.insert(0, '../../scripts')
 from info_participants import subject_dict
 
 from class_tf_notch import TF_components
+from ica_epochs import ica_epochs_interactive
 
 ######################
 ## global variables
@@ -2620,7 +2621,7 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
         # Read list of bad epochs and bad channels from file
         with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
             data = json.load(f)
-        bad_epochs_list = data['epoch_ids']
+        bad_epochs_list = data['bad_epochs']
         bad_channels_list = data['bad_channels']
         print(f"bad_epochs_list:\n{bad_epochs_list}")
         print(f"bad_channels_list:\n{bad_channels_list}")
@@ -2631,7 +2632,7 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
             ## find id of bad epoch
             drop_idx = np.where(epochs_list == id_bad)[0]
             drop_idx_list = np.concatenate((drop_idx_list, drop_idx), axis=None)
-        print(f"ids_bad_list: {drop_idx_list}")
+        # print(f"ids_bad_list: {drop_idx_list}")
         ## remove bad epochs by indexes
         if len(drop_idx_list) > 0:
             epochs.drop(drop_idx_list.astype(int))
@@ -2642,36 +2643,94 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
 
     except:
         bad_epochs_list = []
-        print(f" Problem reading previous bad segments and bad channels. Probably, {label}_bad_epochs.json file were not found.")
+        # print(f"{label}_bad_epochs.json: Problem trying to load bad segments and bad channels.")
 
     ## update first list
     first_list = epochs.selection.astype(int)
-    print(f"first_list: {first_list}")
+    # print(f"first_list: {first_list}")
 
     ## interactive selection of bad epochs and bad channels
     epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
 
     list_channel_bads = epochs.info['bads']
-    print(f"second list_bads: {list_channel_bads}")
+    # print(f"second list_bads: {list_channel_bads}")
 
     second_list = epochs.selection.astype(int)
-    print(f"second_list: {second_list}")
+    # print(f"second_list: {second_list}")
 
     ## found in the second list the epochs ids that were eliminated from the first list
     bad_epochs_ids = np.array([x for x in first_list if not (x in second_list)]).astype(int)
 
-    print(f"bad epochs ids: {bad_epochs_ids}")
+    # print(f"bad epochs ids: {bad_epochs_ids}")
     bad_epochs_list = np.concatenate((bad_epochs_list, bad_epochs_ids),axis=None).astype(int)
 
     ## save bad epochs ids and bad channels ids
     bad_epochs_dict={
-            'epoch_ids': bad_epochs_list.tolist(),
+            'sel_epochs': epochs_list.tolist(),
+            'bad_epochs': bad_epochs_list.tolist(),
             'bad_channels' : list_channel_bads,
         }
     with open(f"{path_prep}{label}_bad_epochs.json", "w") as f:
         json.dump(bad_epochs_dict, f)
 
     return epochs
+
+##################################################
+def load_selected_epochs(raw_data, label_list_ref):
+    ## create same number of events and epochs from raw_data
+    dt = 5 ## epoch duration in seconds
+    print(f"Epochs size: {dt} seconds / each ")
+
+    ## first, include a sequence of regular events to the raw data 
+    new_events = mne.make_fixed_length_events(raw_data, start=0, stop=None, duration=dt)
+    # raw_copy.add_events(new_events, replace=True)
+
+    ## second, use events to create epochs
+    epochs_ref = mne.Epochs(raw_data, new_events, tmin=0.0, tmax=dt, baseline=None, preload=True, reject=None, reject_by_annotation=True)
+    # print(f"Number of epochs for ICA section:\n{len(epochs.selection)}")
+    # print(f"Epochs for ICA section:\n{epochs.selection}")
+    all_epochs_list = epochs_ref.selection
+
+    ## Now, we reject bad epochs and bad channels for each selected label
+    for label in label_list_ref[:1]:
+        ## removing bad epochs and bad channels if they were already selected in a previous iteration
+        epochs = epochs_ref.copy()
+        try:
+            #### read selected epochs, bad epochs, and bad channels
+            # Read list of bad epochs and bad channels from file
+            with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
+                data = json.load(f)
+            sel_epochs_list = data['sel_epochs']
+            bad_epochs_list = data['bad_epochs']
+            bad_channels_list = data['bad_channels']
+            # print(f"sel_epochs_list:\n{sel_epochs_list}")
+            # print(f"bad_epochs_list:\n{bad_epochs_list}")
+            # print(f"bad_channels_list:\n{bad_channels_list}")
+
+            ## keep epochs of the first_list (selection) that are not in the second list (bads)
+            sel_epochs_list = np.array([x for x in sel_epochs_list if not (x in bad_epochs_list)]).astype(int)
+            # print(f"sel_epochs_list:\n{sel_epochs_list}")
+
+            ## list of bad epochs to remove
+            bad_epochs_list = np.array([x for x in all_epochs_list if not (x in sel_epochs_list)]).astype(int)
+            print(f"bad_epochs_list:\n{bad_epochs_list}")
+
+            ## drop bad epochs
+            epochs.drop(bad_epochs_list.astype(int))
+            ## including bad channels
+            epochs.info['bads'] = bad_channels_list
+
+            ## interactive selection of bad epochs and bad channels
+            epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
+
+            #############
+            # ICA
+            ica_epochs_interactive(epochs,label,True)
+
+
+        except:
+            print(f"Warning: {path_prep}{label}_bad_epochs.json not found")
+            return 0
 
 ###########################################
 ## EEG filtering and signals pre-processing
@@ -2739,6 +2798,8 @@ def main(args):
     label_list_ref = ['a_closed_eyes','a_opened_eyes','b_closed_eyes','b_opened_eyes','c_closed_eyes','c_opened_eyes']
 
     ################################
+    ## interactive selection of bad epochs and bad channels
+
     for label in label_list_ref[:1]:
         ## for each label segments are grouped and transformed into epochs
         print (f"searching for annotations for: {label}")
@@ -2749,6 +2810,7 @@ def main(args):
         ########
         ## create events and epochs
         dt = 5 ## epoch duration in seconds
+        print(f"Epochs size: {dt} seconds / each ")
 
         ## first, include a sequence of regular events to the raw data 
         new_events = mne.make_fixed_length_events(raw_copy, start=0, stop=None, duration=dt)
@@ -2756,20 +2818,22 @@ def main(args):
 
         ## second, use events to create epochs excluding bad segments
         epochs = mne.Epochs(raw_copy, new_events, tmin=0.0, tmax=dt, baseline=None, preload=True, reject=None, reject_by_annotation=True)
-        print(f"epochs:\n{epochs}")
+        print(f"Number of epochs:\n{len(epochs.selection)}")
 
         ######
         if len(epochs.selection) > 0:
             ## interactive selection of bad epochs and bad channels
             epochs = interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep)
 
-            # epochs.interpolate_bads()
-
-            # epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"EEG epochs before time series",)
-            print(f"epochs.info['bads']: {epochs.info['bads']}")
-
         else:
-            print(f"{label}: Epochs were not found")
+            print(f"{label}: Epochs not found")
+
+    ###############################
+    ## once bad epochs and bad channels were selected, next:
+    ## ica decomposition for interactive artifacts removal
+
+############
+    load_selected_epochs(raw_data, label_list_ref)
 
 
     return 0
