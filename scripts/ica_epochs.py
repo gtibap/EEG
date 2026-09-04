@@ -32,112 +32,94 @@ def display_psd_epochs2x(epochs_before, epochs_after):
         # bads_list = bads_list + epochs_before.info['bads']
         bads_list = epochs_before.info['bads']
         bads_list.append('VREF')
-        epochs_before.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd[0], fmin=0, fmax=80, xscale='log',)
-        epochs_after.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd[1], fmin=0, fmax=80, xscale='log',)
+        epochs_before.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd[0], fmin=0, fmax=80, xscale='linear',)
+        epochs_after.plot_psd(picks=['eeg'], exclude=bads_list, ax=ax_psd[1], fmin=0, fmax=80, xscale='linear',)
         ax_psd[0].set_title(f"PSD before ICA")
         ax_psd[1].set_title(f"PSD after ICA")
         
         return 0
 
 ##################################################
-def ica_epochs_interactive(epochs, label, flag_update_ica):
+def ica_epochs_interactive(epochs, label):
 
     ## ica parameters to calculate ICA components
     ica = ICA(n_components= 0.99, method='picard', max_iter="auto", random_state=97)
 
-    # recal_ica_flag = int(input(f"Do you want to (re)calculate an ICA model (yes 1, no 0) ?: "))
-    flag_update_ica = 1
-    recal_ica_flag = 1
+    ## copy of raw data
+    copy_epochs = epochs.copy()
 
-    if flag_update_ica:
-        flag_ica = 1
-        ## re-calculate ICA components    
-        while flag_ica==1 :
-            ## copy of raw data
-            copy_epochs = epochs.copy()
-            ## display psd eeg raw data
-            # self.display_psd_epochs(epochs)
-            
-                            
-            if recal_ica_flag==False:
-                print(f"reading the previous ICA model...")
-                # self.read_ica_model()
-                # self.read_ica_excluded_comp()
-            else:
-                ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
-                ## ICA fitting model to the filtered raw data
-                print(f"creating an ICA model...")
-                ica.fit(epochs, reject_by_annotation=True)
-                ica.exclude = []
-                ## save ICA model and excluded components
-                # self.save_ica_model()
-            
-            print(f"Ploting ICA components...")
-            ## plot_components shows 2D-topomaps of the ICA components
-            fig_ica_comp = ica.plot_components(inst=epochs, contours=0, show=True, title=f"epochs {label} -- ICA components")
-            # self.save_fig_ica_comp(fig_ica_comp)
+    ## ica works better with clean (denoised) EEG signals with 0 offset (a high pass filter with a 1 Hz cutoff frequency could improve that condition, that is why we use the filtered version of the data [self.filt_seg])
+    ################################
+    ## Stage 1: passband and notch filters, and resampling
+    low_cut =    1.0
+    hi_cut  =   45.0
 
-            # interactive selection of ICA components to exclude
-            ica.plot_sources(epochs, start=None, stop=None, show_scrollbars=False, show=True, title=f"{label} -- ICA components", block=True)
-            print(f"ica excluded components: {ica.exclude}")
-            ## save selected ICA components to exclude
-            # self.save_ica_excluded_comp()
+    # filter applied in place
+    print(f"Band-pass filter before ICA {low_cut, hi_cut} Hz...")
+    copy_epochs.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
 
-            ############
-            ## visual comparison before and after ICA
-            ## data visualization EEG         
-            ## psd
-            ## apply ICA to a copy of the original epochs
-            ica.apply(copy_epochs)
-            display_psd_epochs2x(epochs, copy_epochs)
-            ## original epochs
-            epochs.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=scale_dict, title=f"Epochs {label} (EEG) Before ICA",)
-            ## results of ICA after components exclusion
-            copy_epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"Epochs {label} (EEG) After ICA",)
-            
-            ## visual comparison before and after ICA
-            ############
+    flag_ica = 1
 
-            # ## update ica calculation flag
-            # option_ica = int(input(f"0: Save the current model\n1: Re-calculate ICA components\n2: Redefine list of exclusion ICA components\n ?: "))
-            # # option_ica = 0 if (flag_ica == '') else int(flag_ica)
-            # if option_ica==1:
-            #     ## update bad channels interactively
-            #     fig_raw = epochs.plot(n_epochs=21, events=True, block=False, n_channels=36, scalings=scale_dict, title=f"Epochs {label} (EEG) Before ICA",)
-            #     update_channels_bads()
-            #     ## save on disk bad channels
-            #     self.save_channels_bads()
-            #     ## activate flag to recalculate ICA components
-            #     recal_ica_flag=True
-            #     ## keep in the loop
-            #     flag_ica = 1
-            # elif option_ica==2:
-            #     ## same ICA model but choosing other components to exclude
-            #     ## does not recalculate ICA components
-            #     recal_ica_flag=False
-            #     ## keep in the loop
-            #     flag_ica = 1
-            # else:
-            #     ## choosing zero le loop is finished to apply the ICA model to the epochs in place
-            #     ## break the loop
-            #     flag_ica = 0
+    ## re-calculate ICA components    
+    while flag_ica==1 :
+        ## ICA fitting model to the filtered raw data
+        
+        print(f"creating an ICA model...")
+        ica.fit(copy_epochs, reject_by_annotation=True)
+        ica.exclude = []
+        
+        # interactive selection of ICA components to exclude
+        ica.plot_sources(epochs, start=None, stop=None, show_scrollbars=False, show=True, title=f"{label} -- ICA components", block=False)
 
-            # print(f"continuous loop: {flag_ica}")
-    else:
-        print(f"ending...")
-        return 0
-        print(f"reading the previous ICA model...")
-        self.read_ica_model()
-        self.read_ica_excluded_comp()
-        ## selected ICA components to exclude
-        self.ica_exclude = self.ica.exclude
-        print(f"ica excluded components: {self.ica_exclude}")
+        print(f"Ploting ICA components...")
+        ## plot_components shows 2D-topomaps of the ICA components
+        ica.plot_components(inst=epochs, contours=0, show=True, title=f"epochs {label} -- ICA components")
+        # self.save_fig_ica_comp(fig_ica_comp)
+        print(f"ica excluded components: {ica.exclude}")
+
+        
+        ## save selected ICA components to exclude
+        # self.save_ica_excluded_comp()
+
+        ############
+        ## visual comparison before and after ICA
+        ## data visualization EEG         
+        ## psd
+        epochs_before_ica = epochs.copy()
+        ## apply ICA to a copy of the original epochs
+        ica.apply(epochs)
+
+        display_psd_epochs2x(epochs_before_ica, epochs)
+        ## original epochs
+        epochs_before_ica.plot(n_epochs=12, events=True, block=False, n_channels=36, scalings=scale_dict, title=f"Epochs {label} before ICA",)
+        
+        ## results of ICA after components exclusion
+        epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"Epochs {label} after ICA",)
+        
+        
+        ## visual comparison before and after ICA
+        ############
+
+        ## update ica calculation flag
+        option_ica = int(input(f"0: Save the current model\n1: Modify list of exclusion ICA components\n ?: "))
+        # option_ica = 0 if (flag_ica == '') else int(flag_ica)
+        if option_ica==0:
+            ## choosing zero the loop is finished to apply the ICA model to the epochs in place
+            ## save ICA model and excluded components
+            # self.save_ica_model()
+            ## break the loop
+            flag_ica = 0
+        else:
+            ## choosing one: revisiting ICA components for any modification
+            recal_ica_flag=False
+            ## keep in the loop
+            flag_ica = 1
+        
+        print(f"continuous loop: {flag_ica}")
+
 
     ## Applying ICA to epochs in place
-    # ica.apply(epochs)
+    ica.apply(epochs)
 
-    ## save plot ica sources
-    # self.save_plot_ica_sources_epochs()
+    return epochs
 
-    return 0
-## ica epochs components_interactive()

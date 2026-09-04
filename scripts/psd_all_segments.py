@@ -2695,42 +2695,43 @@ def load_selected_epochs(raw_data, label_list_ref):
     for label in label_list_ref[:1]:
         ## removing bad epochs and bad channels if they were already selected in a previous iteration
         epochs = epochs_ref.copy()
-        try:
-            #### read selected epochs, bad epochs, and bad channels
-            # Read list of bad epochs and bad channels from file
-            with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
-                data = json.load(f)
-            sel_epochs_list = data['sel_epochs']
-            bad_epochs_list = data['bad_epochs']
-            bad_channels_list = data['bad_channels']
-            # print(f"sel_epochs_list:\n{sel_epochs_list}")
-            # print(f"bad_epochs_list:\n{bad_epochs_list}")
-            # print(f"bad_channels_list:\n{bad_channels_list}")
 
-            ## keep epochs of the first_list (selection) that are not in the second list (bads)
-            sel_epochs_list = np.array([x for x in sel_epochs_list if not (x in bad_epochs_list)]).astype(int)
-            # print(f"sel_epochs_list:\n{sel_epochs_list}")
+        #### read selected epochs, bad epochs, and bad channels
+        # Read list of bad epochs and bad channels from file
+        with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
+            data = json.load(f)
+        sel_epochs_list = data['sel_epochs']
+        bad_epochs_list = data['bad_epochs']
+        bad_channels_list = data['bad_channels']
+        # print(f"sel_epochs_list:\n{sel_epochs_list}")
+        # print(f"bad_epochs_list:\n{bad_epochs_list}")
+        # print(f"bad_channels_list:\n{bad_channels_list}")
 
-            ## list of bad epochs to remove
-            bad_epochs_list = np.array([x for x in all_epochs_list if not (x in sel_epochs_list)]).astype(int)
-            print(f"bad_epochs_list:\n{bad_epochs_list}")
+        ## keep epochs of the first_list (selection) that are not in the second list (bads)
+        sel_epochs_list = np.array([x for x in sel_epochs_list if not (x in bad_epochs_list)]).astype(int)
+        # print(f"sel_epochs_list:\n{sel_epochs_list}")
 
-            ## drop bad epochs
-            epochs.drop(bad_epochs_list.astype(int))
-            ## including bad channels
-            epochs.info['bads'] = bad_channels_list
+        ## list of bad epochs to remove
+        bad_epochs_list = np.array([x for x in all_epochs_list if not (x in sel_epochs_list)]).astype(int)
+        # print(f"bad_epochs_list:\n{bad_epochs_list}")
 
-            ## interactive selection of bad epochs and bad channels
-            epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
+        ## drop bad epochs
+        epochs.drop(bad_epochs_list.astype(int))
+        ## including bad channels
+        epochs.info['bads'] = bad_channels_list
 
+        ## interactive selection of bad epochs and bad channels
+        # epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
+        if len(epochs.selection) > 0:
             #############
             # ICA
-            ica_epochs_interactive(epochs,label,True)
-
-
-        except:
+            print(f"ica epochs interactive...")
+            epochs = ica_epochs_interactive(epochs,label)
+        else:
             print(f"Warning: {path_prep}{label}_bad_epochs.json not found")
-            return 0
+            print(f"Warning: ICA not calculated.")
+        
+        return 0
 
 ###########################################
 ## EEG filtering and signals pre-processing
@@ -2792,6 +2793,12 @@ def main(args):
 
     print(f"Passband filter {low_cut, hi_cut} Hz...")
     raw_data.filter(l_freq=low_cut, h_freq=hi_cut, picks='eeg')
+
+    freqs_notch = [60,]
+    print(f"Notch filter {freqs_notch}...")
+    
+    raw_data.notch_filter(freqs=freqs_notch, picks='eeg',) ## filter_length="10s"
+    # raw_data.notch_filter(freqs=freqs_notch, picks='eeg', method="spectrum_fit",)
 
     #########################
     ## make groups of EEG data segments with same label in order to create epochs
