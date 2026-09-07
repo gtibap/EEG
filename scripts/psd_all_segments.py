@@ -34,7 +34,9 @@ sys.path.insert(0, '../../scripts')
 from info_participants import subject_dict
 
 from class_tf_notch import TF_components
-from ica_epochs import ica_epochs_interactive
+from class_psd_all import PSD_Epochs_Class
+from ica_epochs import ica_epochs_interactive, read_ica_model
+from plot_psd_labels import psd_regions_visualization
 
 ######################
 ## global variables
@@ -2677,6 +2679,7 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
 
 ##################################################
 def load_selected_epochs(raw_data, label_list_ref):
+    global obj_list
     ## create same number of events and epochs from raw_data
     dt = 5 ## epoch duration in seconds
     print(f"Epochs size: {dt} seconds / each ")
@@ -2726,12 +2729,38 @@ def load_selected_epochs(raw_data, label_list_ref):
             #############
             # ICA
             print(f"ica epochs interactive...")
-            epochs = ica_epochs_interactive(epochs,label)
+            root_filename = f"{path_prep}{label}"
+
+            flag_ica = int(input(f"{label} - (re)calculate its ICA model? (1/0): "))
+            if flag_ica:
+                print(f"calculating ICA model...")
+                epochs = ica_epochs_interactive(epochs, label, root_filename)
+            else:
+                print(f"loading ICA model...")
+                epochs = read_ica_model(epochs, label, root_filename)
+
+            ## re-referencing average
+            epochs.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=False,)
+            ## replace bad channels by interpolation
+            epochs.interpolate_bads()
+
+            ## power spectral density (PSD) from epochs of selected channels
+            freq_range = [0.5, 45]
+            psd_left = epochs.compute_psd(picks=central_left_channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
+            psd_right = epochs.compute_psd(picks=central_right_channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
+
+            obj = PSD_Epochs_Class(label)
+            obj.set_psd(psd_left, 'central_left')
+            obj.set_psd(psd_right, 'central_right')
+
+            obj_list.append(obj)
+
         else:
             print(f"Warning: {path_prep}{label}_bad_epochs.json not found")
             print(f"Warning: ICA not calculated.")
         
         return 0
+
 
 ###########################################
 ## EEG filtering and signals pre-processing
@@ -2842,6 +2871,10 @@ def main(args):
 ############
     load_selected_epochs(raw_data, label_list_ref)
 
+    info_pt = f"n_{str(subject).zfill(3)}, session: {session}"
+    ylim = [0, 40]
+    flag_save = False
+    psd_regions_visualization(obj_list, info_pt, ylim, path_fig_psd, flag_save)
 
     return 0
 
