@@ -4,24 +4,42 @@ import matplotlib.lines as mlines
 import matplotlib.patches as mpatches
 import matplotlib.widgets as mwidgets
 import numpy as np
+import pandas as pd
 import sys
+import json
 
 ##### global variables
 obj_list = []
-freq_range = [0.5, 45]
+freq_range = [1.0, 30.0]
+fig_a = []
+fig_ap = []
 fig_ce = []
 fig_oe = []
 fig_mea = []
+ax_a = []
+ax_ap = []
+ax_mea = []
 selectors = []
 flag_peaks_global = False
-thr_peaks_global = 2.0
+thr_peaks_global = 1.0
+region_global = ''
+f0_global =  0.5  # Hz
+f1_global = 30.0  # Hz
+ylim = [0, 40] # dB
+event_list_ce = ['a_ce','b_ce','c_ce']
+event_list_oe = ['a_oe','b_oe','c_oe']
+path=''
+info_p =''
+obj_global = []
 region_global = ''
 
 ##############################
-def psd_regions_visualization(obj_list_ref, info_p, ylim, path, flag_save):
-    global obj_list, freq_range, ax_ce_global, fig_ce_global, flag_eyes_closed, fig_ce, fig_oe, ax_ce, ax_oe
+def psd_regions_visualization(obj_list_ref, info_pt_ref, path_root, flag_save):
+    global obj_list, freq_range, ax_ce_global, fig_ce_global, flag_eyes_closed, fig_ce, fig_oe, fig_mea, ax_ce, ax_oe, ax_mea, path, info_p
     ##
     obj_list = obj_list_ref.copy()
+    path = path_root
+    info_p = info_pt_ref
 
     ## ids to define a subplot order for ax_ce and ax_oe
     ax_ce_dict = {'a_ce':0, 'b_ce':2, 'c_ce':4}
@@ -98,8 +116,8 @@ def psd_regions_visualization(obj_list_ref, info_p, ylim, path, flag_save):
     # fig_oe.legend(handles=[gray_patch], loc="upper right")
 
     if flag_save:
-        fig_ce.savefig(path+'psd_ce.png',bbox_inches='tight')
-        fig_oe.savefig(path+'psd_oe.png',bbox_inches='tight')
+        fig_ce.savefig(path+'psd/psd_ce.png',bbox_inches='tight')
+        fig_oe.savefig(path+'psd/psd_oe.png',bbox_inches='tight')
     else:
         pass
 
@@ -113,7 +131,7 @@ def psd_regions_visualization(obj_list_ref, info_p, ylim, path, flag_save):
     fig_ce.canvas.mpl_connect('button_press_event', on_click)
     fig_oe.canvas.mpl_connect('button_press_event', on_click)
 
-    plt.show(block=True)
+    # plt.show()
 
     return 0
 
@@ -154,7 +172,8 @@ def on_click(event):
             ## subplot index
             print(f"selected ax: {ax_index}")
             ## open a new window with the signals of the selected subplot
-            signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+            # signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+            plot_quantiles(ax_index, flag_eyes_closed, fig_title_mea)
             ax_mea[1].cla()
         else:
             pass
@@ -176,16 +195,19 @@ def onselect(vmin, vmax):
     return 0
 
 ####################################
-def signal_measurements(ax_index, flag_eyes_closed, fig_title):
+# def signal_measurements(ax_index, flag_eyes_closed, fig_title):
+def plot_quantiles(ax_index, flag_eyes_closed, fig_title):
     ## open a new figure and plot graphical info of the selected subplot 
     global fig_mea, ax_mea, emg_list, selectors, df_psd_global, obj_global, region_global
 
+    ## legend's components
     gray_patch = mpatches.Patch(color='tab:gray', alpha=0.5, label=f'Q3-Q1\ninterquantil\nrange')
     q2_line  = mlines.Line2D([], [], color='tab:blue', label='Q2 (median)')
 
     ## create a figure (first time) or clean it to update it
     if fig_mea == []:
         ## creates a figure to plot the selected stimulation responses 
+        print(f"creates a figure to plot the selected stimulation responses...")
         n_rows = 2
         n_cols = 1
         fig_mea, ax_mea = plt.subplots(n_rows, n_cols, sharex=True, figsize=(9*n_cols, 4*n_rows))
@@ -196,6 +218,7 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
         fig_mea.canvas.mpl_connect('key_press_event', on_press)
         # Creating legend with color box
     else:
+        print(f"Cleaning subplot fig. quantiles...")
         ax_mea[0].cla()
 
     ## subplots graphics order; each row one state: a_, b_, or c_; left columns for channels left side, right columns for channels right side
@@ -216,6 +239,8 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
         # odd
         region ='central_right'
 
+    print(f"region: {region}")
+
     fig_title = fig_title + ' ' + region + ' side'
     
     ## ax limits, closed eyes, open eyes
@@ -228,22 +253,18 @@ def signal_measurements(ax_index, flag_eyes_closed, fig_title):
         ## get the label of the selected object [a_ce, a_oe, ...]
         label_eyes = obj.get_label_simple()
         ## separate closed eyes and open eyes
+        # print(f"sel_label, label_eyes: {sel_label, label_eyes}")
         if sel_label in label_eyes:
             ## closed eyes [a_ce, b_ce, c_ce]
             ## plot a graphical representation of the PSD of the selected subplot
             print("figure quantiles...")
             ax_mea[0] = obj.plot_psd_quantiles(region, ax_mea[0])
-            ## calculate fooof model
-            # obj.fit_fooof(freq_range)
             ## obj global
             obj_global = obj
             region_global = region
-            # df_psd_global = obj.get_psd_quantiles()
             break
 
     fig_mea.legend(handles=[gray_patch, q2_line], loc="upper right") ## loc="outside right upper"
-        
-    plt.show()
 
     return 0
 
@@ -280,11 +301,13 @@ def on_press(event):
         ax_mea[1].axhline(y=thr_peaks_global, xmin=-10, xmax=100, ls='--', lw=1.0, color='tab:blue')
 
         # (Re)Plot curves of quantiles from the PSD of the selected channels
-        signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+        # signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+        plot_quantiles(ax_index, flag_eyes_closed, fig_title_mea)
         
         fm = obj_global.get_fooof_model(region_global)
         # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='Full Model', color='tab:red', ax=ax_mea[0])
         # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label='Final Aperiodic Fit', color='blue', alpha=0.5, linestyle='dashed', ax=ax_mea[0])
+        ## aperiodic fit over quantiles plot
         ax_mea[0].plot(fm.freqs, fm._ap_fit, color='tab:red', linestyle='dashed', alpha=0.5)
         
         
@@ -306,23 +329,23 @@ def on_press(event):
         #  The final fit (red), and aperiodic fit (blue), are the same as we plotted above
         # fm.plot(plt_log)
 
-    elif event.key == 'u':
-        ## update plots including fooof model in the psd eyes closed and eyes open
-        ## print results from all fitted models
-        flag_save_fig = True
-        flag_update_plot = True
-        update_psd_plots(path_fig_psd, flag_update_plot, flag_save_fig)
+    # elif event.key == 'u':
+    #     ## update plots including fooof model in the psd eyes closed and eyes open
+    #     ## print results from all fitted models
+    #     flag_save_fig = True
+    #     flag_update_plot = True
+    #     update_psd_plots(path_fig_psd, flag_update_plot, flag_save_fig)
         
     elif event.key == 'z':
         ## fooof curves comparison
         flag_save_fig = True
-        plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, path_fig_fooof, info_p, flag_save_fig)
+        plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, info_p, flag_save_fig)
 
         ## to compare plot responses without aperiodic component
-        plot_psd_minus_aperiodic(obj_list, event_list_ce, event_list_oe, path_fig_fooof, info_p, flag_save_fig)
+        plot_psd_minus_aperiodic(obj_list, event_list_ce, event_list_oe, info_p, flag_save_fig)
         ## save quantiles from the psd distribution of selected region
         ## save parameters used for fooof fit
-        save_psd_quantiles(obj_list, event_list_ce, event_list_oe, path_fig_fooof)
+        save_psd_quantiles(obj_list, event_list_ce, event_list_oe)
 
 
     # elif event.key == 'c':
@@ -349,4 +372,347 @@ def onselect_peaks(vmin, vmax):
     print(f"thr peak: {thr_peaks_global}")
 
     return 0
+
+##################
+def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, info_p, flag_save):
+    global fig_a, ax_a
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    if fig_a == []:
+        fig_a, ax_a = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(12,6), layout='constrained')
+        ax_a = ax_a.flatten()
+    else:
+        for ax in ax_a:
+            ax.cla()
+        pass
+
+    ymin = 5
+    ymax = 35
+
+    flags = [0,0,0]
+
+    fooof_curves_dict = {}
+    for obj in obj_list:
+        ## find the selected segment for each label
+        ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+        
+        ## color represents resting start (blue), cycling (orange), or resting end (green)
+        label = obj.get_label_simple()
+        color = get_color(label)
+        
+        ## a_ce, b_ce, c_ce
+        if label in event_list_ce:
+            ## closed eyes
+            print(f"{obj.get_label()}")
+            region ='central_left'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_psd_fooof(ax_a[0], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+
+            region ='central_right'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_psd_fooof(ax_a[1], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+            
+        ## a_oe, b_oe, c_oe
+        elif label in event_list_oe:
+            ## open eyes
+            print(f"{obj.get_label(), obj.get_id()}")
+            region ='central_left'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_psd_fooof(ax_a[2], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+            
+            region ='central_right'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_psd_fooof(ax_a[3], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+        else:
+            pass
+
+    ## x and y limits
+    ax_a[0].set_xlim(0, 31.0)
+    # ax_a[0].set_ylim(ymin,ymax)
+
+    fig_a = set_legend(fig_a, flags)
+    set_labels_ax_4only(ax_a)
+    set_title_ax4only(ax_a)
+    set_grid_ax4only(ax_a)
+
+    ## save figures
+    fig_a.suptitle(f"{info_p}\n",)
+
+    if flag_save:
+        fig_a.savefig(path+'fooof/psd_q2_dict.png', bbox_inches ="tight")
+        ## save dict with curves (dataframes) from fooof modeling
+        with open(path+'fooof/psd_q2_dict.json', 'w') as f:
+            f.write(json.dumps(fooof_curves_dict))
+
+    return 0
+
+
+##################
+def plot_psd_minus_aperiodic(obj_list, event_list_ce, event_list_oe, info_p, flag_save):
+    global fig_ap, ax_ap
+    ## comparison aperiodic models among resting-cycling-resting, open-eyes, closed-eyes
+    if fig_ap == []:
+        fig_ap, ax_ap = plt.subplots(nrows=2, ncols=2, sharex=True, sharey=True, figsize=(12,6), layout='constrained')
+        ax_ap = ax_ap.flatten()
+    else:
+        for ax in ax_ap:
+            ax.cla()
+        pass
+
+    flags = [0,0,0]
+
+    fooof_curves_dict = {}
+    for obj in obj_list:
+        ## find the selected segment for each label
+        ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+        
+        ## color represents resting start (blue), cycling (orange), or resting end (green)
+        label = obj.get_label_simple()
+        color = get_color(label)
+        
+        ## a_ce, b_ce, c_ce
+        if label in event_list_ce:
+            ## closed eyes
+            print(f"{obj.get_label()}")
+            region ='central_left'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_periodic_comp(ax_ap[0], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+
+            region ='central_right'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_periodic_comp(ax_ap[1], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+            
+        ## a_oe, b_oe, c_oe
+        elif label in event_list_oe:
+            ## open eyes
+            print(f"{obj.get_label(), obj.get_id()}")
+            region ='central_left'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_periodic_comp(ax_ap[2], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+            
+            region ='central_right'
+            if obj.get_fooof_model(region) != []:
+                freqs, mag = obj.plot_periodic_comp(ax_ap[3], region, color)
+                flags = label_flags(obj, flags)
+                ## to save data of fooof models
+                df = pd.DataFrame({'freqs':freqs, 'mag':mag})
+                fooof_curves_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+            else:
+                pass
+        else:
+            pass
+
+    ## x and y limits
+    ax_ap[0].set_xlim(0, 31.0)
+
+    fig_ap = set_legend(fig_ap, flags)
+    set_labels_ax_4only(ax_ap)
+    set_title_ax4only(ax_ap)
+    set_grid_ax4only(ax_ap)
+
+    ## save figures
+    fig_ap.suptitle(f"{info_p}\n",)
+
+    if flag_save:
+        fig_ap.savefig(path+'fooof/periodic_comp_q2.png', bbox_inches ="tight")
+        ## save dict with curves (dataframes) from fooof modeling
+        with open(path+'fooof/periodic_comp_q2.json', 'w') as f:
+            f.write(json.dumps(fooof_curves_dict))
+        
+    return 0
+
+#############################
+def save_psd_quantiles(obj_list, event_list_ce, event_list_oe):
+    global fig_ap, ax_ap
+
+    parameters_fooof_dict = {}
+    psd_quantiles_dict = {}
+    for obj in obj_list:
+        ## find the selected segment for each label
+        ## At the beginning, one of each condition was selected, i.e. a_ce, a_oe, b_ce, b_oe, c_ce, c_oe
+        
+        label = obj.get_label_simple()
+        ## a_ce, b_ce, c_ce
+        if label in event_list_ce:
+            ## closed eyes
+            # print(f"{obj.get_label(), obj.get_id()}")
+            region ='central_left'
+            df = obj.get_psd_quantiles(region)
+            psd_quantiles_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+            ## parameters fooof fitted
+            parameters_fooof_dict[label+'_left'] = obj.get_params_fooof(region)
+
+            region ='central_right'
+            df = obj.get_psd_quantiles(region)
+            psd_quantiles_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+            ## parameters fooof fitted
+            parameters_fooof_dict[label+'_right'] = obj.get_params_fooof(region)
+            
+        ## a_oe, b_oe, c_oe
+        elif label in event_list_oe:
+            ## open eyes
+            # print(f"{obj.get_label(), obj.get_id()}")
+            region ='central_left'
+            df = obj.get_psd_quantiles(region)
+            psd_quantiles_dict[label+'_left'] = df.to_dict(orient='split',index=False)
+            ## parameters fooof fitted
+            parameters_fooof_dict[label+'_left'] = obj.get_params_fooof(region)
+            
+            region ='central_right'
+            df = obj.get_psd_quantiles(region)
+            psd_quantiles_dict[label+'_right'] = df.to_dict(orient='split',index=False)
+            ## parameters fooof fitted
+            parameters_fooof_dict[label+'_right'] = obj.get_params_fooof(region)
+        else:
+            pass
+    
+    ## save dict with curves (dataframes) from fooof modeling
+    with open(path+'fooof/psd_quantiles_dict.json', 'w') as f:
+        f.write(json.dumps(psd_quantiles_dict))
+    ## save dict with parameters from fooof modeling
+    with open(path+'fooof/fooof_parameters_dict.json', 'w') as f:
+        f.write(json.dumps(parameters_fooof_dict))
+
+    return 0
+
+##################
+def get_color(label):
+    ## curve color
+    if 'a_' in label:
+        ## rest start
+        color='tab:blue'
+    elif 'b_' in label:
+        ## cycling
+        color='tab:orange'
+    elif 'c_' in label:
+        ## rest end
+        color='tab:green'
+    else:
+        color='black'
+    return color
+
+###################
+def label_flags(obj, flags):
+    label = obj.get_label_simple()
+    if label in ['a_ce','a_oe']:
+        flags[0] = 1
+    elif label in ['b_ce','b_oe']:
+        flags[1] = 1
+    elif label in ['c_ce','c_oe']:
+        flags[2] = 1
+    return flags
+
+################
+def set_labels_ax_4only(ax_list,):
+
+    ## remove legends
+    for ax in ax_list:
+        try:
+            ax.get_legend().set_visible(False)
+        except:
+            print("legend not found")
+        
+    ## y axis labels
+    ax_list[0].set_ylabel(f"Power\n[$dB(mV/m^2)^2/Hz$]", fontsize=11)
+    ax_list[1].set_ylabel(f"")
+    ax_list[2].set_ylabel(f"Power\n[$dB(mV/m^2)^2/Hz$]", fontsize=11)
+    ax_list[3].set_ylabel(f"")
+    
+
+    ## x axis labels
+    ax_list[0].set_xlabel(f"")
+    ax_list[1].set_xlabel(f"")
+    ax_list[2].set_xlabel(f"frequency (Hz)", fontsize=11)
+    ax_list[3].set_xlabel(f"frequency (Hz)", fontsize=11)
+
+    return 0
+
+###################
+def set_legend(fig, flags):
+    # blue_line = mlines.Line2D([], [], color='tab:blue', label="\nresting\nbefore\nbiking\n")
+    # orange_line = mlines.Line2D([], [], color='tab:orange', label="biking")
+    # green_line = mlines.Line2D([], [], color='tab:green', label="\nresting\nafter\nbiking\n")
+    blue_line = mlines.Line2D([], [], color='tab:blue', label="rest start")
+    orange_line = mlines.Line2D([], [], color='tab:orange', label="biking")
+    green_line = mlines.Line2D([], [], color='tab:green', label="rest end")
+
+    print(f"sum flags = {sum(flags)}")
+    if sum(flags) == 3:
+        handles_list=[blue_line, orange_line, green_line]
+    elif sum(flags) == 2:
+        handles_list=[blue_line, orange_line,]
+    else:
+        handles_list=[blue_line,]
+
+    fig.legend(handles=handles_list, loc="outside right upper")
+
+    return fig
+
+###########
+def set_title_ax4only(ax,):
+    ##
+    ax[0].set_title(f"average central left region\nclosed eyes", loc='center')
+    ax[1].set_title(f"average central right region\nclosed eyes",loc='center')
+    ax[2].set_title(f"open eyes",   loc='center')
+    ax[3].set_title(f"open eyes",  loc='center')
+
+    ##
+    # ax[0].set_title(f"central left channels")
+    # ax[1].set_title(f"central right channels")
+    # ax[2].set_title(f"central left channels")
+    # ax[3].set_title(f"central right channels")
+    return 0
+
+###########
+def set_grid_ax4only(ax_list):
+    ## hide grid
+    for ax in ax_list:
+        ax.grid(lw=0.5, ls='--', alpha=0.5)
+
+    return 0
+
+
+
+
 

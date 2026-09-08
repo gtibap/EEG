@@ -10,6 +10,7 @@ class PSD_Epochs_Class:
 
     def __init__(self, label):
         print(f"obj label: {label}")
+        self.label_seg = label
 
         if label == 'a_closed_eyes':
             self.label = 'a_ce'
@@ -105,8 +106,11 @@ class PSD_Epochs_Class:
         ## 10^(psd_q2) because the fit function apply log10 to the data
         fm.fit(df_psd_quantiles['freqs'].to_numpy(), 10**(df_psd_quantiles['psd_q2'].to_numpy()), range_freqs)
 
-        init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
-        init_flat_spec = fm.power_spectrum - init_ap_fit
+        # init_ap_fit = gen_aperiodic(fm.freqs, fm._robust_ap_fit(fm.freqs, fm.power_spectrum))
+        # init_flat_spec = fm.power_spectrum - init_ap_fit
+        ## power spectrum minus aperiodic fit
+        init_flat_spec = fm.power_spectrum - fm._ap_fit
+
 
         # # Plot the flattened the power spectrum
         plot_spectra(fm.freqs, init_flat_spec, plt_log, label='Flattened Spectrum', color='tab:blue', ax=ax)
@@ -121,8 +125,9 @@ class PSD_Epochs_Class:
     def plot_psd_quantiles(self, region, ax):
         ## power spectral density (PSD) from epochs of selected channels
         # psd_epochs = self.epochs.compute_psd(picks=channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
-        psd_epochs = self.get_psd(region)
+        # psd_epochs = self.get_psd(region)
 
+        # ax.cla()
         df_psd_quantiles = self.quantiles_dict[region]
 
         print(f"quantiles:\n{df_psd_quantiles}")
@@ -146,6 +151,35 @@ class PSD_Epochs_Class:
 
         return ax
 
+    ####################################
+    def plot_psd_fooof(self, ax, label, color):
+
+        plt_log = False
+        fm = self.fm_dict[label]
+
+        if fm != []:
+            ax.plot(fm.freqs, fm.power_spectrum, label=self.label, color=color)
+            return fm.freqs, fm.power_spectrum
+        else:
+            print(f'Noting to plot for: {self.label}')
+            return [],[]
+
+    #####################################
+    # def psd_minus_aperiodic(self, ax, label, color):
+    def plot_periodic_comp(self, ax, label, color):
+
+        plt_log = False
+        fm = self.fm_dict[label]
+
+        if fm != []:
+            psd_minus_aperiodic = fm.power_spectrum - fm._ap_fit
+            ax.plot(fm.freqs, psd_minus_aperiodic, label=self.label, color=color)
+            return fm.freqs, psd_minus_aperiodic
+        else:
+            print(f'Noting to plot for: {self.label}')
+            return [], []
+    
+
     #############
     def set_psd(self, psd_data, region):
         self.psd_dict[region] = psd_data
@@ -160,5 +194,20 @@ class PSD_Epochs_Class:
         return self.label
 
     #############
+    def get_label(self):
+            return self.label_seg
+
+    #############
     def get_fooof_model(self, label):
         return self.fm_dict[label]
+
+    #############
+    def get_psd_quantiles(self, label):
+        return self.quantiles_dict[label]
+
+ ##############
+    def get_params_fooof(self, label):
+        params_dict = {}
+        params_dict['range_freqs'] =  self.range_freqs_dict[label]
+        params_dict['thr_peaks'] =  self.thr_peaks_dict[label]
+        return params_dict

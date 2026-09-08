@@ -104,6 +104,7 @@ flag_peaks_global = False
 fig_title_mea = ''
 path_fig_fooof = ''
 path_csv_files = ''
+path_fig = ''
 path_fig_psd = ''
 path_fig_boxplot = ''
 path_prep = ''
@@ -2439,7 +2440,8 @@ def display_segments(obj_list, label_seg_list, ch_excl_list):
 ##############
 def create_directories(path_session):
     ## path filename boxplots
-    global path_fig_boxplot, path_fig_psd, path_fig_fooof, path_csv_files, path_prep
+    global path_fig_boxplot, path_fig, path_fig_psd, path_fig_fooof, path_csv_files, path_prep
+    path_fig = path_session+'figures/'
     path_fig_boxplot = path_session+'figures/'
     path_fig_psd = path_session+'figures/psd/'
     path_fig_fooof = path_session+'figures/fooof/'
@@ -2768,6 +2770,9 @@ def load_selected_epochs(raw_data, label_list_ref):
 def main(args):
     global sampling_rate, psd_fig_name, obj_list, ylim_global, thr_peaks_global, info_p, path_fig_fooof, path_csv_files, path_fig_psd
 
+    # to run GUI event loop
+    plt.ion()
+
     print(f'subject id: {args[1]}') ## subject id (integer number in the dict info_participants.py)
     print(f'session: {args[2]}') ## session = {0:first session, 1:second session, and so on}
 
@@ -2874,7 +2879,10 @@ def main(args):
     info_pt = f"n_{str(subject).zfill(3)}, session: {session}"
     ylim = [0, 40]
     flag_save = False
-    psd_regions_visualization(obj_list, info_pt, ylim, path_fig_psd, flag_save)
+    
+    psd_regions_visualization(obj_list, info_pt, path_fig, flag_save)
+
+    plt.show(block=True)
 
     return 0
 
