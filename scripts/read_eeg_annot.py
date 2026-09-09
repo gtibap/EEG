@@ -94,7 +94,7 @@ def main(args):
     ## geodesic system we remove channels in the boundaries
     # raw_data.info["bads"] = bad_channels_dict[acquisition_system]
     ## list of excluded channels 
-    raw_data.info["bads"] = excluded_channels
+    raw_data.info['bads'] = excluded_channels
     raw_data.drop_channels(raw_data.info['bads'])
 
     ################################

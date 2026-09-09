@@ -15,19 +15,11 @@ import json
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
-import matplotlib.patches as mpatches
-import matplotlib.widgets as mwidgets
-from matplotlib.backend_bases import MouseButton
 
 # from channels_tfr import selected_channels
 ## include modules from another directory
 # sys.path.insert(0, '../../scripts')
 from info_participants import subject_dict
-
-from class_psd_all import PSD_Epochs_Class
-from ica_epochs import ica_epochs_interactive, read_ica_model
-from plot_psd_labels import psd_regions_visualization
 
 ######################
 ## global variables
@@ -251,8 +243,12 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
     first_list = epochs.selection.astype(int)
     # print(f"first_list: {first_list}")
 
+    ## plot of PSD to help identify bad channels
+    ch_exclude_list = ['VREF'] 
+    epochs.plot_psd(exclude=ch_exclude_list, fmax=65)
+
     ## interactive selection of bad epochs and bad channels
-    epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
+    epochs.plot(n_epochs=36, events=True, block=True, n_channels=24, scalings=scale_dict, title=f"{label} : Epochs",)
 
     list_channel_bads = epochs.info['bads']
     # print(f"second list_bads: {list_channel_bads}")
@@ -276,90 +272,6 @@ def interactive_bad_epochs_bad_channels_selection(epochs, label, path_prep):
         json.dump(bad_epochs_dict, f)
 
     return epochs
-
-##################################################
-def load_selected_epochs(raw_data, label_list_ref):
-    global obj_list
-    ## create same number of events and epochs from raw_data
-    dt = 5 ## epoch duration in seconds
-    print(f"Epochs size: {dt} seconds / each ")
-
-    ## first, include a sequence of regular events to the raw data 
-    new_events = mne.make_fixed_length_events(raw_data, start=0, stop=None, duration=dt)
-    # raw_copy.add_events(new_events, replace=True)
-
-    ## second, use events to create epochs
-    epochs_ref = mne.Epochs(raw_data, new_events, tmin=0.0, tmax=dt, baseline=None, preload=True, reject=None, reject_by_annotation=True)
-    # print(f"Number of epochs for ICA section:\n{len(epochs.selection)}")
-    # print(f"Epochs for ICA section:\n{epochs.selection}")
-    all_epochs_list = epochs_ref.selection
-
-    ## Now, we reject bad epochs and bad channels for each selected label
-    for label in label_list_ref[:1]:
-        ## removing bad epochs and bad channels if they were already selected in a previous iteration
-        epochs = epochs_ref.copy()
-
-        #### read selected epochs, bad epochs, and bad channels
-        # Read list of bad epochs and bad channels from file
-        with open(f"{path_prep}{label}_bad_epochs.json", "r") as f:
-            data = json.load(f)
-        sel_epochs_list = data['sel_epochs']
-        bad_epochs_list = data['bad_epochs']
-        bad_channels_list = data['bad_channels']
-        # print(f"sel_epochs_list:\n{sel_epochs_list}")
-        # print(f"bad_epochs_list:\n{bad_epochs_list}")
-        # print(f"bad_channels_list:\n{bad_channels_list}")
-
-        ## keep epochs of the first_list (selection) that are not in the second list (bads)
-        sel_epochs_list = np.array([x for x in sel_epochs_list if not (x in bad_epochs_list)]).astype(int)
-        # print(f"sel_epochs_list:\n{sel_epochs_list}")
-
-        ## list of bad epochs to remove
-        bad_epochs_list = np.array([x for x in all_epochs_list if not (x in sel_epochs_list)]).astype(int)
-        # print(f"bad_epochs_list:\n{bad_epochs_list}")
-
-        ## drop bad epochs
-        epochs.drop(bad_epochs_list.astype(int))
-        ## including bad channels
-        epochs.info['bads'] = bad_channels_list
-
-        ## interactive selection of bad epochs and bad channels
-        # epochs.plot(n_epochs=12, events=True, block=True, n_channels=36, scalings=scale_dict, title=f"{label} : Epochs",)
-        if len(epochs.selection) > 0:
-            #############
-            # ICA
-            print(f"ica epochs interactive...")
-            root_filename = f"{path_prep}{label}"
-
-            flag_ica = int(input(f"{label} - (re)calculate its ICA model? (1/0): "))
-            if flag_ica:
-                print(f"calculating ICA model...")
-                epochs = ica_epochs_interactive(epochs, label, root_filename)
-            else:
-                print(f"loading ICA model...")
-                epochs = read_ica_model(epochs, label, root_filename)
-
-            ## re-referencing average
-            epochs.set_eeg_reference(ref_channels="average", ch_type='eeg', projection=False,)
-            ## replace bad channels by interpolation
-            epochs.interpolate_bads()
-
-            ## power spectral density (PSD) from epochs of selected channels
-            freq_range = [0.5, 45]
-            psd_left = epochs.compute_psd(picks=central_left_channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
-            psd_right = epochs.compute_psd(picks=central_right_channels, exclude='bads',fmin=freq_range[0], fmax=freq_range[1])
-
-            obj = PSD_Epochs_Class(label)
-            obj.set_psd(psd_left, 'central_left')
-            obj.set_psd(psd_right, 'central_right')
-
-            obj_list.append(obj)
-
-        else:
-            print(f"Warning: {path_prep}{label}_bad_epochs.json not found")
-            print(f"Warning: ICA not calculated.")
-        
-        return 0
 
 
 ###########################################
@@ -439,7 +351,7 @@ def main(args):
     ################################
     ## interactive selection of bad epochs and bad channels
 
-    for label in label_list_ref[:1]:
+    for label in label_list_ref:
         ## for each label segments are grouped and transformed into epochs
         print (f"searching for annotations for: {label}")
         ## copy raw data in order to separate segments by labels (annotations) and include bad segments
@@ -466,21 +378,6 @@ def main(args):
 
         else:
             print(f"{label}: Epochs not found")
-
-    ###############################
-    ## once bad epochs and bad channels were selected, next:
-    ## ica decomposition for interactive artifacts removal
-
-    ############
-    load_selected_epochs(raw_data, label_list_ref)
-
-    info_pt = f"n_{str(subject).zfill(3)}, session: {session}"
-    ylim = [0, 40]
-    flag_save = False
-    
-    psd_regions_visualization(obj_list, info_pt, path_fig, flag_save)
-
-    plt.show(block=True)
 
     return 0
 

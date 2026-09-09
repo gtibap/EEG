@@ -47,17 +47,17 @@ def psd_regions_visualization(obj_list_ref, info_pt_ref, path_root, flag_save):
 
     ## how many rows in the figures depends of how many segments were recorded
     ## for closed and open eyes
-    sum_ce=2
-    sum_oe=2
-    # ## count number of selected segments [a_ce, a_oe, ...]
-    # for obj in obj_list:
-    #     ## find the selected segment for each label
-    #     if ('ce' in obj.get_label_simple()):
-    #         sum_ce+=1
-    #     elif ('oe' in obj.get_label_simple()):
-    #         sum_oe+=1
-    #     else:
-    #         pass
+    sum_ce=0
+    sum_oe=0
+    ## count number of selected segments [a_ce, a_oe, ...]
+    for obj in obj_list:
+        ## find the selected segment for each label
+        if ('ce' in obj.get_label_simple()):
+            sum_ce+=1
+        elif ('oe' in obj.get_label_simple()):
+            sum_oe+=1
+        else:
+            pass
     
     ## the figures would include one or more of the following: resting before cycling, cycling, and resting after cycling. The columns would present responses of the left and right sides
     fig_ce, ax_ce = plt.subplots(sum_ce, 2, sharex=True, sharey=True, figsize=(12,6))
@@ -92,13 +92,6 @@ def psd_regions_visualization(obj_list_ref, info_pt_ref, path_root, flag_save):
     ax_ce[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
     ax_oe[0].set_xlim(freq_range[0]-1, freq_range[1]+1)
 
-    # ## ax titles closed-eyes
-    # ax_ce[0].set_title(f'left central region\nresting (before cycling)')
-    # ax_ce[1].set_title(f'right central region\nresting (before cycling)')
-    # ## ax titles open eyes
-    # ax_oe[0].set_title(f'left central region\nresting (before cycling)')
-    # ax_oe[1].set_title(f'right central region\nresting (before cycling)')
-
     ## labels x axes
     ax_ce[-2].set_xlabel(f'frequency [Hz]')
     ax_ce[-1].set_xlabel(f'frequency [Hz]')
@@ -109,12 +102,6 @@ def psd_regions_visualization(obj_list_ref, info_pt_ref, path_root, flag_save):
     fig_ce.suptitle(f'{info_p}\nEYES CLOSED')
     fig_oe.suptitle(f'{info_p}\nEYES OPEN')
 
-    # # Creating legend with color box
-    # gray_patch = mpatches.Patch(color='tab:gray', alpha=0.5, label=f'Q3-Q1\ninterquantil\nrange')
-
-    # fig_ce.legend(handles=[gray_patch], loc="upper right") ## loc="outside right upper"
-    # fig_oe.legend(handles=[gray_patch], loc="upper right")
-
     if flag_save:
         fig_ce.savefig(path+'psd/psd_ce.png',bbox_inches='tight')
         fig_oe.savefig(path+'psd/psd_oe.png',bbox_inches='tight')
@@ -123,15 +110,10 @@ def psd_regions_visualization(obj_list_ref, info_pt_ref, path_root, flag_save):
 
     ###############
     ## mouse, and keyboard interactions with figures and plots
-    # ax_ce_global = ax_ce
-    # fig_ce_global = fig_ce
-    # flag_eyes_closed = True
     ## run actions described on on_click once the mouse's left-click is pressed over the figure EYES CLOSED
     # fig_ce_global.canvas.mpl_connect('button_press_event', on_click)
     fig_ce.canvas.mpl_connect('button_press_event', on_click)
     fig_oe.canvas.mpl_connect('button_press_event', on_click)
-
-    # plt.show()
 
     return 0
 
@@ -175,6 +157,7 @@ def on_click(event):
             # signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
             plot_quantiles(ax_index, flag_eyes_closed, fig_title_mea)
             ax_mea[1].cla()
+            fit_fooof_psd()
         else:
             pass
             # print(f"event.inaxes out of ax")
@@ -267,6 +250,59 @@ def plot_quantiles(ax_index, flag_eyes_closed, fig_title):
     fig_mea.legend(handles=[gray_patch, q2_line], loc="upper right") ## loc="outside right upper"
 
     return 0
+
+###################
+def fit_fooof_psd():
+    global ax_seg, fig_seg, fig_mea, ax_mea, fig_peaks, ax_peaks, selectors, flag_peaks_global, obj_global
+    
+    ## fit a fooof model: periodic and aperiodic components
+    range_freqs = [f0_global, f1_global]
+
+    if flag_peaks_global == False:
+        ## peaks' threshold manually selected (mouse interaction)
+        span_peaks = mwidgets.SpanSelector(ax_mea[1], onselect_peaks, 'vertical', interactive=True, useblit=True, props=dict(facecolor='tab:green', alpha=0.2))
+        selectors.append(span_peaks)
+        flag_peaks_global = True
+    else:
+        ax_mea[1].cla()
+
+    ## fit the fooof model
+    print(f"threshold peaks: {thr_peaks_global}")
+    obj_global.fit_fooof(region_global, range_freqs, thr_peaks_global, ax_mea[1])
+
+    ## threshold line to include and exclude peaks for the gaussian model fitting (fooof)
+    ax_mea[1].axhline(y=thr_peaks_global, xmin=-10, xmax=100, ls='--', lw=1.0, color='tab:blue')
+
+    # (Re)Plot curves of quantiles from the PSD of the selected channels
+    # signal_measurements(ax_index, flag_eyes_closed, fig_title_mea)
+    plot_quantiles(ax_index, flag_eyes_closed, fig_title_mea)
+    
+    fm = obj_global.get_fooof_model(region_global)
+    # plot_spectra(fm.freqs, fm.fooofed_spectrum_, plt_log, label='Full Model', color='tab:red', ax=ax_mea[0])
+    # plot_spectra(fm.freqs, fm._ap_fit, plt_log, label='Final Aperiodic Fit', color='blue', alpha=0.5, linestyle='dashed', ax=ax_mea[0])
+    ## aperiodic fit over quantiles plot
+    ax_mea[0].plot(fm.freqs, fm._ap_fit, color='tab:red', linestyle='dashed', alpha=0.5)
+    
+    
+    ax_mea[0].axvline(x=range_freqs[0], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+    ax_mea[0].axvline(x=range_freqs[1], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+    ax_mea[1].axvline(x=range_freqs[0], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+    ax_mea[1].axvline(x=range_freqs[1], ymin=-10, ymax=100, ls='--', lw=1.0, color='tab:blue')
+
+
+    # Print out the model results
+    print(f'CF [center frequency], PW [Power], BW [Bandwidth]')
+    # fm.print_results()
+    print(f"results 01 fooof:\n{fm.peak_params_}")
+    # print(f"results 02 fooof:\n{obj_global.get_results_fooof(region_global)}")
+
+    # print(f"fm results:\n{fm.peak_params_}")
+
+    # Plot the full model fit of the power spectrum
+    #  The final fit (red), and aperiodic fit (blue), are the same as we plotted above
+    # fm.plot(plt_log)
+    return 0
+
 
 #########################
 def on_press(event):
@@ -426,7 +462,7 @@ def plot_psd_responses_fooof(obj_list, event_list_ce, event_list_oe, info_p, fla
         ## a_oe, b_oe, c_oe
         elif label in event_list_oe:
             ## open eyes
-            print(f"{obj.get_label(), obj.get_id()}")
+            print(f"{obj.get_label()}")
             region ='central_left'
             if obj.get_fooof_model(region) != []:
                 freqs, mag = obj.plot_psd_fooof(ax_a[2], region, color)
@@ -520,7 +556,7 @@ def plot_psd_minus_aperiodic(obj_list, event_list_ce, event_list_oe, info_p, fla
         ## a_oe, b_oe, c_oe
         elif label in event_list_oe:
             ## open eyes
-            print(f"{obj.get_label(), obj.get_id()}")
+            print(f"{obj.get_label()}")
             region ='central_left'
             if obj.get_fooof_model(region) != []:
                 freqs, mag = obj.plot_periodic_comp(ax_ap[2], region, color)
